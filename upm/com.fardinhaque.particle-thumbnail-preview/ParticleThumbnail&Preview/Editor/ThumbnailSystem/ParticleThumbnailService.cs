@@ -138,6 +138,11 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		public static void InvalidatePath(string assetPath)
 		{
+			InvalidatePath(assetPath, repaintProjectWindow: true);
+		}
+
+		internal static void InvalidatePath(string assetPath, bool repaintProjectWindow)
+		{
 			if (string.IsNullOrEmpty(assetPath))
 				return;
 
@@ -163,7 +168,8 @@ namespace ParticleThumbnailAndPreview.Editor
 					ParticleThumbnailPersistentCache.InvalidateGuid(guid);
 			}
 
-			EditorApplication.RepaintProjectWindow();
+			if (repaintProjectWindow)
+				EditorApplication.RepaintProjectWindow();
 		}
 
 		public static void ClearMemoryCache()
@@ -184,6 +190,29 @@ namespace ParticleThumbnailAndPreview.Editor
 			ResetGenerateAllProgress();
 			SafeClearProgressWindow();
 			EditorApplication.RepaintProjectWindow();
+		}
+
+		internal static void InvalidateSupportCacheForPath(string assetPath)
+		{
+			if (string.IsNullOrEmpty(assetPath))
+				return;
+
+			string guid = AssetDatabase.AssetPathToGUID(assetPath);
+			if (!string.IsNullOrEmpty(guid))
+			{
+				SupportCache.Remove(guid);
+				return;
+			}
+
+			List<string> toRemove = new List<string>();
+			foreach (KeyValuePair<string, SupportCacheEntry> kv in SupportCache)
+			{
+				if (string.Equals(kv.Value.AssetPath, assetPath, StringComparison.OrdinalIgnoreCase))
+					toRemove.Add(kv.Key);
+			}
+
+			for (int i = 0; i < toRemove.Count; i++)
+				SupportCache.Remove(toRemove[i]);
 		}
 
 		public static void ClearPersistentCache()
@@ -301,13 +330,16 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static void OnProjectWindowItemGui(string guid, Rect selectionRect)
 		{
+			if (Event.current != null && Event.current.type != EventType.Repaint)
+				return;
+
 			if (!ParticleThumbnailSettings.Enabled)
 				return;
 
-			if (ParticleThumbnailProjectWindowUi.ShouldSkipObjectSelectorContext())
+			if (!TryGetParticlePrefabInfo(guid, out string assetPath, out string dependencyToken))
 				return;
 
-			if (!TryGetParticlePrefabInfo(guid, out string assetPath, out string dependencyToken))
+			if (ParticleThumbnailProjectWindowUi.ShouldSkipObjectSelectorContext())
 				return;
 
 			ParticleThumbnailSurface surface = ParticleThumbnailProjectWindowUi.GetSurface(selectionRect);
@@ -596,20 +628,33 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (string.IsNullOrEmpty(guid))
 				return false;
 
+			if (SupportCache.TryGetValue(guid, out SupportCacheEntry cached)
+			    && !string.IsNullOrEmpty(cached.AssetPath))
+			{
+				assetPath = cached.AssetPath;
+				dependencyToken = cached.DependencyToken;
+				return cached.IsParticlePrefab;
+			}
+
 			assetPath = AssetDatabase.GUIDToAssetPath(guid);
-			if (string.IsNullOrEmpty(assetPath) || !assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+			if (string.IsNullOrEmpty(assetPath))
 				return false;
 
-			dependencyToken = GetDependencyToken(assetPath);
-			if (SupportCache.TryGetValue(guid, out SupportCacheEntry cached)
-			    && cached.AssetPath == assetPath
-			    && cached.DependencyToken == dependencyToken)
+			if (!assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
 			{
-				return cached.IsParticlePrefab;
+				SupportCache[guid] = new SupportCacheEntry
+				{
+					AssetPath = assetPath,
+					DependencyToken = string.Empty,
+					IsParticlePrefab = false,
+				};
+				return false;
 			}
 
 			GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
 			bool isParticlePrefab = ParticleThumbnailDetection.IsParticlePrefab(prefab);
+			if (isParticlePrefab)
+				dependencyToken = GetDependencyToken(assetPath);
 
 			SupportCache[guid] = new SupportCacheEntry
 			{
