@@ -1163,7 +1163,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				if (window == null)
 					return;
 
-				window.titleContent = new GUIContent("Generating Thumbnails");
+				window.titleContent = new GUIContent("");
 				window.minSize = WindowSize;
 				window.maxSize = WindowSize;
 

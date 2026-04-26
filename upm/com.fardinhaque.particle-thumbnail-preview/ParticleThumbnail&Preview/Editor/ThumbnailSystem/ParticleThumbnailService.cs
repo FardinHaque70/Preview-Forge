@@ -26,6 +26,9 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static readonly HashSet<ParticleThumbnailRequest> GenerateAllPendingRequests = new();
 
 		private static readonly Dictionary<string, SupportCacheEntry> SupportCache = new();
+		private static readonly HashSet<string> KnownNonPrefabGuids = new(StringComparer.OrdinalIgnoreCase);
+		private static readonly Queue<string> PendingSupportLookupQueue = new();
+		private static readonly HashSet<string> PendingSupportLookupSet = new(StringComparer.OrdinalIgnoreCase);
 		private static string SingleSelectedAssetGuid = string.Empty;
 		private static int GenerateAllTotalCount;
 		private static int GenerateAllCompletedCount;
@@ -47,6 +50,8 @@ namespace ParticleThumbnailAndPreview.Editor
 		private const float SelectionOutlineThickness = 2f;
 		private const float SelectionOutlineInset = 2f;
 		private const double GenerateAllScanBudgetMs = 6.0;
+		private const int SupportLookupMaxPerUpdate = 24;
+		private const double SupportLookupBudgetMs = 2.0;
 		private const int FastModeMaxRendersPerUpdate = 64;
 		private const double FastModeRenderBudgetMs = 200.0;
 		private const double FastModeScanBudgetMs = 40.0;
@@ -164,6 +169,8 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (!string.IsNullOrEmpty(guid))
 			{
 				SupportCache.Remove(guid);
+				KnownNonPrefabGuids.Remove(guid);
+				PendingSupportLookupSet.Remove(guid);
 				if (ParticleThumbnailSettings.EnablePersistentCache)
 					ParticleThumbnailPersistentCache.InvalidateGuid(guid);
 			}
@@ -187,6 +194,9 @@ namespace ParticleThumbnailAndPreview.Editor
 			Queued.Clear();
 			FailedDependencyByRequest.Clear();
 			SupportCache.Clear();
+			KnownNonPrefabGuids.Clear();
+			PendingSupportLookupQueue.Clear();
+			PendingSupportLookupSet.Clear();
 			ResetGenerateAllProgress();
 			SafeClearProgressWindow();
 			EditorApplication.RepaintProjectWindow();
@@ -197,10 +207,15 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (string.IsNullOrEmpty(assetPath))
 				return;
 
+			if (!assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+				return;
+
 			string guid = AssetDatabase.AssetPathToGUID(assetPath);
 			if (!string.IsNullOrEmpty(guid))
 			{
 				SupportCache.Remove(guid);
+				KnownNonPrefabGuids.Remove(guid);
+				PendingSupportLookupSet.Remove(guid);
 				return;
 			}
 
@@ -336,7 +351,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (!ParticleThumbnailSettings.Enabled)
 				return;
 
-			if (!TryGetParticlePrefabInfo(guid, out string assetPath, out string dependencyToken))
+			if (!TryGetParticlePrefabInfo(guid, out string assetPath, out string dependencyToken, allowSynchronousResolve: false))
 				return;
 
 			if (ParticleThumbnailProjectWindowUi.ShouldSkipObjectSelectorContext())
@@ -388,6 +403,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (GenerateAllScanInProgress)
 				ProcessGenerateAllScan();
 
+			ProcessPendingSupportLookups();
 			ResolveDanglingGenerateAllRequests();
 
 			if (ParticleThumbnailSettings.Enabled || GenerateAllPendingRequests.Count > 0)
@@ -515,6 +531,39 @@ namespace ParticleThumbnailAndPreview.Editor
 			}
 		}
 
+		private static void ProcessPendingSupportLookups()
+		{
+			if (PendingSupportLookupQueue.Count == 0)
+				return;
+
+			double start = EditorApplication.timeSinceStartup;
+			int processed = 0;
+			bool anyResolved = false;
+
+			while (PendingSupportLookupQueue.Count > 0 && processed < SupportLookupMaxPerUpdate)
+			{
+				double elapsedMs = (EditorApplication.timeSinceStartup - start) * 1000.0;
+				if (elapsedMs > SupportLookupBudgetMs)
+					break;
+
+				string guid = PendingSupportLookupQueue.Dequeue();
+				PendingSupportLookupSet.Remove(guid);
+				processed++;
+
+				if (string.IsNullOrEmpty(guid))
+					continue;
+
+				if (SupportCache.ContainsKey(guid) || KnownNonPrefabGuids.Contains(guid))
+					continue;
+
+				if (TryResolveSupportCacheEntry(guid, out _))
+					anyResolved = true;
+			}
+
+			if (anyResolved)
+				EditorApplication.RepaintProjectWindow();
+		}
+
 		private static void ProcessQueue()
 		{
 			if (RenderQueue.Count == 0)
@@ -620,12 +669,15 @@ namespace ParticleThumbnailAndPreview.Editor
 				: ParticleThumbnailSettings.DrawInProjectGrid;
 		}
 
-		private static bool TryGetParticlePrefabInfo(string guid, out string assetPath, out string dependencyToken)
+		private static bool TryGetParticlePrefabInfo(string guid, out string assetPath, out string dependencyToken, bool allowSynchronousResolve = true)
 		{
 			assetPath = string.Empty;
 			dependencyToken = string.Empty;
 
 			if (string.IsNullOrEmpty(guid))
+				return false;
+
+			if (KnownNonPrefabGuids.Contains(guid))
 				return false;
 
 			if (SupportCache.TryGetValue(guid, out SupportCacheEntry cached)
@@ -636,34 +688,63 @@ namespace ParticleThumbnailAndPreview.Editor
 				return cached.IsParticlePrefab;
 			}
 
-			assetPath = AssetDatabase.GUIDToAssetPath(guid);
+			if (!allowSynchronousResolve)
+			{
+				EnqueueSupportLookup(guid);
+				return false;
+			}
+
+			if (!TryResolveSupportCacheEntry(guid, out SupportCacheEntry resolved))
+				return false;
+
+			assetPath = resolved.AssetPath;
+			dependencyToken = resolved.DependencyToken;
+			return resolved.IsParticlePrefab;
+		}
+
+		private static void EnqueueSupportLookup(string guid)
+		{
+			if (string.IsNullOrEmpty(guid))
+				return;
+
+			if (SupportCache.ContainsKey(guid) || KnownNonPrefabGuids.Contains(guid))
+				return;
+
+			if (!PendingSupportLookupSet.Add(guid))
+				return;
+
+			PendingSupportLookupQueue.Enqueue(guid);
+		}
+
+		private static bool TryResolveSupportCacheEntry(string guid, out SupportCacheEntry entry)
+		{
+			entry = default;
+			if (string.IsNullOrEmpty(guid))
+				return false;
+
+			string assetPath = AssetDatabase.GUIDToAssetPath(guid);
 			if (string.IsNullOrEmpty(assetPath))
 				return false;
 
 			if (!assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
 			{
-				SupportCache[guid] = new SupportCacheEntry
-				{
-					AssetPath = assetPath,
-					DependencyToken = string.Empty,
-					IsParticlePrefab = false,
-				};
+				KnownNonPrefabGuids.Add(guid);
 				return false;
 			}
 
 			GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
 			bool isParticlePrefab = ParticleThumbnailDetection.IsParticlePrefab(prefab);
-			if (isParticlePrefab)
-				dependencyToken = GetDependencyToken(assetPath);
+			string dependencyToken = isParticlePrefab ? GetDependencyToken(assetPath) : string.Empty;
 
-			SupportCache[guid] = new SupportCacheEntry
+			entry = new SupportCacheEntry
 			{
 				AssetPath = assetPath,
 				DependencyToken = dependencyToken,
 				IsParticlePrefab = isParticlePrefab,
 			};
 
-			return isParticlePrefab;
+			SupportCache[guid] = entry;
+			return true;
 		}
 
 		private static string GetDependencyToken(string assetPath)
@@ -1082,7 +1163,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				if (window == null)
 					return;
 
-				window.titleContent = new GUIContent("Generating Thumbnails");
+				window.titleContent = new GUIContent("");
 				window.minSize = WindowSize;
 				window.maxSize = WindowSize;
 
