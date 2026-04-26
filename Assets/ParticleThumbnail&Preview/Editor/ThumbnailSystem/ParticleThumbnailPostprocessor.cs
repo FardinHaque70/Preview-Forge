@@ -29,10 +29,15 @@ namespace ParticleThumbnailAndPreview.Editor
             for (int i = 0; i < paths.Length; i++)
             {
                 string path = paths[i];
-                if (string.IsNullOrEmpty(path) || !path.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrEmpty(path))
                     continue;
 
-                ParticleThumbnailService.InvalidatePath(path);
+                ParticleThumbnailService.InvalidateSupportCacheForPath(path);
+
+                if (!path.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                ParticleThumbnailService.InvalidatePath(path, repaintProjectWindow: false);
             }
         }
     }
