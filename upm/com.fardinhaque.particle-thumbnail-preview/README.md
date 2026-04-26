@@ -74,8 +74,6 @@ This toolset is built to improve that workflow by:
 https://github.com/FardinHaque70/ParticleThumbnail-Preview.git?path=/upm/com.fardinhaque.particle-thumbnail-preview#main
 ```
 
-Use `#main` for now. Once version tags are created, you can pin a stable release with a tag such as `#v1.0.0`.
-
 Or add in `Packages/manifest.json`:
 
 ```json

@@ -105,8 +105,6 @@ In Unity:
 https://github.com/FardinHaque70/ParticleThumbnail-Preview.git?path=/upm/com.fardinhaque.particle-thumbnail-preview#main
 ```
 
-Use `#main` for now. Once version tags are created, you can pin a stable release with a tag such as `#v1.0.0`.
-
 You can also add it directly in `Packages/manifest.json`:
 
 ```json
