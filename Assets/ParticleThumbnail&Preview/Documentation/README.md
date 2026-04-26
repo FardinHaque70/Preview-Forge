@@ -58,3 +58,4 @@ Or add in `Packages/manifest.json`:
 ## Notes
 
 - This is an editor-only toolset and does not affect player builds.
+- VFX Graph thumbnails are not currently supported.
