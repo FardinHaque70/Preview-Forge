@@ -4,7 +4,7 @@
 
 Editor-only Unity tools for clearer particle prefab thumbnails and a richer particle-focused Inspector preview workflow.
 
-[![Unity 6000.3+](https://img.shields.io/badge/Unity-6000.3%2B-black?style=for-the-badge&logo=unity)](#tested-environment)
+[![Unity 2021+](https://img.shields.io/badge/Unity-6000.3%2B-black?style=for-the-badge&logo=unity)](#tested-environment)
 [![Git UPM](https://img.shields.io/badge/Install-Git%20UPM-2ea44f?style=for-the-badge)](#installation)
 
 </div>
