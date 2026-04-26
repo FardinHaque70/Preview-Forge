@@ -49,41 +49,9 @@ This toolset is built to improve that workflow by:
 
 ## Features
 
-### Particle Thumbnail
-
-- Custom thumbnails for particle prefabs in both Project grid and list modes
-- Motion-aware framing logic that better captures the visible area of dynamic effects
-- Asynchronous queued rendering with configurable per-update limits to keep the editor responsive
-- In-memory LRU cache plus persistent disk cache for faster repeat browsing
-- Automatic invalidation when prefab assets are imported, moved, changed, or deleted
-- One-click maintenance actions:
-  `Tools/Particle Thumbnail/Clear Memory Cache`
-  `Tools/Particle Thumbnail/Clear Persistent Cache`
-  `Tools/Particle Thumbnail/Rebuild Visible Thumbnails`
-  `Tools/Particle Thumbnail/Generate All Thumbnails`
-  `Assets/Particle Thumbnail/Regenerate Thumbnail`
-
-### Particle Preview
-
-- Custom Inspector preview for supported particle prefabs
-- Playback toolbar with play/pause, restart, and timeline scrubber
-- Orbit, pan, and zoom controls with smoothing and motion assist settings
-- Automatic camera framing designed for both static and highly dynamic particle systems
-- Optional overlays for quick inspection:
-  playback time and duration
-  peak visible particle count
-  sub-particle-system count
-  grid toggle for spatial context
-- Auto-selection of the custom preview for supported targets
-- Foldout-collapsing helper to reduce Inspector UI conflicts while previewing
-
-### Settings and Compatibility
-
-- Project Settings integration:
-  `Project/Particle Thumbnail & Preview/Particle Thumbnails`
-  `Project/Particle Thumbnail & Preview/Particle Preview`
-- Settings are stored in `ProjectSettings/ParticleThumbnailAndPreview`
-- Render compatibility helpers include fallback paths for Built-in RP and SRP preview rendering
+- Static particle thumbnails in Project grid and list views with motion-aware framing for clearer asset recognition.
+- Dedicated particle prefab Inspector preview with play/pause/scrub controls, orbit/pan/zoom interaction, and quick info overlays.
+- Project-scoped settings and maintenance actions for cache control, thumbnail regeneration, and preview behavior tuning.
 
 ## Tested Environment
 
@@ -105,6 +73,8 @@ In Unity:
 https://github.com/FardinHaque70/ParticleThumbnail-Preview.git?path=/upm/com.fardinhaque.particle-thumbnail-preview#main
 ```
 
+After installation, a Unity Editor restart is recommended so the preview window hook initializes properly.
+
 You can also add it directly in `Packages/manifest.json`:
 
 ```json
@@ -115,24 +85,6 @@ You can also add it directly in `Packages/manifest.json`:
 }
 ```
 
-## Quick Start
-
-1. Install the package from the Git URL.
-2. Wait for Unity to finish compiling scripts.
-3. Open `Project Settings > Particle Thumbnail & Preview > Particle Thumbnails` and configure thumbnail behavior.
-4. Open `Project Settings > Particle Thumbnail & Preview > Particle Preview` and configure preview interaction/playback behavior.
-5. Select particle prefab assets in Project view and confirm both thumbnail and preview updates.
-
-## Repository Layout
-
-- `Assets/ParticleThumbnail&Preview`
-  Source implementation used during development
-- `upm/com.fardinhaque.particle-thumbnail-preview`
-  Git-installable UPM package
-- `scripts/sync_upm_package.sh`
-  Sync helper to rebuild the UPM package `Editor` content from source
-
 ## Notes
 
 - This is an editor-only toolset and does not affect player builds.
-- The UPM package intentionally excludes internal test files.

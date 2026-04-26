@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp-Editor:ParticleThumbnailAndPreview.Editor:ParticlePreviewSettingsStorage
   active: 1
-  refreshFps: 15
+  refreshFps: 45
   orbitSmoothing: 15
   panSmoothing: 15
   motionPadding: 0.2

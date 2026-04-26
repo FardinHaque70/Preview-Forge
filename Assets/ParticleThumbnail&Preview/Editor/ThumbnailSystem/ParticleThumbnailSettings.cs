@@ -90,7 +90,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float D_MotionPadding = 0.2f;
 		public const float D_MotionRadius = 3f;
 		public const float D_MotionSpeed = 60f;
-		public const float D_ThumbnailFillTarget = 0.72f;
+		public const float D_ThumbnailFillTarget = 1f;
 		public const bool D_EnableTightFraming = true;
 		public const float D_ParticleFramingPercentile = 0.92f;
 
@@ -98,7 +98,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float D_RenderBudgetMs = 12f;
 		public const int D_MemoryCacheMaxEntries = 200;
 
-		private const string SettingsTokenVersion = "particle-thumb-v2";
+		private const string SettingsTokenVersion = "particle-thumb-v3";
 
 		public static event Action SettingsChanged;
 
@@ -127,7 +127,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static float MotionPadding => Mathf.Clamp(Storage.motionPadding, 0f, 3f);
 		public static float MotionRadius => Mathf.Clamp(Storage.motionRadius, 0.1f, 50f);
 		public static float MotionSpeed => Mathf.Clamp(Storage.motionSpeed, 0.1f, 200f);
-		public static float ThumbnailFillTarget => Mathf.Clamp(Storage.thumbnailFillTarget, 0.45f, 0.90f);
+		public static float ThumbnailFillTarget => 1f;
 		public static bool EnableTightFraming => Storage.enableTightFraming;
 		public static float ParticleFramingPercentile => Mathf.Clamp(Storage.particleFramingPercentile, 0.80f, 0.99f);
 
@@ -152,7 +152,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			return
 				$"{enableTightFraming}|{Mathf.Clamp(framingPercentile, 0.80f, 0.99f):F4}|" +
-				$"{Mathf.Clamp(thumbnailFillTarget, 0.45f, 0.90f):F4}";
+				$"{Mathf.Clamp(thumbnailFillTarget, 0.45f, 1f):F4}";
 		}
 
 		public static void NotifyChanged()
@@ -267,15 +267,32 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			DrawSectionCard("Draw Modes", () =>
 			{
-				storage.drawInProjectGrid = EditorGUILayout.Toggle("Draw In Grid", storage.drawInProjectGrid);
-				storage.drawInProjectList = EditorGUILayout.Toggle("Draw In List", storage.drawInProjectList);
+				storage.drawInProjectGrid = EditorGUILayout.Toggle(
+					new GUIContent("Draw In Grid", "Render custom particle thumbnails in Project window grid view."),
+					storage.drawInProjectGrid);
+				storage.drawInProjectList = EditorGUILayout.Toggle(
+					new GUIContent("Draw In List", "Render custom particle thumbnails in Project window list view."),
+					storage.drawInProjectList);
 			});
 
-			DrawSectionCard("Background color ", () => { storage.backgroundColor = EditorGUILayout.ColorField("Background Color", storage.backgroundColor); });
+			DrawSectionCard("Background color ", () =>
+			{
+				storage.backgroundColor = EditorGUILayout.ColorField(
+					new GUIContent("Background Color", "Background color used behind rendered particle thumbnails."),
+					storage.backgroundColor);
+			});
 			DrawSectionCard("Thumbnail Size", () =>
 			{
-				storage.listRenderSize = EditorGUILayout.IntSlider("List Size (pixel)", storage.listRenderSize, 16, 128);
-				storage.gridRenderSize = EditorGUILayout.IntSlider("Grid Size (pixel)", storage.gridRenderSize, 32, 512);
+				storage.listRenderSize = EditorGUILayout.IntSlider(
+					new GUIContent("List Size (pixel)", "Render resolution for list-view thumbnails. Higher values improve clarity but use more memory."),
+					storage.listRenderSize,
+					16,
+					128);
+				storage.gridRenderSize = EditorGUILayout.IntSlider(
+					new GUIContent("Grid Size (pixel)", "Render resolution for grid-view thumbnails. Higher values improve clarity but increase memory and disk cost."),
+					storage.gridRenderSize,
+					32,
+					512);
 			});
 		}
 
@@ -283,27 +300,61 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			DrawSectionCard("Camera", () =>
 			{
-				storage.cameraFov = EditorGUILayout.Slider("Camera FOV", storage.cameraFov, 10f, 90f);
-				storage.cameraYaw = EditorGUILayout.Slider("Camera Yaw", storage.cameraYaw, -180f, 180f);
-				storage.cameraPitch = EditorGUILayout.Slider("Camera Pitch", storage.cameraPitch, -89f, 89f);
+				storage.cameraFov = EditorGUILayout.Slider(
+					new GUIContent("Camera FOV", "Field of view used when framing particle thumbnails."),
+					storage.cameraFov,
+					10f,
+					90f);
+				storage.cameraYaw = EditorGUILayout.Slider(
+					new GUIContent("Camera Yaw", "Horizontal viewing angle for thumbnail camera."),
+					storage.cameraYaw,
+					-180f,
+					180f);
+				storage.cameraPitch = EditorGUILayout.Slider(
+					new GUIContent("Camera Pitch", "Vertical viewing angle for thumbnail camera."),
+					storage.cameraPitch,
+					-89f,
+					89f);
 			});
 
 			DrawSectionCard("Framing", () =>
 			{
-				storage.boundsPadding = EditorGUILayout.Slider("Bounds Padding", storage.boundsPadding, 0f, 1f);
-				storage.thumbnailFillTarget = EditorGUILayout.Slider("Thumbnail Fill Target", storage.thumbnailFillTarget, 0.45f, 0.90f);
+				storage.boundsPadding = EditorGUILayout.Slider(
+					new GUIContent("Bounds Padding", "Extra safety padding around detected particle bounds before framing."),
+					storage.boundsPadding,
+					0f,
+					1f);
 			});
 		}
 
 		private static void DrawSimulationTab(ParticleThumbnailSettingsStorage storage)
 		{
-			DrawSectionCard("Scan Window", () => { storage.scanMaxSeconds = EditorGUILayout.Slider("Scan Max Seconds", storage.scanMaxSeconds, 0.5f, 10f); });
+			DrawSectionCard("Scan Window", () =>
+			{
+				storage.scanMaxSeconds = EditorGUILayout.Slider(
+					new GUIContent("Scan Max Seconds", "Maximum simulation duration scanned to find the capture window."),
+					storage.scanMaxSeconds,
+					0.5f,
+					10f);
+			});
 
 			DrawSectionCard("Motion Assist (For moving particle)", () =>
 			{
-				storage.motionPadding = EditorGUILayout.Slider("Motion Padding", storage.motionPadding, 0f, 3f);
-				storage.motionRadius = EditorGUILayout.Slider("Motion Radius", storage.motionRadius, 0.1f, 50f);
-				storage.motionSpeed = EditorGUILayout.Slider("Motion Speed", storage.motionSpeed, 0.1f, 200f);
+				storage.motionPadding = EditorGUILayout.Slider(
+					new GUIContent("Motion Padding", "Additional framing margin when motion simulation is required."),
+					storage.motionPadding,
+					0f,
+					3f);
+				storage.motionRadius = EditorGUILayout.Slider(
+					new GUIContent("Motion Radius", "Radius of deterministic motion path used for world-space moving effects."),
+					storage.motionRadius,
+					0.1f,
+					50f);
+				storage.motionSpeed = EditorGUILayout.Slider(
+					new GUIContent("Motion Speed", "Speed of deterministic motion path used during thumbnail simulation."),
+					storage.motionSpeed,
+					0.1f,
+					200f);
 			});
 		}
 
@@ -311,14 +362,28 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			DrawSectionCard("Generation Budget", () =>
 			{
-				storage.maxRendersPerUpdate = EditorGUILayout.IntSlider("Max Renders / Update", storage.maxRendersPerUpdate, 1, 16);
-				storage.renderBudgetMs = EditorGUILayout.Slider("Render Budget (ms)", storage.renderBudgetMs, 1f, 100f);
+				storage.maxRendersPerUpdate = EditorGUILayout.IntSlider(
+					new GUIContent("Max Renders / Update", "Maximum thumbnails generated per editor update tick."),
+					storage.maxRendersPerUpdate,
+					1,
+					16);
+				storage.renderBudgetMs = EditorGUILayout.Slider(
+					new GUIContent("Render Budget (ms)", "Time budget per editor update for thumbnail rendering to avoid stalls."),
+					storage.renderBudgetMs,
+					1f,
+					100f);
 			});
 
 			DrawSectionCard("Cache Limits", () =>
 			{
-				storage.memoryCacheMaxEntries = EditorGUILayout.IntSlider("Memory Cache Entries", storage.memoryCacheMaxEntries, 10, 1000);
-				storage.enablePersistentCache = EditorGUILayout.Toggle("Enable Persistent Cache", storage.enablePersistentCache);
+				storage.memoryCacheMaxEntries = EditorGUILayout.IntSlider(
+					new GUIContent("Memory Cache Entries", "Maximum number of thumbnails kept in in-memory cache."),
+					storage.memoryCacheMaxEntries,
+					10,
+					1000);
+				storage.enablePersistentCache = EditorGUILayout.Toggle(
+					new GUIContent("Enable Persistent Cache", "Store thumbnail PNGs in Library cache so they survive editor restart."),
+					storage.enablePersistentCache);
 			});
 		}
 
@@ -328,7 +393,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			{
 				using (new EditorGUILayout.HorizontalScope())
 				{
-					if (GUILayout.Button("Reset To Defaults", GUILayout.Height(28f)) &&
+					if (GUILayout.Button(new GUIContent("Reset To Defaults", "Reset all particle thumbnail settings to default values."), GUILayout.Height(28f)) &&
 					    EditorUtility.DisplayDialog(
 						    "Reset Particle Thumbnail Settings",
 						    "Reset all particle thumbnail settings back to default values?",
@@ -342,24 +407,23 @@ namespace ParticleThumbnailAndPreview.Editor
 						GUIUtility.ExitGUI();
 					}
 
-					if (GUILayout.Button("Rebuild Visible", GUILayout.Height(28f)))
+					if (GUILayout.Button(new GUIContent("Rebuild Visible", "Clear memory cache and redraw currently visible thumbnail entries."), GUILayout.Height(28f)))
 						ParticleThumbnailService.RebuildVisibleThumbnails();
 				}
 
 				using (new EditorGUILayout.HorizontalScope())
 				{
-					if (GUILayout.Button("Clear Memory Cache", GUILayout.Height(28f)))
+					if (GUILayout.Button(new GUIContent("Clear Memory Cache", "Remove all currently cached thumbnail textures from memory."), GUILayout.Height(28f)))
 						ParticleThumbnailService.ClearMemoryCache();
 
-					if (GUILayout.Button("Clear Disk Cache", GUILayout.Height(28f)))
+					if (GUILayout.Button(new GUIContent("Clear Disk Cache", "Delete all persistent thumbnail PNG files from Library cache."), GUILayout.Height(28f)))
 						ParticleThumbnailService.ClearPersistentCache();
 				}
 
 				EditorGUILayout.Space(4f);
-				using (new EditorGUI.DisabledScope(ParticleThumbnailService.IsGenerateAllInProgress))
+				if (GUILayout.Button(new GUIContent("Generate All Thumbnails In Project", "Queue thumbnail generation for all supported particle prefabs in the project."), GUILayout.Height(32f)))
 				{
-					if (GUILayout.Button("Generate All Thumbnails In Project", GUILayout.Height(32f)))
-						ParticleThumbnailService.GenerateAllThumbnailsInProject();
+					EditorApplication.delayCall += ParticleThumbnailService.GenerateAllThumbnailsInProjectFromSettings;
 				}
 			}
 		}

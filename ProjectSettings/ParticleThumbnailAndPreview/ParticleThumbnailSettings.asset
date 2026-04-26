@@ -17,16 +17,16 @@ MonoBehaviour:
   drawInProjectList: 1
   gridRenderSize: 128
   listRenderSize: 32
-  backgroundColor: {r: 0.15, g: 0.15, b: 0.15, a: 1}
-  cameraFov: 13.8
-  cameraYaw: 35
-  cameraPitch: 25
+  backgroundColor: {r: 0.066037714, g: 0.066037714, b: 0.066037714, a: 1}
+  cameraFov: 10
+  cameraYaw: 0
+  cameraPitch: -21.9
   boundsPadding: 0
   scanMaxSeconds: 3
-  motionPadding: 0
+  motionPadding: 0.2
   motionRadius: 3
   motionSpeed: 60
-  thumbnailFillTarget: 0.45
+  thumbnailFillTarget: 1
   enableTightFraming: 1
   particleFramingPercentile: 0.92
   maxRendersPerUpdate: 1
