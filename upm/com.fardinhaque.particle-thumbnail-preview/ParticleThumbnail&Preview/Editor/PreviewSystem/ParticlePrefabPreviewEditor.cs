@@ -116,6 +116,9 @@ namespace ParticleThumbnailAndPreview.Editor
             }
 
             Rect previewRect = DrawToolbar(rect);
+            if (_session.NeedsMotion)
+                DrawMotionBar(ref previewRect);
+
             bool inputChanged = _session.HandleInput(previewRect, Event.current);
             bool cameraChanged = _session.TickInteraction();
             _session.Draw(previewRect, background);
@@ -257,6 +260,70 @@ namespace ParticleThumbnailAndPreview.Editor
             }
 
             return previewRect;
+        }
+
+        private void DrawMotionBar(ref Rect previewRect)
+        {
+            const float barHeight = 28f;
+            Rect barRect = new Rect(previewRect.x, previewRect.y, previewRect.width, barHeight);
+            previewRect = new Rect(previewRect.x, previewRect.y + barHeight, previewRect.width, previewRect.height - barHeight);
+
+            Color barBackground = EditorGUIUtility.isProSkin
+                ? new Color(0.12f, 0.12f, 0.12f, 0.95f)
+                : new Color(0.78f, 0.78f, 0.78f, 0.95f);
+            EditorGUI.DrawRect(barRect, barBackground);
+            EditorGUI.DrawRect(new Rect(barRect.x, barRect.y, barRect.width, 1f), new Color(0f, 0f, 0f, 0.3f));
+
+            float x = barRect.x + 8f;
+            float y = barRect.y + 5f;
+            float h = barHeight - 10f;
+
+            GUI.Label(new Rect(x, y, 100f, h), "Movement Speed", EditorStyles.miniLabel);
+            x += 104f;
+            float newSpeed = Mathf.Max(0.01f, EditorGUI.FloatField(new Rect(x, y, 46f, h), _session.MotionSpeed, EditorStyles.numberField));
+            x += 62f;
+
+            GUI.Label(new Rect(x, y, 44f, h), "Shape", EditorStyles.miniLabel);
+            x += 48f;
+            ParticlePreviewMotionShape newShape = (ParticlePreviewMotionShape) EditorGUI.EnumPopup(
+                new Rect(x, y, 80f, h),
+                _session.MotionShape,
+                EditorStyles.miniPullDown);
+            x += 96f;
+
+            GUI.Label(new Rect(x, y, 68f, h), "Shape Size", EditorStyles.miniLabel);
+            x += 72f;
+            float newSize = Mathf.Max(0.1f, EditorGUI.FloatField(new Rect(x, y, 46f, h), _session.MotionSize, EditorStyles.numberField));
+
+            bool changed = false;
+            if (!Mathf.Approximately(newSpeed, _session.MotionSpeed))
+            {
+                _session.SetMotionSpeed(newSpeed);
+                changed = true;
+            }
+
+            if (newShape != _session.MotionShape)
+            {
+                _session.SetMotionShape(newShape);
+                changed = true;
+            }
+
+            if (!Mathf.Approximately(newSize, _session.MotionSize))
+            {
+                _session.SetMotionSize(newSize);
+                changed = true;
+            }
+
+            if (changed)
+                RequestPreviewRepaint();
+
+            Event evt = Event.current;
+            if (barRect.Contains(evt.mousePosition)
+                && GUIUtility.hotControl == 0
+                && (evt.type == EventType.MouseDown || evt.type == EventType.MouseDrag || evt.type == EventType.ScrollWheel))
+            {
+                evt.Use();
+            }
         }
         #endregion
 

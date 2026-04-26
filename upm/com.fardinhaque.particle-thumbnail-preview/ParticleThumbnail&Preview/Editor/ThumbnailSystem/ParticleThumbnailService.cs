@@ -39,10 +39,17 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static string[] GenerateAllScanGuids = Array.Empty<string>();
 		private static int GenerateAllScanIndex;
 		private static bool GenerateAllScanInProgress;
+		private static bool GenerateAllUseUnthrottledProcessing;
+		private static bool GenerateAllRunActive;
+		private static double GenerateAllStartTime;
+		private static bool GenerateAllWarmupFramePending;
 
 		private const float SelectionOutlineThickness = 2f;
 		private const float SelectionOutlineInset = 2f;
 		private const double GenerateAllScanBudgetMs = 6.0;
+		private const int FastModeMaxRendersPerUpdate = 64;
+		private const double FastModeRenderBudgetMs = 200.0;
+		private const double FastModeScanBudgetMs = 40.0;
 		private static readonly Color SelectionOutlineColor = new Color(0.11f, 0.84f, 0.39f, 1f);
 
 		static ParticleThumbnailService()
@@ -60,6 +67,12 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			get
 			{
+				if (GenerateAllIsPreparing || GenerateAllScanInProgress)
+					return true;
+
+				if (GenerateAllPendingRequests.Count > 0)
+					return true;
+
 				if (GenerateAllTotalCount <= 0)
 					return false;
 
@@ -204,61 +217,36 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		public static void GenerateAllThumbnailsInProject()
 		{
+			GenerateAllThumbnailsInProject(unthrottledProcessing: false);
+		}
+
+		public static void GenerateAllThumbnailsInProjectFromSettings()
+		{
+			GenerateAllThumbnailsInProject(unthrottledProcessing: true);
+		}
+
+		private static void GenerateAllThumbnailsInProject(bool unthrottledProcessing)
+		{
+			ParticleThumbnailWelcomeBootstrap.MarkWelcomeHandled();
 			FailedDependencyByRequest.Clear();
 			ResetGenerateAllProgress();
+			GenerateAllUseUnthrottledProcessing = unthrottledProcessing;
+			GenerateAllRunActive = true;
+			GenerateAllStartTime = EditorApplication.timeSinceStartup;
 			ShowImmediatePreparingPopup();
 
-			string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab");
-			GenerateAllPreparingTotal = prefabGuids?.Length ?? 0;
-
-				if (prefabGuids == null || prefabGuids.Length == 0)
-				{
-					GenerateAllIsPreparing = false;
-					GenerateAllCurrentAssetPath = string.Empty;
-					SafeClearProgressWindow();
-					return;
-				}
-
-			for (int i = 0; i < prefabGuids.Length; i++)
-			{
-				string guid = prefabGuids[i];
-					string previewAssetPath = AssetDatabase.GUIDToAssetPath(guid);
-					GenerateAllPreparingIndex = i + 1;
-					GenerateAllCurrentAssetPath = previewAssetPath ?? string.Empty;
-					UpdateGenerateAllProgressWindow();
-
-				if (!TryGetParticlePrefabInfo(guid, out string assetPath, out string dependencyToken))
-					continue;
-
-				for (int s = 0; s < GenerationSurfaces.Length; s++)
-				{
-					ParticleThumbnailRequest request = new ParticleThumbnailRequest(guid, assetPath, GenerationSurfaces[s]);
-					if (TryGetValidRecord(request, dependencyToken, out _))
-						continue;
-
-					TrackGenerateAllRequest(request);
-					if (!Queued.Contains(request))
-						Enqueue(request);
-				}
-			}
-
-			GenerateAllIsPreparing = false;
+			GenerateAllScanGuids = AssetDatabase.FindAssets("t:Prefab") ?? Array.Empty<string>();
+			GenerateAllScanIndex = 0;
+			GenerateAllScanInProgress = true;
+			GenerateAllPreparingTotal = GenerateAllScanGuids.Length;
 			GenerateAllPreparingIndex = 0;
-			GenerateAllPreparingTotal = 0;
+			GenerateAllCurrentAssetPath = string.Empty;
+			GenerateAllWarmupFramePending = GenerateAllUseUnthrottledProcessing;
+			UpdateGenerateAllProgressWindow();
+			RepaintAllRelevantWindows();
 
-				if (GenerateAllTotalCount > 0)
-				{
-					GenerateAllCurrentAssetPath = "Queued. Starting generation...";
-					UpdateGenerateAllProgressWindow();
-					RepaintAllRelevantWindows();
-				}
-			else
-			{
-				ResetGenerateAllProgress();
-				GenerateAllCurrentAssetPath = string.Empty;
-				SafeClearProgressWindow();
-				EditorApplication.RepaintProjectWindow();
-			}
+			if (GenerateAllScanGuids.Length == 0)
+				FinalizeGenerateAllPreparation();
 		}
 
 		[MenuItem("Tools/Particle Thumbnail/Clear Memory Cache")]
@@ -354,12 +342,145 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static void OnEditorUpdate()
 		{
 			UpdateGenerateAllProgressWindow();
-
-			if (!ParticleThumbnailSettings.Enabled)
+			bool hasGenerateAllWork = GenerateAllScanInProgress || GenerateAllPendingRequests.Count > 0;
+			if (!ParticleThumbnailSettings.Enabled && !hasGenerateAllWork)
 				return;
 
-			ProcessQueue();
+			if (GenerateAllWarmupFramePending)
+			{
+				GenerateAllWarmupFramePending = false;
+				RepaintAllRelevantWindows();
+				return;
+			}
+
+			if (GenerateAllScanInProgress)
+				ProcessGenerateAllScan();
+
+			ResolveDanglingGenerateAllRequests();
+
+			if (ParticleThumbnailSettings.Enabled || GenerateAllPendingRequests.Count > 0)
+				ProcessQueue();
+
+			TryLogGenerateAllCompletion();
 			UpdateGenerateAllProgressWindow();
+		}
+
+		private static void ResolveDanglingGenerateAllRequests()
+		{
+			if (GenerateAllScanInProgress || GenerateAllIsPreparing)
+				return;
+
+			if (GenerateAllPendingRequests.Count == 0 || RenderQueue.Count > 0)
+				return;
+
+			List<ParticleThumbnailRequest> dangling = new List<ParticleThumbnailRequest>(GenerateAllPendingRequests.Count);
+			foreach (ParticleThumbnailRequest request in GenerateAllPendingRequests)
+				dangling.Add(request);
+
+			bool anyResolved = false;
+			for (int i = 0; i < dangling.Count; i++)
+				anyResolved |= CompleteGenerateAllRequest(dangling[i], success: false);
+
+			if (!anyResolved)
+				return;
+
+			GenerateAllCurrentAssetPath = string.Empty;
+			RepaintAllRelevantWindows();
+		}
+
+		private static void TryLogGenerateAllCompletion()
+		{
+			if (!GenerateAllRunActive)
+				return;
+
+			if (GenerateAllIsPreparing || GenerateAllScanInProgress)
+				return;
+
+			if (GenerateAllTotalCount <= 0)
+				return;
+
+			if (GenerateAllCompletedCount < GenerateAllTotalCount)
+				return;
+
+			LogGenerateAllCompletion(GenerateAllTotalCount, GenerateAllSucceededCount, GenerateAllFailedCount);
+		}
+
+		private static void LogGenerateAllCompletion(int total, int succeeded, int failed)
+		{
+			double elapsedSec = EditorApplication.timeSinceStartup - GenerateAllStartTime;
+			if (elapsedSec < 0.0)
+				elapsedSec = 0.0;
+
+			string modeLabel = GenerateAllUseUnthrottledProcessing ? "fast mode" : "throttled mode";
+			Debug.Log(
+				$"[ParticleThumbnail] Generate-all complete ({modeLabel}). Total={total}, Succeeded={succeeded}, Failed={failed}, Time={elapsedSec:F2}s");
+
+			GenerateAllRunActive = false;
+			GenerateAllUseUnthrottledProcessing = false;
+		}
+
+		private static void ProcessGenerateAllScan()
+		{
+			if (!GenerateAllScanInProgress)
+				return;
+
+			double start = EditorApplication.timeSinceStartup;
+			int total = GenerateAllScanGuids?.Length ?? 0;
+
+			while (GenerateAllScanIndex < total)
+			{
+				double elapsedMs = (EditorApplication.timeSinceStartup - start) * 1000.0;
+				double scanBudgetMs = GenerateAllUseUnthrottledProcessing ? FastModeScanBudgetMs : GenerateAllScanBudgetMs;
+				if (elapsedMs > scanBudgetMs)
+					break;
+
+				string guid = GenerateAllScanGuids[GenerateAllScanIndex];
+				string previewAssetPath = AssetDatabase.GUIDToAssetPath(guid);
+				GenerateAllPreparingIndex = GenerateAllScanIndex + 1;
+				GenerateAllCurrentAssetPath = previewAssetPath ?? string.Empty;
+
+				if (TryGetParticlePrefabInfo(guid, out string assetPath, out string dependencyToken))
+				{
+					for (int s = 0; s < GenerationSurfaces.Length; s++)
+					{
+						ParticleThumbnailRequest request = new ParticleThumbnailRequest(guid, assetPath, GenerationSurfaces[s]);
+						if (TryGetValidRecord(request, dependencyToken, out _))
+							continue;
+
+						TrackGenerateAllRequest(request);
+						if (!Queued.Contains(request))
+							Enqueue(request);
+					}
+				}
+
+				GenerateAllScanIndex++;
+			}
+
+			if (GenerateAllScanIndex >= total)
+				FinalizeGenerateAllPreparation();
+		}
+
+		private static void FinalizeGenerateAllPreparation()
+		{
+			GenerateAllScanInProgress = false;
+			GenerateAllScanGuids = Array.Empty<string>();
+			GenerateAllScanIndex = 0;
+			GenerateAllIsPreparing = false;
+			GenerateAllPreparingIndex = 0;
+			GenerateAllPreparingTotal = 0;
+
+			if (GenerateAllTotalCount > 0)
+			{
+				GenerateAllCurrentAssetPath = "Queued. Starting generation...";
+				RepaintAllRelevantWindows();
+			}
+			else
+			{
+				LogGenerateAllCompletion(total: 0, succeeded: 0, failed: 0);
+				ResetGenerateAllProgress();
+				GenerateAllCurrentAssetPath = string.Empty;
+				EditorApplication.RepaintProjectWindow();
+			}
 		}
 
 		private static void ProcessQueue()
@@ -367,8 +488,8 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (RenderQueue.Count == 0)
 				return;
 
-			int maxRenders = ParticleThumbnailSettings.MaxRendersPerUpdate;
-			double budgetMs = ParticleThumbnailSettings.RenderBudgetMs;
+			int maxRenders = GenerateAllUseUnthrottledProcessing ? FastModeMaxRendersPerUpdate : ParticleThumbnailSettings.MaxRendersPerUpdate;
+			double budgetMs = GenerateAllUseUnthrottledProcessing ? FastModeRenderBudgetMs : ParticleThumbnailSettings.RenderBudgetMs;
 			double start = EditorApplication.timeSinceStartup;
 			bool anyRendered = false;
 			bool anyProgressUpdated = false;
@@ -761,26 +882,45 @@ namespace ParticleThumbnailAndPreview.Editor
 			GenerateAllPreparingTotal = 0;
 			GenerateAllPreparingIndex = 0;
 			GenerateAllCurrentAssetPath = string.Empty;
+			GenerateAllProgressWindowDismissedByUser = false;
+			GenerateAllScanGuids = Array.Empty<string>();
+			GenerateAllScanIndex = 0;
+			GenerateAllScanInProgress = false;
+			GenerateAllUseUnthrottledProcessing = false;
+			GenerateAllRunActive = false;
+			GenerateAllStartTime = 0.0;
+			GenerateAllWarmupFramePending = false;
 		}
 
 		private static void UpdateGenerateAllProgressWindow()
 		{
 			if (TryGetGenerateAllProgressWindowState(out _, out _, out _))
 			{
+				if (GenerateAllProgressWindowDismissedByUser)
+					return;
+
 				ParticleThumbnailGenerateProgressWindow.ShowOrRefresh();
 				return;
 			}
 
+			GenerateAllProgressWindowDismissedByUser = false;
 			SafeClearProgressWindow();
 		}
 
 		private static void ShowImmediatePreparingPopup()
 		{
+			GenerateAllProgressWindowDismissedByUser = false;
 			GenerateAllIsPreparing = true;
 			GenerateAllPreparingTotal = 0;
 			GenerateAllPreparingIndex = 0;
 			GenerateAllCurrentAssetPath = string.Empty;
 			UpdateGenerateAllProgressWindow();
+		}
+
+		internal static void NotifyProgressWindowClosedByUser()
+		{
+			if (TryGetGenerateAllProgressWindowState(out _, out _, out _))
+				GenerateAllProgressWindowDismissedByUser = true;
 		}
 
 		private static string GetProgressAssetLabel(string assetPath)
@@ -883,6 +1023,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static readonly Color TitleText = new Color(0.90f, 0.92f, 0.95f, 1f);
 		private static readonly Color MutedText = new Color(0.68f, 0.70f, 0.74f, 1f);
 		private static ParticleThumbnailGenerateProgressWindow instance;
+		private static bool closeRequestedByCode;
 		private static GUIStyle titleStyle;
 		private static GUIStyle headlineStyle;
 		private static GUIStyle detailStyle;
@@ -923,7 +1064,15 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			ParticleThumbnailGenerateProgressWindow existing = instance;
 			instance = null;
-			existing.Close();
+			closeRequestedByCode = true;
+			try
+			{
+				existing.Close();
+			}
+			finally
+			{
+				closeRequestedByCode = false;
+			}
 		}
 
 		private void OnEnable()
@@ -934,8 +1083,12 @@ namespace ParticleThumbnailAndPreview.Editor
 		private void OnDisable()
 		{
 			EditorApplication.update -= HandleEditorUpdate;
+			bool shouldNotifyDismiss = !closeRequestedByCode;
 			if (instance == this)
 				instance = null;
+
+			if (shouldNotifyDismiss)
+				ParticleThumbnailService.NotifyProgressWindowClosedByUser();
 		}
 
 		private void HandleEditorUpdate()

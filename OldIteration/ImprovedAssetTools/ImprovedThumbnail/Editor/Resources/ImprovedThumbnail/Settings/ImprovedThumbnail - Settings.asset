@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eb61def0c68fc4257a4f0ad12c942e97, type: 3}
+  m_Name: ImprovedThumbnail - Settings
+  m_EditorClassIdentifier: Assembly-CSharp-Editor::ImprovedThumbnailSettingsAsset
+  isActive: 1
+  thumbnailRenderPerUpdate: 1
+  thumbnailRenderBudgetMs: 16
+  thumbnailCacheMaxSize: 200
+  thumbnailAnimatedMemoryBudgetMb: 64
+  verboseLogging: 0
+  thumbnailCameraFov: 30
+  thumbnailBoundsPadding: 0.15
+  particleThumbnailAnimated: 1
+  thumbnailAnimFrames: 8
+  thumbnailAnimFps: 8
+  particleThumbnailMotionPadding: 0.2
+  particleSearchStaticOnly: 1
+  particleScanMaxSeconds: 3
+  thumbnailDrawInProjectGrid: 1
+  thumbnailDrawInProjectList: 0
+  thumbnailMinProjectIconSize: 40
+  thumbnailBackgroundColor: {r: 0.12, g: 0.12, b: 0.12, a: 1}
+  showThumbnailBadges: 1
+  thumbnailBadgeScale: 1
+  thumbnailGridPadding: 0
+  thumbnailListPadding: 0.06
+  enableParticleProvider: 1
+  enableUiProvider: 1
+  enableSpriteProvider: 1
+  enableGeneralProvider: 1
+  enableModelProvider: 1
+  particleProviderPriority: 0
+  uiProviderPriority: 50
+  spriteProviderPriority: 100
+  generalProviderPriority: 200
+  modelProviderPriority: 250
+  generalThumbnailYaw: 35
+  generalThumbnailPitch: 25
+  generalThumbnailLightIntensity: 1.3
+  modelThumbnailYaw: 25
+  modelThumbnailPitch: 10
+  modelThumbnailLightIntensity: 1.3
+  modelThumbnailBoundsPadding: 0.2
+  modelThumbnailVerticalBias: 0.08
+  modelThumbnailShowParticles: 0
+  modelThumbnailShowUi: 0
+  modelThumbnailUiFaceCamera: 1
+  modelThumbnailSpritesFaceCamera: 1
+  modelThumbnailInverseSpriteDirection: 0
+  spriteThumbnailFrontView: 1
+  spriteThumbnailLightIntensity: 1.1

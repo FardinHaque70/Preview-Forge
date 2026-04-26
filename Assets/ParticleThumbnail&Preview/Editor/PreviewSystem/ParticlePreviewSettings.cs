@@ -53,13 +53,13 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float D_PanSmoothing = 15f;
 		public const float MinPanSmoothing = 1f;
 		public const float MaxPanSmoothing = 20f;
-		public const float D_MotionPadding = 0.2f;
+		public const float D_MotionPadding = 0f;
 		public const float MinMotionPadding = 0f;
 		public const float MaxMotionPadding = 3f;
 		public const float D_MotionRadius = 3f;
 		public const float MinMotionRadius = 0.1f;
 		public const float MaxMotionRadius = 50f;
-		public const float D_MotionSpeed = 60f;
+		public const float D_MotionSpeed = 30f;
 		public const float MinMotionSpeed = 0.1f;
 		public const float MaxMotionSpeed = 200f;
 		public static readonly Color D_BackgroundColor = new Color(0.11f, 0.11f, 0.11f, 1f);
@@ -131,10 +131,16 @@ namespace ParticleThumbnailAndPreview.Editor
 			DrawSectionCard("Playback", () =>
 			{
 				storage.refreshFps = EditorGUILayout.IntSlider(
-					new GUIContent("Refresh FPS", "Preview update rate while the preview is visible."),
+					new GUIContent("Preview FPS", "Preview update rate while the preview is visible."),
 					storage.refreshFps,
 					ParticlePreviewSettings.MinRefreshFps,
 					ParticlePreviewSettings.MaxRefreshFps);
+			});
+			DrawSectionCard("Color", () =>
+			{
+				storage.backgroundColor = EditorGUILayout.ColorField(
+					new GUIContent("Background Color", "Background color behind particle preview rendering."),
+					storage.backgroundColor);
 			});
 			DrawSectionCard("Interaction", () =>
 			{
@@ -155,30 +161,25 @@ namespace ParticleThumbnailAndPreview.Editor
 					ParticlePreviewSettings.MinPanSmoothing,
 					ParticlePreviewSettings.MaxPanSmoothing);
 			});
-			DrawSectionCard("Motion Assist", () =>
-			{
-				storage.motionPadding = EditorGUILayout.Slider(
-					new GUIContent("Motion Padding", "Extra framing margin when motion simulation is used."),
-					storage.motionPadding,
-					ParticlePreviewSettings.MinMotionPadding,
-					ParticlePreviewSettings.MaxMotionPadding);
-				storage.motionRadius = EditorGUILayout.Slider(
-					new GUIContent("Motion Radius", "Radius of deterministic motion path for world-space movement previews."),
-					storage.motionRadius,
-					ParticlePreviewSettings.MinMotionRadius,
-					ParticlePreviewSettings.MaxMotionRadius);
-				storage.motionSpeed = EditorGUILayout.Slider(
-					new GUIContent("Motion Speed", "Speed of deterministic motion path during preview simulation."),
-					storage.motionSpeed,
-					ParticlePreviewSettings.MinMotionSpeed,
-					ParticlePreviewSettings.MaxMotionSpeed);
-			});
-			DrawSectionCard("Render", () =>
-			{
-				storage.backgroundColor = EditorGUILayout.ColorField(
-					new GUIContent("Background Color", "Background color behind particle preview rendering."),
-					storage.backgroundColor);
-			});
+			// DrawSectionCard("Motion Assist", () =>
+			// {
+			// 	storage.motionPadding = EditorGUILayout.Slider(
+			// 		new GUIContent("Motion Padding", "Extra framing margin when motion simulation is used."),
+			// 		storage.motionPadding,
+			// 		ParticlePreviewSettings.MinMotionPadding,
+			// 		ParticlePreviewSettings.MaxMotionPadding);
+			// 	storage.motionRadius = EditorGUILayout.Slider(
+			// 		new GUIContent("Motion Radius", "Radius of deterministic motion path for world-space movement previews."),
+			// 		storage.motionRadius,
+			// 		ParticlePreviewSettings.MinMotionRadius,
+			// 		ParticlePreviewSettings.MaxMotionRadius);
+			// 	storage.motionSpeed = EditorGUILayout.Slider(
+			// 		new GUIContent("Motion Speed", "Speed of deterministic motion path during preview simulation."),
+			// 		storage.motionSpeed,
+			// 		ParticlePreviewSettings.MinMotionSpeed,
+			// 		ParticlePreviewSettings.MaxMotionSpeed);
+			// });
+
 			EditorGUILayout.EndScrollView();
 			EditorGUILayout.Space(8f);
 			DrawBottomActionsPanel(storage);
@@ -205,7 +206,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
 			{
-				DrawSectionHeader("Actions");
+				// DrawSectionHeader("Actions");
 				using (new EditorGUILayout.HorizontalScope())
 				{
 					if (GUILayout.Button(new GUIContent("Reset To Defaults", "Reset all particle preview settings to default values."), GUILayout.Height(28f)) &&

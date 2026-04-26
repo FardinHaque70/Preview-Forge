@@ -7,43 +7,85 @@ namespace ParticleThumbnailAndPreview.Editor
     internal static class ParticleThumbnailWelcomeBootstrap
     {
         private const string PrefKeyPrefix = "ParticleThumbnailAndPreview.WelcomePopupHandled.";
+        private const double StartupDelaySeconds = 2.0;
+        private static readonly double StartupTimestamp;
+        private static bool showScheduled;
 
         static ParticleThumbnailWelcomeBootstrap()
         {
-            EditorApplication.delayCall += TryShowWelcomePopup;
+            StartupTimestamp = EditorApplication.timeSinceStartup;
+            ScheduleWelcomeCheck();
+        }
+
+        private static void ScheduleWelcomeCheck()
+        {
+            if (showScheduled)
+                return;
+
+            showScheduled = true;
+            EditorApplication.update += TryShowWelcomePopup;
         }
 
         private static void TryShowWelcomePopup()
         {
-            EditorApplication.delayCall -= TryShowWelcomePopup;
-
             if (Application.isBatchMode)
+            {
+                EditorApplication.update -= TryShowWelcomePopup;
+                showScheduled = false;
                 return;
+            }
 
-            if (EditorPrefs.GetBool(GetPrefKey(), false))
+            if (EditorPrefs.GetBool(GetPrimaryPrefKey(), false) || EditorPrefs.GetBool(GetLegacyPrefKey(), false))
+            {
+                EditorApplication.update -= TryShowWelcomePopup;
+                showScheduled = false;
+                return;
+            }
+
+            if (EditorApplication.timeSinceStartup - StartupTimestamp < StartupDelaySeconds)
                 return;
 
             if (EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode)
             {
-                EditorApplication.delayCall += TryShowWelcomePopup;
                 return;
             }
 
-            ParticleThumbnailWelcomePopupWindow.ShowWindow(GetPrefKey());
+            if (ParticleThumbnailWelcomePopupWindow.IsOpen)
+                return;
+
+            EditorApplication.update -= TryShowWelcomePopup;
+            showScheduled = false;
+            ParticleThumbnailWelcomePopupWindow.ShowWindow(GetPrimaryPrefKey(), GetLegacyPrefKey());
         }
 
-        private static string GetPrefKey()
+        internal static void MarkWelcomeHandled()
         {
-            string projectToken = Hash128.Compute(Application.dataPath).ToString();
-            return PrefKeyPrefix + projectToken;
+            EditorPrefs.SetBool(GetPrimaryPrefKey(), true);
+            EditorPrefs.SetBool(GetLegacyPrefKey(), true);
+        }
+
+        private static string GetPrimaryPrefKey()
+        {
+            string productToken = PlayerSettings.productGUID.ToString("N");
+            if (!string.IsNullOrEmpty(productToken))
+                return PrefKeyPrefix + productToken;
+
+            return GetLegacyPrefKey();
+        }
+
+        private static string GetLegacyPrefKey()
+        {
+            return PrefKeyPrefix + Hash128.Compute(Application.dataPath).ToString();
         }
 
         [MenuItem("Tools/Particle Thumbnail/Show Welcome Popup")]
         private static void MenuShowWelcomePopup()
         {
-            string prefKey = GetPrefKey();
-            EditorPrefs.DeleteKey(prefKey);
-            ParticleThumbnailWelcomePopupWindow.ShowWindow(prefKey);
+            string primaryKey = GetPrimaryPrefKey();
+            string legacyKey = GetLegacyPrefKey();
+            EditorPrefs.DeleteKey(primaryKey);
+            EditorPrefs.DeleteKey(legacyKey);
+            ParticleThumbnailWelcomePopupWindow.ShowWindow(primaryKey, legacyKey);
         }
     }
 
@@ -60,13 +102,16 @@ namespace ParticleThumbnailAndPreview.Editor
         private static GUIStyle generateButtonStyle;
         private static GUIStyle skipButtonStyle;
 
-        private string prefKey = string.Empty;
+        private string primaryPrefKey = string.Empty;
+        private string legacyPrefKey = string.Empty;
         private bool handled;
+        internal static bool IsOpen { get; private set; }
 
-        internal static void ShowWindow(string prefKey)
+        internal static void ShowWindow(string primaryPrefKey, string legacyPrefKey)
         {
             ParticleThumbnailWelcomePopupWindow window = GetWindow<ParticleThumbnailWelcomePopupWindow>(true, "Welcome", true);
-            window.prefKey = prefKey ?? string.Empty;
+            window.primaryPrefKey = primaryPrefKey ?? string.Empty;
+            window.legacyPrefKey = legacyPrefKey ?? string.Empty;
             window.titleContent = new GUIContent("Welcome");
             window.minSize = WindowSize;
             window.maxSize = WindowSize;
@@ -77,7 +122,18 @@ namespace ParticleThumbnailAndPreview.Editor
                 center.y - WindowSize.y * 0.5f,
                 WindowSize.x,
                 WindowSize.y);
-            window.ShowModalUtility();
+            window.ShowUtility();
+            window.Focus();
+        }
+
+        private void OnEnable()
+        {
+            IsOpen = true;
+        }
+
+        private void OnDestroy()
+        {
+            IsOpen = false;
         }
 
         private void OnGUI()
@@ -119,7 +175,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 MarkHandled();
                 Close();
-                ParticleThumbnailService.GenerateAllThumbnailsInProject();
+                ParticleThumbnailService.GenerateAllThumbnailsInProjectFromSettings();
             }
 
             GUI.backgroundColor = new Color(0.09f, 0.10f, 0.12f, 1f);
@@ -137,6 +193,8 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private void OnDisable()
         {
+            IsOpen = false;
+
             // Treat closing the popup as Skip so it does not reappear.
             if (!handled)
                 MarkHandled();
@@ -148,8 +206,10 @@ namespace ParticleThumbnailAndPreview.Editor
                 return;
 
             handled = true;
-            if (!string.IsNullOrEmpty(prefKey))
-                EditorPrefs.SetBool(prefKey, true);
+            if (!string.IsNullOrEmpty(primaryPrefKey))
+                EditorPrefs.SetBool(primaryPrefKey, true);
+            if (!string.IsNullOrEmpty(legacyPrefKey))
+                EditorPrefs.SetBool(legacyPrefKey, true);
         }
 
         private static void EnsureStyles()

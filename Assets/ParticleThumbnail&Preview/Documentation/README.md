@@ -7,18 +7,7 @@ Editor-only Unity tools for clearer particle prefab thumbnails and a richer part
 - `Particle Thumbnail`
   Custom Project window thumbnails for particle prefabs, including better framing for effects with motion.
 - `Particle Preview`
-  A dedicated particle prefab preview in the Inspector with playback controls, timeline scrubbing, and camera interaction.
-
-## Why This Tool Exists
-
-Unity's default prefab icon and preview flow usually does not communicate particle behavior clearly at a glance. That makes browsing VFX prefabs slower than it should be, especially in larger projects.
-
-This toolset is built to improve that workflow by:
-
-- rendering recognizable particle thumbnails directly in Project view
-- providing a particle-first preview experience directly in the Inspector
-- exposing project-scoped settings so teams can tune behavior without code changes
-- keeping the package editor-only and focused on authoring-time productivity
+  A dedicated particle prefab preview in the Inspector with playback controls, timeline scrubbing, and camera interaction. Uses scoped Harmony patching for preview hooking so updates stay targeted without repainting the whole Inspector.
 
 ## Features
 

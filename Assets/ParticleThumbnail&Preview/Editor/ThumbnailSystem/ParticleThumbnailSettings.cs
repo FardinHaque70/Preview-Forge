@@ -283,16 +283,16 @@ namespace ParticleThumbnailAndPreview.Editor
 			});
 			DrawSectionCard("Thumbnail Size", () =>
 			{
-				storage.listRenderSize = EditorGUILayout.IntSlider(
-					new GUIContent("List Size (pixel)", "Render resolution for list-view thumbnails. Higher values improve clarity but use more memory."),
-					storage.listRenderSize,
-					16,
-					128);
 				storage.gridRenderSize = EditorGUILayout.IntSlider(
 					new GUIContent("Grid Size (pixel)", "Render resolution for grid-view thumbnails. Higher values improve clarity but increase memory and disk cost."),
 					storage.gridRenderSize,
 					32,
 					512);
+				storage.listRenderSize = EditorGUILayout.IntSlider(
+					new GUIContent("List Size (pixel)", "Render resolution for list-view thumbnails. Higher values improve clarity but use more memory."),
+					storage.listRenderSize,
+					16,
+					128);
 			});
 		}
 
@@ -406,19 +406,10 @@ namespace ParticleThumbnailAndPreview.Editor
 						ParticleThumbnailService.ClearMemoryCache();
 						GUIUtility.ExitGUI();
 					}
-
-					if (GUILayout.Button(new GUIContent("Rebuild Visible", "Clear memory cache and redraw currently visible thumbnail entries."), GUILayout.Height(28f)))
-						ParticleThumbnailService.RebuildVisibleThumbnails();
 				}
 
-				using (new EditorGUILayout.HorizontalScope())
-				{
-					if (GUILayout.Button(new GUIContent("Clear Memory Cache", "Remove all currently cached thumbnail textures from memory."), GUILayout.Height(28f)))
-						ParticleThumbnailService.ClearMemoryCache();
-
-					if (GUILayout.Button(new GUIContent("Clear Disk Cache", "Delete all persistent thumbnail PNG files from Library cache."), GUILayout.Height(28f)))
-						ParticleThumbnailService.ClearPersistentCache();
-				}
+				if (GUILayout.Button(new GUIContent("Clear Disk Cache", "Delete all persistent thumbnail PNG files from Library cache."), GUILayout.Height(28f)))
+					ParticleThumbnailService.ClearPersistentCache();
 
 				EditorGUILayout.Space(4f);
 				if (GUILayout.Button(new GUIContent("Generate All Thumbnails In Project", "Queue thumbnail generation for all supported particle prefabs in the project."), GUILayout.Height(32f)))

@@ -6,6 +6,13 @@ using UnityEngine.Rendering;
 
 namespace ParticleThumbnailAndPreview.Editor
 {
+	internal enum ParticlePreviewMotionShape
+	{
+		Circle = 0,
+		Line = 1,
+		Figure8 = 2,
+	}
+
 	internal sealed class ParticlePrefabPreviewSession
 	{
 		#region Constants
@@ -78,6 +85,9 @@ namespace ParticleThumbnailAndPreview.Editor
 		private bool _playing;
 		private bool _gridEnabled = true;
 		private bool _hasLoopingSystem;
+		private ParticlePreviewMotionShape _motionShape = ParticlePreviewMotionShape.Circle;
+		private float _motionSpeed = 60f;
+		private float _motionSize = 3f;
 		private float _maxPlaybackTime = 5f;
 		private float[] _intensityProfile = Array.Empty<float>();
 		private int _peakVisibleParticleCount;
@@ -114,7 +124,11 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		internal bool IsReady => _preview != null && _previewRoot != null;
 		internal bool IsPlaying => _playing;
+		internal bool NeedsMotion => _needsMotion;
 		internal bool GridEnabled => _gridEnabled;
+		internal ParticlePreviewMotionShape MotionShape => _motionShape;
+		internal float MotionSpeed => _motionSpeed;
+		internal float MotionSize => _motionSize;
 		internal float PlaybackTime => _playbackTime;
 		internal float MaxPlaybackTime => _maxPlaybackTime;
 		internal IReadOnlyList<float> IntensityProfile => _intensityProfile;
@@ -182,6 +196,9 @@ namespace ParticleThumbnailAndPreview.Editor
 			_previewRoot.GetComponentsInChildren(true, _renderers);
 			ParticleRenderCompatibilityUtility.SetRenderersEnabled(_renderers, false);
 			_needsMotion = ParticleMotionDetectionUtility.NeedsMotion(_particleSystems);
+			_motionShape = ParticlePreviewMotionShape.Circle;
+			_motionSpeed = ParticlePreviewSettings.MotionSpeed;
+			_motionSize = ParticlePreviewSettings.MotionRadius;
 
 			EnsureDeterministicSeeds();
 			ComputePlaybackRangeAndLoopingMode();
@@ -357,6 +374,35 @@ namespace ParticleThumbnailAndPreview.Editor
 			_gridEnabled = enabled;
 		}
 
+		internal void SetMotionShape(ParticlePreviewMotionShape shape)
+		{
+			if (_motionShape == shape)
+				return;
+
+			_motionShape = shape;
+			ApplyMotionConfigurationChange();
+		}
+
+		internal void SetMotionSpeed(float speed)
+		{
+			float clamped = Mathf.Clamp(speed, ParticlePreviewSettings.MinMotionSpeed, ParticlePreviewSettings.MaxMotionSpeed);
+			if (Mathf.Approximately(_motionSpeed, clamped))
+				return;
+
+			_motionSpeed = clamped;
+			ApplyMotionConfigurationChange();
+		}
+
+		internal void SetMotionSize(float size)
+		{
+			float clamped = Mathf.Clamp(size, ParticlePreviewSettings.MinMotionRadius, ParticlePreviewSettings.MaxMotionRadius);
+			if (Mathf.Approximately(_motionSize, clamped))
+				return;
+
+			_motionSize = clamped;
+			ApplyMotionConfigurationChange();
+		}
+
 		internal void SetPlaybackTime(float time)
 		{
 			if (!IsReady)
@@ -411,6 +457,19 @@ namespace ParticleThumbnailAndPreview.Editor
 				RestartInternal();
 
 			return true;
+		}
+
+		private void ApplyMotionConfigurationChange()
+		{
+			if (!IsReady)
+				return;
+
+			bool wasPlaying = _playing;
+			FrameCameraToContent();
+			RebuildIntensityProfile();
+			_playing = wasPlaying;
+			_lastUpdateTime = -1d;
+			_playbackAccumulatorSeconds = 0d;
 		}
 
 		#endregion
@@ -870,7 +929,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				_targetDistance = Mathf.Clamp(
 					ComputeMotionFramingDistance(
 						_preview.camera.fieldOfView,
-						ParticlePreviewSettings.MotionRadius,
+						_motionSize,
 						ParticlePreviewSettings.MotionPadding),
 					MinDistance,
 					MaxAutoFrameDistance) * MotionFitDistanceScale;
@@ -997,11 +1056,8 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (_needsMotion)
 			{
 				const float lookAheadTime = 0.001f;
-				float radius = ParticlePreviewSettings.MotionRadius;
-				float speed = ParticlePreviewSettings.MotionSpeed;
-
-				Vector3 offset = ComputeCircularMotionOffset(time, radius, speed);
-				Vector3 nextOffset = ComputeCircularMotionOffset(time + lookAheadTime, radius, speed);
+				Vector3 offset = MotionPosition(time);
+				Vector3 nextOffset = MotionPosition(time + lookAheadTime);
 				Vector3 direction = nextOffset - offset;
 
 				_previewRoot.transform.position = _authoredRootPosition + offset;
@@ -1018,6 +1074,31 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			_previewRoot.transform.position = _authoredRootPosition;
 			_previewRoot.transform.rotation = _authoredRootRotation;
+		}
+
+		private Vector3 MotionPosition(float time)
+		{
+			switch (_motionShape)
+			{
+				case ParticlePreviewMotionShape.Line:
+				{
+					float period = (_motionSize * 2f) / Mathf.Max(0.001f, _motionSpeed);
+					float x = Mathf.Lerp(-_motionSize, _motionSize, Mathf.PingPong(time / period, 1f));
+					return new Vector3(x, 0f, 0f);
+				}
+				case ParticlePreviewMotionShape.Figure8:
+				{
+					float safeSize = Mathf.Max(_motionSize, 0.0001f);
+					float angle = time * (_motionSpeed / safeSize);
+					float denom = 1f + Mathf.Sin(angle) * Mathf.Sin(angle);
+					return new Vector3(
+						_motionSize * Mathf.Cos(angle) / Mathf.Max(0.001f, denom),
+						0f,
+						_motionSize * Mathf.Sin(angle) * Mathf.Cos(angle) / Mathf.Max(0.001f, denom));
+				}
+				default:
+					return ComputeCircularMotionOffset(time, _motionSize, _motionSpeed);
+			}
 		}
 
 		private static Vector3 ComputeCircularMotionOffset(float time, float radius, float speed)

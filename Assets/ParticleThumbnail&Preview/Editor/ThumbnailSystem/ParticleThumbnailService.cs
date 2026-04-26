@@ -227,6 +227,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static void GenerateAllThumbnailsInProject(bool unthrottledProcessing)
 		{
+			ParticleThumbnailWelcomeBootstrap.MarkWelcomeHandled();
 			FailedDependencyByRequest.Clear();
 			ResetGenerateAllProgress();
 			GenerateAllUseUnthrottledProcessing = unthrottledProcessing;
