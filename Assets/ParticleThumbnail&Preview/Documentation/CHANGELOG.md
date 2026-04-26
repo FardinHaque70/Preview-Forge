@@ -2,6 +2,20 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.0.1] - 2026-04-26
+
+- Minor update
+- performance optimization attempt for unity 2022
+- Push all pending updates including docs, preview changes, and old iteration assets
+- Add VFX Graph thumbnail limitation note to README
+- Document scoped Harmony preview hook compatibility
+- Update particle thumbnail workflow and simplify package docs
+- Remove tag guidance from user-facing README install docs
+- Clarify UPM install guidance before release tags
+- Remove leftover ImprovedAssetTools project settings
+- Fix UPM immutable package warnings with meta files
+- Update README showcase gifs and thumbnail settings
+
 ## [1.0.0] - 2026-04-26
 
 - Initial release of Particle Thumbnail & Preview.
