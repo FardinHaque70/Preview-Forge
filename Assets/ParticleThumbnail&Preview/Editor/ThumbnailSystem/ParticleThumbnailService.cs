@@ -301,6 +301,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static void OnProjectWindowItemGui(string guid, Rect selectionRect)
 		{
+			if (Event.current != null && Event.current.type != EventType.Repaint)
+				return;
+
 			if (!ParticleThumbnailSettings.Enabled)
 				return;
 
@@ -600,16 +603,17 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (string.IsNullOrEmpty(assetPath) || !assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
 				return false;
 
-			dependencyToken = GetDependencyToken(assetPath);
 			if (SupportCache.TryGetValue(guid, out SupportCacheEntry cached)
-			    && cached.AssetPath == assetPath
-			    && cached.DependencyToken == dependencyToken)
+			    && cached.AssetPath == assetPath)
 			{
+				dependencyToken = cached.DependencyToken;
 				return cached.IsParticlePrefab;
 			}
 
 			GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
 			bool isParticlePrefab = ParticleThumbnailDetection.IsParticlePrefab(prefab);
+			if (isParticlePrefab)
+				dependencyToken = GetDependencyToken(assetPath);
 
 			SupportCache[guid] = new SupportCacheEntry
 			{
