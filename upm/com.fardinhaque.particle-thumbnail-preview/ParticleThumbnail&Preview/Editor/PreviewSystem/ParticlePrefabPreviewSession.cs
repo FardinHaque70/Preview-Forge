@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace ParticleThumbnailAndPreview.Editor
 {
@@ -44,7 +43,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private const float DefaultGridHalfSize = 6f;
 		private const float DefaultGridStep = 0.5f;
-		private const float DefaultGridAlpha = 0.14f;
+		private const float DefaultGridAlpha = 0.169f;
 		private const float MinAxisExtent = 0.02f;
 
 		private const float FramingScanMaxSeconds = 2f;
@@ -102,6 +101,16 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static Material s_gridMaterial;
 		private static readonly Dictionary<string, SessionStateSnapshot> SessionStateByAssetPath = new();
 		private static string s_lastSetupAssetPath;
+		private static readonly PreviewCameraInteractionConfig CameraInteractionConfig = new(
+			PitchMin,
+			PitchMax,
+			MaxDeltaTime,
+			OrbitEpsilon,
+			DistanceEpsilon,
+			PivotEpsilon,
+			AngularVelocityEpsilon,
+			(float)OrbitHoldStillResetSeconds,
+			ZoomSmooth);
 
 		#endregion
 
@@ -181,7 +190,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			_previewRoot = UnityEngine.Object.Instantiate(prefab);
 			_previewRoot.name = "ParticlePreviewRoot";
 			_previewRoot.hideFlags = HideFlags.HideAndDontSave;
-			ForceActivateHierarchy(_previewRoot);
+			PreviewHierarchyUtility.ForceActivateHierarchy(_previewRoot);
 			_previewRoot.transform.position = Vector3.zero;
 			// Preserve authored prefab root rotation/scale for direction-dependent effects.
 			_previewRoot.transform.rotation = prefab.transform.rotation;
@@ -298,51 +307,32 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (string.IsNullOrEmpty(_prefabAssetPath))
 				return;
 
-			SessionStateByAssetPath[_prefabAssetPath] = new SessionStateSnapshot
-			{
-				PlaybackTime = Mathf.Clamp(_playbackTime, 0f, Mathf.Max(0.0001f, _maxPlaybackTime)),
-				Playing = _playing,
-				Orbit = _orbit,
-				Distance = Mathf.Clamp(_distance, MinDistance, MaxDistance),
-				TargetDistance = Mathf.Clamp(_targetDistance, MinDistance, MaxDistance),
-				Pivot = _pivot,
-				SavedAt = EditorApplication.timeSinceStartup,
-			};
-
-			if (SessionStateByAssetPath.Count <= MaxCachedSessionStates)
-				return;
-
-			string oldestKey = null;
-			double oldestTime = double.MaxValue;
-			foreach (KeyValuePair<string, SessionStateSnapshot> pair in SessionStateByAssetPath)
-			{
-				if (pair.Value.SavedAt >= oldestTime)
-					continue;
-
-				oldestTime = pair.Value.SavedAt;
-				oldestKey = pair.Key;
-			}
-
-			if (!string.IsNullOrEmpty(oldestKey))
-				SessionStateByAssetPath.Remove(oldestKey);
+			PreviewSessionStateCache.SaveAndTrim(
+				SessionStateByAssetPath,
+				_prefabAssetPath,
+				new SessionStateSnapshot
+				{
+					PlaybackTime = Mathf.Clamp(_playbackTime, 0f, Mathf.Max(0.0001f, _maxPlaybackTime)),
+					Playing = _playing,
+					Orbit = _orbit,
+					Distance = Mathf.Clamp(_distance, MinDistance, MaxDistance),
+					TargetDistance = Mathf.Clamp(_targetDistance, MinDistance, MaxDistance),
+					Pivot = _pivot,
+					SavedAt = EditorApplication.timeSinceStartup,
+				},
+				MaxCachedSessionStates,
+				static snapshot => snapshot.SavedAt);
 		}
 
 		private static bool TryRestoreSessionState(string assetPath, out SessionStateSnapshot snapshot)
 		{
-			snapshot = default;
-			if (string.IsNullOrEmpty(assetPath))
-				return false;
-
-			if (!SessionStateByAssetPath.TryGetValue(assetPath, out snapshot))
-				return false;
-
-			if (EditorApplication.timeSinceStartup - snapshot.SavedAt > SessionRestoreWindowSeconds)
-			{
-				SessionStateByAssetPath.Remove(assetPath);
-				return false;
-			}
-
-			return true;
+			return PreviewSessionStateCache.TryRestore(
+				SessionStateByAssetPath,
+				assetPath,
+				EditorApplication.timeSinceStartup,
+				SessionRestoreWindowSeconds,
+				static restored => restored.SavedAt,
+				out snapshot);
 		}
 
 		#endregion
@@ -586,66 +576,39 @@ namespace ParticleThumbnailAndPreview.Editor
 			float panSmoothing = Mathf.Max(0.0001f, ParticlePreviewSettings.PanSmoothing);
 
 			double now = EditorApplication.timeSinceStartup;
-			if (_lastInteractionUpdateTime < 0d)
+			var state = new PreviewCameraInteractionState
 			{
-				_lastInteractionUpdateTime = now;
-				return ComputeHasPendingCameraMotion();
-			}
+				Orbit = _orbit,
+				TargetOrbit = _targetOrbit,
+				OrbitAngularVelocity = _orbitAngularVelocity,
+				Distance = _distance,
+				TargetDistance = _targetDistance,
+				Pivot = _pivot,
+				TargetPivot = _targetPivot,
+				IsOrbitDragging = _isOrbitDragging,
+				LastOrbitInputTime = _lastOrbitInputTime,
+			};
 
-			float dt = Mathf.Clamp((float) (now - _lastInteractionUpdateTime), 0f, MaxDeltaTime);
-			_lastInteractionUpdateTime = now;
-			if (dt <= 0f)
-				return ComputeHasPendingCameraMotion();
+			bool pending = PreviewCameraController.Tick(
+				ref state,
+				ref _lastInteractionUpdateTime,
+				now,
+				orbitSmoothing,
+				panSmoothing,
+				effective2D: false,
+				CameraInteractionConfig);
 
-			if (_isOrbitDragging && _lastOrbitInputTime >= 0d && now - _lastOrbitInputTime > OrbitHoldStillResetSeconds)
-				_orbitAngularVelocity = Vector2.zero;
+			_orbit = state.Orbit;
+			_targetOrbit = state.TargetOrbit;
+			_orbitAngularVelocity = state.OrbitAngularVelocity;
+			_distance = state.Distance;
+			_targetDistance = state.TargetDistance;
+			_pivot = state.Pivot;
+			_targetPivot = state.TargetPivot;
+			_isOrbitDragging = state.IsOrbitDragging;
+			_lastOrbitInputTime = state.LastOrbitInputTime;
 
-			float angularVelocityEpsilonSq = AngularVelocityEpsilon * AngularVelocityEpsilon;
-			if (!_isOrbitDragging && _orbitAngularVelocity.sqrMagnitude > angularVelocityEpsilonSq)
-			{
-				_targetOrbit.x += _orbitAngularVelocity.x * dt;
-				_targetOrbit.y = Mathf.Clamp(_targetOrbit.y + _orbitAngularVelocity.y * dt, PitchMin, PitchMax);
-
-				float velocityDecay = Mathf.Exp(-orbitSmoothing * dt);
-				_orbitAngularVelocity *= velocityDecay;
-				if (_orbitAngularVelocity.sqrMagnitude <= angularVelocityEpsilonSq)
-					_orbitAngularVelocity = Vector2.zero;
-			}
-
-			_targetOrbit.y = Mathf.Clamp(_targetOrbit.y, PitchMin, PitchMax);
-
-			if (Vector2.Distance(_orbit, _targetOrbit) > OrbitEpsilon)
-			{
-				float orbitBlend = 1f - Mathf.Exp(-orbitSmoothing * dt);
-				_orbit = Vector2.Lerp(_orbit, _targetOrbit, orbitBlend);
-			}
-			else
-			{
-				_orbit = _targetOrbit;
-			}
-
-			if (Mathf.Abs(_distance - _targetDistance) > DistanceEpsilon)
-			{
-				float zoomBlend = 1f - Mathf.Exp(-ZoomSmooth * dt);
-				_distance = Mathf.Lerp(_distance, _targetDistance, zoomBlend);
-			}
-			else
-			{
-				_distance = _targetDistance;
-			}
-
-			float pivotDeltaSqr = (_pivot - _targetPivot).sqrMagnitude;
-			if (pivotDeltaSqr > PivotEpsilon * PivotEpsilon)
-			{
-				float panBlend = 1f - Mathf.Exp(-panSmoothing * dt);
-				_pivot = Vector3.Lerp(_pivot, _targetPivot, panBlend);
-			}
-			else
-			{
-				_pivot = _targetPivot;
-			}
-
-			return ComputeHasPendingCameraMotion();
+			return pending;
 		}
 
 		#endregion
@@ -1173,11 +1136,20 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private bool ComputeHasPendingCameraMotion()
 		{
-			float angularVelocityEpsilonSq = AngularVelocityEpsilon * AngularVelocityEpsilon;
-			return Vector2.Distance(_orbit, _targetOrbit) > OrbitEpsilon
-			       || Mathf.Abs(_distance - _targetDistance) > DistanceEpsilon
-			       || (_pivot - _targetPivot).sqrMagnitude > PivotEpsilon * PivotEpsilon
-			       || (!_isOrbitDragging && _orbitAngularVelocity.sqrMagnitude > angularVelocityEpsilonSq);
+			var state = new PreviewCameraInteractionState
+			{
+				Orbit = _orbit,
+				TargetOrbit = _targetOrbit,
+				OrbitAngularVelocity = _orbitAngularVelocity,
+				Distance = _distance,
+				TargetDistance = _targetDistance,
+				Pivot = _pivot,
+				TargetPivot = _targetPivot,
+				IsOrbitDragging = _isOrbitDragging,
+				LastOrbitInputTime = _lastOrbitInputTime,
+			};
+
+			return PreviewCameraController.HasPendingMotion(state, CameraInteractionConfig);
 		}
 
 		#endregion
@@ -1186,26 +1158,8 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static void EnsureGridResources()
 		{
-			if (s_gridMaterial == null)
-			{
-				s_gridMaterial = new Material(Shader.Find("Hidden/Internal-Colored"))
-				{
-					hideFlags = HideFlags.HideAndDontSave,
-				};
-
-				s_gridMaterial.SetInt("_ZWrite", 0);
-				s_gridMaterial.SetInt("_Cull", 0);
-				s_gridMaterial.SetInt("_ZTest", (int) CompareFunction.LessEqual);
-				s_gridMaterial.SetInt("_SrcBlend", (int) BlendMode.SrcAlpha);
-				s_gridMaterial.SetInt("_DstBlend", (int) BlendMode.OneMinusSrcAlpha);
-				s_gridMaterial.renderQueue = 2999;
-			}
-
-			if (s_gridMesh == null)
-			{
-				s_gridMesh = new Mesh {hideFlags = HideFlags.HideAndDontSave};
-				BuildGridMesh(s_gridMesh, DefaultGridHalfSize, DefaultGridStep, DefaultGridAlpha);
-			}
+			PreviewGridResources.EnsureGridMaterial(ref s_gridMaterial);
+			PreviewGridResources.EnsureStylizedGridMesh(ref s_gridMesh, DefaultGridHalfSize, DefaultGridStep, DefaultGridAlpha, is2D: false);
 		}
 
 		private void DrawGrid()
@@ -1214,92 +1168,6 @@ namespace ParticleThumbnailAndPreview.Editor
 				return;
 
 			_preview.DrawMesh(s_gridMesh, Matrix4x4.identity, s_gridMaterial, 0);
-		}
-
-		private static void BuildGridMesh(Mesh mesh, float halfSize, float step, float alpha)
-		{
-			if (mesh == null)
-				return;
-
-			float safeHalfSize = Mathf.Max(0.05f, halfSize);
-			float safeStep = Mathf.Max(0.05f, step);
-			int count = Mathf.Max(1, Mathf.RoundToInt(safeHalfSize / safeStep));
-
-			var vertices = new List<Vector3>();
-			var colors = new List<Color>();
-
-			Color baseColor = EditorGUIUtility.isProSkin
-				? new Color(1f, 1f, 1f, alpha)
-				: new Color(0f, 0f, 0f, alpha);
-			Color axisX = EditorGUIUtility.isProSkin
-				? new Color(1f, 0.28f, 0.28f, Mathf.Clamp01(alpha * 1.85f))
-				: new Color(0.75f, 0.12f, 0.12f, Mathf.Clamp01(alpha * 1.85f));
-			Color axisZ = EditorGUIUtility.isProSkin
-				? new Color(0.28f, 1f, 0.28f, Mathf.Clamp01(alpha * 1.85f))
-				: new Color(0.12f, 0.58f, 0.12f, Mathf.Clamp01(alpha * 1.85f));
-
-			for (int i = -count; i <= count; i++)
-			{
-				float position = i * safeStep;
-				float fade = Mathf.Pow(1f - Mathf.Abs(position) / safeHalfSize, 2f);
-				bool isCenter = i == 0;
-
-				Color xLine = isCenter ? axisX : baseColor;
-				Color xPeak = new Color(xLine.r, xLine.g, xLine.b, xLine.a * fade);
-				Color xEdge = new Color(xLine.r, xLine.g, xLine.b, isCenter ? xLine.a * 0.32f : 0f);
-
-				Color zLine = isCenter ? axisZ : baseColor;
-				Color zPeak = new Color(zLine.r, zLine.g, zLine.b, zLine.a * fade);
-				Color zEdge = new Color(zLine.r, zLine.g, zLine.b, isCenter ? zLine.a * 0.32f : 0f);
-
-				vertices.Add(new Vector3(-safeHalfSize, 0f, position));
-				colors.Add(xEdge);
-				vertices.Add(new Vector3(0f, 0f, position));
-				colors.Add(xPeak);
-				vertices.Add(new Vector3(0f, 0f, position));
-				colors.Add(xPeak);
-				vertices.Add(new Vector3(safeHalfSize, 0f, position));
-				colors.Add(xEdge);
-
-				vertices.Add(new Vector3(position, 0f, -safeHalfSize));
-				colors.Add(zEdge);
-				vertices.Add(new Vector3(position, 0f, 0f));
-				colors.Add(zPeak);
-				vertices.Add(new Vector3(position, 0f, 0f));
-				colors.Add(zPeak);
-				vertices.Add(new Vector3(position, 0f, safeHalfSize));
-				colors.Add(zEdge);
-			}
-
-			int[] indices = new int[vertices.Count];
-			for (int i = 0; i < indices.Length; i++)
-				indices[i] = i;
-
-			mesh.Clear();
-			mesh.SetVertices(vertices);
-			mesh.SetColors(colors);
-			mesh.SetIndices(indices, MeshTopology.Lines, 0);
-		}
-
-		private static void ForceActivateHierarchy(GameObject root)
-		{
-			if (root == null)
-				return;
-
-			Stack<Transform> stack = new Stack<Transform>();
-			stack.Push(root.transform);
-			while (stack.Count > 0)
-			{
-				Transform current = stack.Pop();
-				if (current == null)
-					continue;
-
-				if (!current.gameObject.activeSelf)
-					current.gameObject.SetActive(true);
-
-				for (int i = 0; i < current.childCount; i++)
-					stack.Push(current.GetChild(i));
-			}
 		}
 
 		#endregion
