@@ -104,6 +104,9 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             AssemblyReloadEvents.beforeAssemblyReload -= Unpatch;
             AppDomain.CurrentDomain.AssemblyLoad -= OnAssemblyLoaded;
+            EditorApplication.delayCall -= RetryApply;
+            _retryScheduled = false;
+            TryUnpatchHarmony();
             _harmonyInstance = null;
             _patchesApplied = false;
         }
@@ -155,9 +158,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 null,
                 new[] { typeof(MethodBase), _harmonyMethodType, _harmonyMethodType, _harmonyMethodType, _harmonyMethodType },
                 null);
-            _harmonyUnpatchAllMethod = _harmonyType.GetMethod(
-                "UnpatchAll",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            _harmonyUnpatchAllMethod = ResolveHarmonyUnpatchAllMethod();
 
             ConstructorInfo harmonyCtor = _harmonyType.GetConstructor(new[] { typeof(string) });
             if ((_harmonyMethodCtor == null && _harmonyMethodCtorFromTypeName == null)
@@ -173,6 +174,64 @@ namespace ParticleThumbnailAndPreview.Editor
 
             _harmonyInstance = harmonyCtor.Invoke(new object[] { HarmonyId });
             return true;
+        }
+
+        private static MethodInfo ResolveHarmonyUnpatchAllMethod()
+        {
+            if (_harmonyType == null)
+                return null;
+
+            MethodInfo[] methods = _harmonyType.GetMethods(
+                BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            for (int i = 0; i < methods.Length; i++)
+            {
+                MethodInfo method = methods[i];
+                if (method == null || !string.Equals(method.Name, "UnpatchAll", StringComparison.Ordinal))
+                    continue;
+
+                ParameterInfo[] parameters = method.GetParameters();
+                if (parameters.Length == 0)
+                    return method;
+
+                if (parameters.Length == 1 && parameters[0].ParameterType == typeof(string))
+                    return method;
+            }
+
+            return null;
+        }
+
+        private static void TryUnpatchHarmony()
+        {
+            if (_harmonyUnpatchAllMethod == null)
+                return;
+
+            try
+            {
+                ParameterInfo[] parameters = _harmonyUnpatchAllMethod.GetParameters();
+                object[] args;
+                if (parameters.Length == 0)
+                {
+                    args = Array.Empty<object>();
+                }
+                else if (parameters.Length == 1 && parameters[0].ParameterType == typeof(string))
+                {
+                    args = new object[] { HarmonyId };
+                }
+                else
+                {
+                    return;
+                }
+
+                object target = _harmonyUnpatchAllMethod.IsStatic ? null : _harmonyInstance;
+                if (!_harmonyUnpatchAllMethod.IsStatic && target == null)
+                    return;
+
+                _harmonyUnpatchAllMethod.Invoke(target, args);
+            }
+            catch (Exception exception)
+            {
+                LogWarningOnce("unpatch-failed", $"[ParticlePreview] Harmony unpatch failed: {DescribeException(exception)}");
+            }
         }
 
         private static Type ResolveHarmonyType(string fullTypeName)
