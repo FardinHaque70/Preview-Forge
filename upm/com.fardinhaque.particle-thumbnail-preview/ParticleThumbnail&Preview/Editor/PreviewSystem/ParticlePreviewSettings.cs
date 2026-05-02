@@ -30,7 +30,6 @@ namespace ParticleThumbnailAndPreview.Editor
 		[SerializeField] internal Cubemap modelSkyboxCubemap = ParticlePreviewSettings.D_ModelSkyboxCubemap;
 		[SerializeField] internal Material modelSkyboxMaterial;
 		[SerializeField] internal Cubemap modelReflectionCubemap = ParticlePreviewSettings.D_ModelReflectionCubemap;
-		[SerializeField] internal float modelReflectionIntensity = ParticlePreviewSettings.D_ModelReflectionIntensity;
 		[SerializeField] internal bool modelSunLightEnabled = ParticlePreviewSettings.D_ModelSunLightEnabled;
 		[SerializeField] internal Color modelSunLightColor = ParticlePreviewSettings.D_ModelSunLightColor;
 		[SerializeField] internal float modelSunLightIntensity = ParticlePreviewSettings.D_ModelSunLightIntensity;
@@ -120,7 +119,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float MaxMotionSpeed = 200f;
 		public static readonly Color D_BackgroundColor = new Color(0.11f, 0.11f, 0.11f, 1f);
 		public const PreviewToolbarColorPreset D_ToolbarColorPreset = PreviewToolbarColorPreset.Godot;
-		public const float D_ToolbarHeight = 20f;
+		public const float D_ToolbarHeight = 33f;
 		public const float MinToolbarHeight = 16f;
 		public const float MaxToolbarHeight = 40f;
 		public const bool D_ModelPreviewActive = true;
@@ -129,29 +128,26 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const bool D_ModelDefaultInfoEnabled = true;
 		public const bool D_ModelDefaultGridEnabled = true;
 		public const bool D_ModelDefaultLightGizmoEnabled = true;
-		public const bool D_ModelDefaultSkyboxEnabled = true;
+		public const bool D_ModelDefaultSkyboxEnabled = false;
 		public const Cubemap D_ModelSkyboxCubemap = null;
 		public const Cubemap D_ModelReflectionCubemap = null;
-		public const float D_ModelReflectionIntensity = 0.25f;
 		public const bool D_ModelSunLightEnabled = true;
-		public static readonly Color D_ModelSunLightColor = new Color(1f, 0.95f, 0.86f, 1f);
-		public const float D_ModelSunLightIntensity = 0.55f;
-		public const float D_ModelSunLightShadowStrength = 0.8f;
-		public static readonly Vector2 D_ModelSunLightRotation = new Vector2(45f, 42f);
+		public static readonly Color D_ModelSunLightColor = new Color(1f, 0.9604328f, 0.8915094f, 1f);
+		public const float D_ModelSunLightIntensity = 1.38f;
+		public const float D_ModelSunLightShadowStrength = 1f;
+		public static readonly Vector2 D_ModelSunLightRotation = new Vector2(10.8f, 66.8f);
 		public const bool D_ModelKeyLightEnabled = true;
-		public const float D_ModelKeyLightIntensity = 1.15f;
-		public static readonly Vector2 D_ModelKeyLightRotation = new Vector2(45f, 43.314f);
-		public const bool D_ModelFillLightEnabled = true;
-		public const float D_ModelFillLightIntensity = 0.7f;
-		public static readonly Vector2 D_ModelFillLightRotation = new Vector2(225f, 25.239f);
-		public const bool D_ModelRimLightEnabled = true;
-		public const float D_ModelRimLightIntensity = 0.5f;
+		public const float D_ModelKeyLightIntensity = 0.8f;
+		public static readonly Vector2 D_ModelKeyLightRotation = new Vector2(35f, 35f);
+		public const bool D_ModelFillLightEnabled = false;
+		public const float D_ModelFillLightIntensity = 0.3f;
+		public static readonly Vector2 D_ModelFillLightRotation = new Vector2(200f, -30f);
+		public const bool D_ModelRimLightEnabled = false;
+		public const float D_ModelRimLightIntensity = 1f;
 		public static readonly Vector2 D_ModelRimLightRotation = new Vector2(160f, 0f);
 		public static readonly Color D_ModelRimLightColor = Color.white;
 		public const float MinModelLightIntensity = 0f;
 		public const float MaxModelLightIntensity = 8f;
-		public const float MinModelReflectionIntensity = 0f;
-		public const float MaxModelReflectionIntensity = 1f;
 		public const float MinModelShadowStrength = 0f;
 		public const float MaxModelShadowStrength = 1f;
 		public const bool D_EnableDiagnostics = false;
@@ -208,7 +204,6 @@ namespace ParticleThumbnailAndPreview.Editor
 			}
 		}
 
-		public static float ModelReflectionIntensity => Mathf.Clamp(Storage.modelReflectionIntensity, MinModelReflectionIntensity, MaxModelReflectionIntensity);
 		public static bool ModelSunLightEnabled => Storage.modelSunLightEnabled;
 		public static Color ModelSunLightColor => Storage.modelSunLightColor;
 		public static float ModelSunLightIntensity => Mathf.Clamp(Storage.modelSunLightIntensity, MinModelLightIntensity, MaxModelLightIntensity);
