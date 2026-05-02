@@ -18,6 +18,8 @@ namespace ParticleThumbnailAndPreview.Editor
 		[SerializeField] internal float motionRadius = ParticlePreviewSettings.D_MotionRadius;
 		[SerializeField] internal float motionSpeed = ParticlePreviewSettings.D_MotionSpeed;
 		[SerializeField] internal Color backgroundColor = ParticlePreviewSettings.D_BackgroundColor;
+		[SerializeField] internal PreviewToolbarColorPreset toolbarColorPreset = ParticlePreviewSettings.D_ToolbarColorPreset;
+		[SerializeField] internal float toolbarHeight = ParticlePreviewSettings.D_ToolbarHeight;
 		[SerializeField] internal bool modelPreviewActive = ParticlePreviewSettings.D_ModelPreviewActive;
 		[SerializeField] internal PreviewModeOverride modelPreviewMode = ParticlePreviewSettings.D_ModelPreviewMode;
 		[SerializeField] internal bool modelDefaultTurntableEnabled = ParticlePreviewSettings.D_ModelDefaultTurntableEnabled;
@@ -64,6 +66,8 @@ namespace ParticleThumbnailAndPreview.Editor
 			motionRadius = ParticlePreviewSettings.D_MotionRadius;
 			motionSpeed = ParticlePreviewSettings.D_MotionSpeed;
 			backgroundColor = ParticlePreviewSettings.D_BackgroundColor;
+			toolbarColorPreset = ParticlePreviewSettings.D_ToolbarColorPreset;
+			toolbarHeight = ParticlePreviewSettings.D_ToolbarHeight;
 			modelPreviewActive = ParticlePreviewSettings.D_ModelPreviewActive;
 			modelPreviewMode = ParticlePreviewSettings.D_ModelPreviewMode;
 			modelDefaultTurntableEnabled = ParticlePreviewSettings.D_ModelDefaultTurntableEnabled;
@@ -113,6 +117,10 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float MinMotionSpeed = 0.1f;
 		public const float MaxMotionSpeed = 200f;
 		public static readonly Color D_BackgroundColor = new Color(0.11f, 0.11f, 0.11f, 1f);
+		public const PreviewToolbarColorPreset D_ToolbarColorPreset = PreviewToolbarColorPreset.Godot;
+		public const float D_ToolbarHeight = 20f;
+		public const float MinToolbarHeight = 16f;
+		public const float MaxToolbarHeight = 40f;
 		public const bool D_ModelPreviewActive = true;
 		public const PreviewModeOverride D_ModelPreviewMode = PreviewModeOverride.Auto;
 		public const bool D_ModelDefaultTurntableEnabled = true;
@@ -166,6 +174,10 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static float MotionSpeed => Mathf.Clamp(Storage.motionSpeed, MinMotionSpeed, MaxMotionSpeed);
 
 		public static Color BackgroundColor => Storage.backgroundColor;
+		public static PreviewToolbarColorPreset ToolbarColorPreset => Storage.toolbarColorPreset;
+		public static float ToolbarHeight => Storage.toolbarHeight <= 0f
+			? D_ToolbarHeight
+			: Mathf.Clamp(Storage.toolbarHeight, MinToolbarHeight, MaxToolbarHeight);
 		public static bool ModelPreviewActive => Storage.modelPreviewActive;
 		public static PreviewModeOverride ModelPreviewMode => Storage.modelPreviewMode;
 		public static bool ModelDefaultTurntableEnabled => Storage.modelDefaultTurntableEnabled;
@@ -283,6 +295,17 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.backgroundColor = EditorGUILayout.ColorField(
 					new GUIContent("Background Color", "Background color behind custom prefab preview rendering."),
 					storage.backgroundColor);
+				storage.toolbarColorPreset = (PreviewToolbarColorPreset) EditorGUILayout.EnumPopup(
+					new GUIContent("Toolbar Color Preset", "Temporary active-toolbar color preset while we evaluate final branding."),
+					storage.toolbarColorPreset);
+				float toolbarHeight = storage.toolbarHeight <= 0f
+					? ParticlePreviewSettings.D_ToolbarHeight
+					: storage.toolbarHeight;
+				storage.toolbarHeight = EditorGUILayout.Slider(
+					new GUIContent("Toolbar Height", "Shared height for particle and model preview toolbars. Button and scrubber sizes scale automatically."),
+					toolbarHeight,
+					ParticlePreviewSettings.MinToolbarHeight,
+					ParticlePreviewSettings.MaxToolbarHeight);
 			});
 			DrawSectionCard("Model Preview", () =>
 			{

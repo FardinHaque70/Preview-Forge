@@ -13,10 +13,23 @@ namespace ParticleThumbnailAndPreview.Editor
             for (int i = 0; i < iconNames.Length; i++)
             {
                 string iconName = iconNames[i];
+                if (string.IsNullOrEmpty(iconName))
+                    continue;
+
                 if (!IconCache.TryGetValue(iconName, out Texture icon))
                 {
-                    GUIContent iconContent = EditorGUIUtility.IconContent(iconName);
-                    icon = iconContent != null ? iconContent.image : EditorGUIUtility.FindTexture(iconName);
+                    // Support project/package icon assets in addition to Unity built-in icon names.
+                    if (iconName.StartsWith("Assets/", System.StringComparison.Ordinal) ||
+                        iconName.StartsWith("Packages/", System.StringComparison.Ordinal))
+                    {
+                        icon = AssetDatabase.LoadAssetAtPath<Texture2D>(iconName);
+                    }
+                    else
+                    {
+                        GUIContent iconContent = EditorGUIUtility.IconContent(iconName);
+                        icon = iconContent != null ? iconContent.image : EditorGUIUtility.FindTexture(iconName);
+                    }
+
                     IconCache[iconName] = icon;
                 }
 
@@ -129,7 +142,6 @@ namespace ParticleThumbnailAndPreview.Editor
             GUIContent content = GetIconContent(fallbackText, tooltip, iconNames);
             bool iconHovered = iconZone.Contains(evt.mousePosition);
             bool arrowHovered = arrowZone.Contains(evt.mousePosition);
-
             Color iconBg = PreviewToolbarTheme.GetToolbarButtonBackground(active, iconHovered);
             EditorGUI.DrawRect(iconZone, iconBg);
             Color arrowBg = PreviewToolbarTheme.GetToolbarButtonBackground(false, arrowHovered);

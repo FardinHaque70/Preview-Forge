@@ -20,6 +20,8 @@ MonoBehaviour:
   motionRadius: 3
   motionSpeed: 30
   backgroundColor: {r: 0.11, g: 0.11, b: 0.11, a: 1}
+  toolbarColorPreset: 5
+  toolbarHeight: 33
   modelPreviewActive: 1
   modelPreviewMode: 0
   modelDefaultTurntableEnabled: 1
@@ -31,7 +33,7 @@ MonoBehaviour:
   modelReflectionCubemap: {fileID: 8900000, guid: e628e60fedd134eae92c45e351f5f566, type: 3}
   modelReflectionIntensity: 1
   modelSunLightEnabled: 1
-  modelSunLightColor: {r: 1, g: 0.8790619, b: 0.6650944, a: 1}
+  modelSunLightColor: {r: 1, g: 0.9604328, b: 0.8915094, a: 1}
   modelSunLightIntensity: 1.38
   modelSunLightShadowStrength: 1
   modelSunLightRotation: {x: 45, y: 19.3}

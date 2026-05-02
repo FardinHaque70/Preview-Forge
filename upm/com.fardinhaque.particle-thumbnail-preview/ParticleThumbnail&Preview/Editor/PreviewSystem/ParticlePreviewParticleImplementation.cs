@@ -7,12 +7,42 @@ namespace ParticleThumbnailAndPreview.Editor
 {
     internal sealed class ParticlePreviewParticleImplementation : IPrefabPreviewImplementation
     {
+        private static readonly string[] ToolbarIconRoots =
+        {
+            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
+            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
+            "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
+            "Assets/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
+        };
+        private static readonly string[] PlayIcons = BuildIconNames("Particle_PlayArrow_Round_White.png", "d_PlayButton", "PlayButton");
+        private static readonly string[] PauseIcons = BuildIconNames("Particle_Pause_Round_White.png", "d_PauseButton", "PauseButton");
+        private static readonly string[] RestartIcons = BuildIconNames("Particle_Replay_Round_White.png", "d_Refresh", "Refresh");
+        private static readonly string[] InfoIcons = BuildIconNames("Particle_Info_Round_White.png", "d_Search Icon", "Search Icon");
+        private static readonly string[] GridIcons = BuildIconNames("Particle_GridOn_Round_White.png", "d_Grid.BoxTool", "Grid.BoxTool");
+
+        private const int PlayIndex = 0;
+        private const int RestartIndex = 1;
+        private const int ScrubberIndex = 3;
+        private const int InfoIndex = 5;
+        private const int GridIndex = 6;
+
         private ParticlePrefabPreviewSession _session;
+        private readonly List<PreviewToolbarItem> _toolbarItems = new(7);
         private bool _playbackUpdateRegistered;
         private Action _requestRepaint;
         private static bool s_infoOverlayEnabled = true;
 
         public PrefabPreviewTargetKind Kind => PrefabPreviewTargetKind.Particle;
+
+        private static string[] BuildIconNames(string fileName, params string[] fallbacks)
+        {
+            var values = new List<string>(ToolbarIconRoots.Length + (fallbacks?.Length ?? 0));
+            for (int i = 0; i < ToolbarIconRoots.Length; i++)
+                values.Add(ToolbarIconRoots[i] + "/" + fileName);
+            if (fallbacks != null && fallbacks.Length > 0)
+                values.AddRange(fallbacks);
+            return values.ToArray();
+        }
 
         public void SetRepaintCallback(Action repaintCallback)
         {
@@ -80,83 +110,115 @@ namespace ParticleThumbnailAndPreview.Editor
             _session ??= new ParticlePrefabPreviewSession();
         }
 
+        #region Toolbar
         private Rect DrawToolbar(Rect fullRect)
         {
-            const float rowHeight = 40f;
-            const float buttonSize = 29f;
-            const float sidePadding = 6f;
-            const float buttonGap = 4f;
-            const float transportGap = 16f;
-            const float dividerGap = 10f;
+            EnsureToolbarItems();
+            UpdateToolbarItemState();
 
-            Rect toolbarRect = new Rect(fullRect.x, fullRect.y, fullRect.width, rowHeight);
-            Rect previewRect = new Rect(fullRect.x, fullRect.y + rowHeight, fullRect.width, fullRect.height - rowHeight);
-            PreviewToolbarTheme.DrawToolbarBackground(toolbarRect);
+            PreviewToolbarMetrics metrics = PreviewToolbarMetrics.FromSettings();
+            return PreviewToolbarRenderer.Draw(fullRect, PreviewToolbarLayoutPreset.Segmented, _toolbarItems, metrics);
+        }
 
-            float centerY = toolbarRect.y + rowHeight * 0.5f;
-            float y = Mathf.Round(centerY - buttonSize * 0.5f);
-            float leftX = toolbarRect.x + sidePadding;
+        private void EnsureToolbarItems()
+        {
+            if (_toolbarItems.Count > 0)
+                return;
 
-            Rect playRect = new Rect(leftX, y, buttonSize, buttonSize);
-            Rect restartRect = new Rect(playRect.xMax + buttonGap, y, buttonSize, buttonSize);
-            float restartDividerX = restartRect.xMax + buttonGap + 6f;
-
-            float rightGroupWidth = buttonSize * 2f + buttonGap;
-            float rightGroupX = toolbarRect.xMax - sidePadding - rightGroupWidth;
-            float dividerX = rightGroupX - dividerGap;
-            float scrubberLeft = restartDividerX + transportGap;
-            float scrubberRight = dividerX - dividerGap;
-            float sliderWidth = Mathf.Max(56f, scrubberRight - scrubberLeft);
-            Rect sliderRect = new Rect(scrubberLeft, Mathf.Round(centerY - 9f), sliderWidth, 18f);
-            Rect infoRect = new Rect(rightGroupX, y, buttonSize, buttonSize);
-            Rect gridRect = new Rect(infoRect.xMax + buttonGap, y, buttonSize, buttonSize);
-
-            GUIContent playContent = PreviewToolbarControls.GetIconContent(_session.IsPlaying ? "Pause" : "Play", "Play or pause particle preview playback", "PlayButton", "d_PlayButton");
-            if (_session.IsPlaying)
-                playContent = PreviewToolbarControls.GetIconContent("Pause", "Pause particle preview playback", "PauseButton", "d_PauseButton");
-
-            if (PreviewToolbarControls.DrawToggleButton(playRect, _session.IsPlaying, "Play", "Play or pause particle preview playback", true, out bool nextPlaying, _session.IsPlaying ? "PauseButton" : "PlayButton", _session.IsPlaying ? "d_PauseButton" : "d_PlayButton")
-                && nextPlaying != _session.IsPlaying)
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle, PreviewToolbarItemGroup.Left)
             {
-                _session.SetPlaying(nextPlaying);
-                if (nextPlaying)
-                    EnablePlaybackUpdate();
-                else
-                    DisablePlaybackUpdate();
+                OnToggleChanged = OnPlayToggle,
+            });
 
-                RequestPreviewRepaint();
-            }
-
-            if (PreviewToolbarControls.DrawIconButton(restartRect, PreviewToolbarControls.GetIconContent("Restart", "Restart particle preview", "Refresh", "d_Refresh")))
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Button, PreviewToolbarItemGroup.Left)
             {
-                _session.Restart();
-                _session.SetPlaying(true);
+                OnClick = OnRestartClicked,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Divider, PreviewToolbarItemGroup.Left));
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.CustomSlot, PreviewToolbarItemGroup.Center)
+            {
+                MinWidth = 40f,
+                UseSliderHeight = true,
+                OnDrawCustom = DrawScrubberSlot,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Divider, PreviewToolbarItemGroup.Right));
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle, PreviewToolbarItemGroup.Right)
+            {
+                OnToggleChanged = OnInfoToggled,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle, PreviewToolbarItemGroup.Right)
+            {
+                OnToggleChanged = OnGridToggled,
+            });
+        }
+
+        private void UpdateToolbarItemState()
+        {
+            PreviewToolbarItem play = _toolbarItems[PlayIndex];
+            play.IsActive = _session.IsPlaying;
+            play.IsEnabled = true;
+            play.FallbackText = "Play";
+            play.Tooltip = "Play or pause particle preview playback";
+            play.IconNames = _session.IsPlaying ? PauseIcons : PlayIcons;
+
+            PreviewToolbarItem restart = _toolbarItems[RestartIndex];
+            restart.IsActive = false;
+            restart.IsEnabled = true;
+            restart.FallbackText = "Restart";
+            restart.Tooltip = "Restart particle preview";
+            restart.IconNames = RestartIcons;
+
+            PreviewToolbarItem scrubber = _toolbarItems[ScrubberIndex];
+            scrubber.MinWidth = 40f;
+
+            PreviewToolbarItem info = _toolbarItems[InfoIndex];
+            info.IsActive = s_infoOverlayEnabled;
+            info.IsEnabled = true;
+            info.FallbackText = "Info";
+            info.Tooltip = "Toggle preview info";
+            info.IconNames = InfoIcons;
+
+            PreviewToolbarItem grid = _toolbarItems[GridIndex];
+            grid.IsActive = _session.GridEnabled;
+            grid.IsEnabled = true;
+            grid.FallbackText = "Grid";
+            grid.Tooltip = "Toggle preview grid";
+            grid.IconNames = GridIcons;
+        }
+
+        private void OnPlayToggle(bool nextPlaying)
+        {
+            if (nextPlaying == _session.IsPlaying)
+                return;
+
+            _session.SetPlaying(nextPlaying);
+            if (nextPlaying)
                 EnablePlaybackUpdate();
-                RequestPreviewRepaint();
-            }
+            else
+                DisablePlaybackUpdate();
 
-            PreviewToolbarTheme.DrawDivider(new Rect(restartDividerX, toolbarRect.y + 8f, 1f, rowHeight - 16f));
+            RequestPreviewRepaint();
+        }
 
+        private void OnRestartClicked()
+        {
+            _session.Restart();
+            _session.SetPlaying(true);
+            EnablePlaybackUpdate();
+            RequestPreviewRepaint();
+        }
+
+        private void DrawScrubberSlot(Rect rect)
+        {
             float safeMax = Mathf.Max(0.0001f, _session.MaxPlaybackTime);
             float clampedTime = Mathf.Clamp(_session.PlaybackTime, 0f, safeMax);
             float normalized = Mathf.Clamp01(clampedTime / safeMax);
-            float newTime = DrawPlaybackSlider(sliderRect, clampedTime, safeMax, normalized, _session.IntensityProfile);
-
-            PreviewToolbarTheme.DrawDivider(new Rect(dividerX, toolbarRect.y + 8f, 1f, rowHeight - 16f));
-
-            if (PreviewToolbarControls.DrawToggleButton(infoRect, s_infoOverlayEnabled, "Info", "Toggle preview info", true, out bool nextInfoEnabled, "Search Icon", "d_Search Icon")
-                && nextInfoEnabled != s_infoOverlayEnabled)
-            {
-                s_infoOverlayEnabled = nextInfoEnabled;
-                RequestPreviewRepaint();
-            }
-
-            if (PreviewToolbarControls.DrawToggleButton(gridRect, _session.GridEnabled, "Grid", "Toggle preview grid", true, out bool gridEnabled, "Grid.BoxTool", "d_Grid.BoxTool")
-                && gridEnabled != _session.GridEnabled)
-            {
-                _session.SetGridEnabled(gridEnabled);
-                RequestPreviewRepaint();
-            }
+            float newTime = DrawPlaybackSlider(rect, clampedTime, safeMax, normalized, _session.IntensityProfile);
 
             if (!Mathf.Approximately(newTime, clampedTime))
             {
@@ -165,9 +227,26 @@ namespace ParticleThumbnailAndPreview.Editor
                 DisablePlaybackUpdate();
                 RequestPreviewRepaint();
             }
-
-            return previewRect;
         }
+
+        private void OnInfoToggled(bool value)
+        {
+            if (value == s_infoOverlayEnabled)
+                return;
+
+            s_infoOverlayEnabled = value;
+            RequestPreviewRepaint();
+        }
+
+        private void OnGridToggled(bool value)
+        {
+            if (value == _session.GridEnabled)
+                return;
+
+            _session.SetGridEnabled(value);
+            RequestPreviewRepaint();
+        }
+        #endregion
 
         private void DrawMotionBar(ref Rect previewRect)
         {
@@ -372,6 +451,7 @@ namespace ParticleThumbnailAndPreview.Editor
             return Mathf.Lerp(0f, maxTime, Mathf.Clamp01(t));
         }
 
+        #region Update Loop
         private void EnablePlaybackUpdate()
         {
             if (_playbackUpdateRegistered)
@@ -412,11 +492,11 @@ namespace ParticleThumbnailAndPreview.Editor
             if (needsRepaint)
                 RequestPreviewRepaint();
         }
+        #endregion
 
         private void RequestPreviewRepaint()
         {
             _requestRepaint?.Invoke();
         }
-
     }
 }

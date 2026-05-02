@@ -72,7 +72,18 @@ namespace ParticleThumbnailAndPreview.Editor
             if (!EditorUtility.IsPersistent(prefab))
                 return false;
 
-            return PrefabUtility.IsPartOfPrefabAsset(prefab);
+            if (!PrefabUtility.IsPartOfPrefabAsset(prefab))
+                return false;
+
+            PrefabAssetType assetType = PrefabUtility.GetPrefabAssetType(prefab);
+            if (assetType != PrefabAssetType.Regular && assetType != PrefabAssetType.Variant)
+                return false;
+
+            string assetPath = AssetDatabase.GetAssetPath(prefab);
+            if (string.IsNullOrEmpty(assetPath))
+                return false;
+
+            return assetPath.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool HasSupportedModelRenderer(GameObject prefab)

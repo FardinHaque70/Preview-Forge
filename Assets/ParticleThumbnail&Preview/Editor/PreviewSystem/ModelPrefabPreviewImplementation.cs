@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -6,11 +7,45 @@ namespace ParticleThumbnailAndPreview.Editor
 {
     internal sealed class ModelPrefabPreviewImplementation : IPrefabPreviewImplementation
     {
+        private static readonly string[] ToolbarIconRoots =
+        {
+            "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
+            "Assets/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
+            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
+            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
+        };
+        private static readonly string[] TurntableIcons = BuildIconNames("Model_Turntable_Round_White.png", "d_SceneViewTools", "SceneViewTools", "d_RotateTool", "RotateTool");
+        private static readonly string[] InfoIcons = BuildIconNames("Model_Info_Round_White.png", "d_SelectionList Icon", "SelectionList Icon", "d_Search Icon", "Search Icon");
+        private static readonly string[] LightsIcons = BuildIconNames("Model_Lightbulb_Round_White.png", "d_Light Icon", "Light Icon", "d_SceneViewLighting", "SceneViewLighting");
+        private static readonly string[] GridIcons = BuildIconNames("Model_GridOn_Round_White.png", "d_Grid Icon", "Grid Icon", "d_Grid.Default", "Grid.Default");
+        private static readonly string[] SkyboxIcons = BuildIconNames("Model_Panorama_Round_White.png", "d_Cubemap Icon", "Cubemap Icon", "d_PreMatSphere", "PreMatSphere");
+        private static readonly string[] VisualDefaultIcons = BuildIconNames("Model_Texture_Round_White.png", "d_Texture Icon", "Texture Icon");
+        private static readonly string[] VisualMatcapIcons = BuildIconNames("Model_Matcap_Round_White.png", "d_PreMatSphere", "PreMatSphere", "d_Material Icon", "Material Icon");
+
+        private const int TurntableIndex = 0;
+        private const int InfoIndex = 1;
+        private const int LightsIndex = 2;
+        private const int GridIndex = 3;
+        private const int SkyboxIndex = 4;
+        private const int VisualModeIndex = 5;
+        private const int ModeIndex = 6;
+
         private readonly ModelPrefabPreviewSession _session = new();
+        private readonly List<PreviewToolbarItem> _toolbarItems = new(7);
         private Action _requestRepaint;
         private bool _updateRegistered;
 
         public PrefabPreviewTargetKind Kind => PrefabPreviewTargetKind.Model;
+
+        private static string[] BuildIconNames(string fileName, params string[] fallbacks)
+        {
+            var values = new List<string>(ToolbarIconRoots.Length + (fallbacks?.Length ?? 0));
+            for (int i = 0; i < ToolbarIconRoots.Length; i++)
+                values.Add(ToolbarIconRoots[i] + "/" + fileName);
+            if (fallbacks != null && fallbacks.Length > 0)
+                values.AddRange(fallbacks);
+            return values.ToArray();
+        }
 
         public void SetRepaintCallback(Action repaintCallback)
         {
@@ -61,176 +96,177 @@ namespace ParticleThumbnailAndPreview.Editor
                 DisableUpdate();
         }
 
+        #region Toolbar
         private Rect DrawToolbar(Rect fullRect)
         {
-            const float rowHeight = 40f;
-            const float buttonHeight = 29f;
-            const float sidePadding = 6f;
-            const float buttonGap = 4f;
-            const int buttonCount = 7;
+            EnsureToolbarItems();
+            UpdateToolbarItemState();
 
-            Rect toolbarRect = new Rect(fullRect.x, fullRect.y, fullRect.width, rowHeight);
-            Rect previewRect = new Rect(fullRect.x, fullRect.y + rowHeight, fullRect.width, fullRect.height - rowHeight);
+            PreviewToolbarMetrics metrics = PreviewToolbarMetrics.FromSettings();
+            return PreviewToolbarRenderer.Draw(fullRect, PreviewToolbarLayoutPreset.EqualGrid, _toolbarItems, metrics);
+        }
 
-            PreviewToolbarTheme.DrawToolbarBackground(toolbarRect);
+        private void EnsureToolbarItems()
+        {
+            if (_toolbarItems.Count > 0)
+                return;
 
-            float centerY = toolbarRect.y + rowHeight * 0.5f;
-            float y = Mathf.Round(centerY - buttonHeight * 0.5f);
-            float availableWidth = toolbarRect.width - sidePadding * 2f - (buttonCount - 1) * buttonGap;
-            float buttonWidth = Mathf.Max(1f, availableWidth / buttonCount);
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Button)
+            {
+                OnClick = OnTurntableClicked,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
+            {
+                OnToggleChanged = OnInfoToggled,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
+            {
+                OnToggleChanged = OnLightsToggled,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
+            {
+                OnToggleChanged = OnGridToggled,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
+            {
+                OnToggleChanged = OnSkyboxToggled,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.SplitButton)
+            {
+                OnSplitPrimaryClick = OnVisualModePrimaryClicked,
+                OnSplitSecondaryClick = OnVisualModeSecondaryClicked,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Button)
+            {
+                OnClick = OnModeButtonClicked,
+            });
+        }
+
+        private void UpdateToolbarItemState()
+        {
             bool environmentLocked = _session.ModeContext.Effective2D;
 
-            float x = toolbarRect.x + sidePadding;
-            Rect turntableRect = new Rect(x, y, buttonWidth, buttonHeight);
-            x += buttonWidth + buttonGap;
-            Rect infoRect = new Rect(x, y, buttonWidth, buttonHeight);
-            x += buttonWidth + buttonGap;
-            Rect lightsRect = new Rect(x, y, buttonWidth, buttonHeight);
-            x += buttonWidth + buttonGap;
-            Rect gridRect = new Rect(x, y, buttonWidth, buttonHeight);
-            x += buttonWidth + buttonGap;
-            Rect skyboxRect = new Rect(x, y, buttonWidth, buttonHeight);
-            x += buttonWidth + buttonGap;
-            Rect visualModeRect = new Rect(x, y, buttonWidth, buttonHeight);
-            x += buttonWidth + buttonGap;
-            Rect modeRect = new Rect(x, y, buttonWidth, buttonHeight);
+            PreviewToolbarItem turntable = _toolbarItems[TurntableIndex];
+            turntable.IsActive = _session.TurntableEnabled && !environmentLocked;
+            turntable.IsEnabled = !environmentLocked;
+            turntable.FallbackText = "Auto";
+            turntable.Tooltip = "Toggle turntable auto-rotation";
+            turntable.IconNames = TurntableIcons;
 
-            if (PreviewToolbarControls.DrawButton(
-                    turntableRect,
-                    _session.TurntableEnabled && !environmentLocked,
-                    "Auto",
-                    "Toggle turntable auto-rotation",
-                    !environmentLocked,
-                    "RotateTool",
-                    "d_RotateTool"))
-            {
-                _session.SetTurntableEnabled(!_session.TurntableEnabled);
-                RequestRepaint();
-            }
+            PreviewToolbarItem info = _toolbarItems[InfoIndex];
+            info.IsActive = _session.InfoEnabled;
+            info.IsEnabled = true;
+            info.FallbackText = "Info";
+            info.Tooltip = "Toggle preview info";
+            info.IconNames = InfoIcons;
 
-            if (DrawToolbarToggleButton(
-                    lightsRect,
-                    _session.LightsEnabled,
-                    "Lights",
-                    "Toggle model lights",
-                    !environmentLocked,
-                    "SceneViewLighting",
-                    "d_SceneViewLighting",
-                    out bool lightsEnabled)
-                && lightsEnabled != _session.LightsEnabled)
-            {
-                _session.SetLightsEnabled(lightsEnabled);
-                RequestRepaint();
-            }
+            PreviewToolbarItem lights = _toolbarItems[LightsIndex];
+            lights.IsActive = _session.LightsEnabled;
+            lights.IsEnabled = !environmentLocked;
+            lights.FallbackText = "Lights";
+            lights.Tooltip = "Toggle model lights";
+            lights.IconNames = LightsIcons;
 
-            if (DrawToolbarToggleButton(
-                    gridRect,
-                    _session.GridEnabled,
-                    "Grid",
-                    "Toggle preview grid",
-                    true,
-                    "Grid.BoxTool",
-                    "d_Grid.BoxTool",
-                    out bool gridEnabled)
-                && gridEnabled != _session.GridEnabled)
-            {
-                _session.SetGridEnabled(gridEnabled);
-                RequestRepaint();
-            }
+            PreviewToolbarItem grid = _toolbarItems[GridIndex];
+            grid.IsActive = _session.GridEnabled;
+            grid.IsEnabled = true;
+            grid.FallbackText = "Grid";
+            grid.Tooltip = "Toggle preview grid";
+            grid.IconNames = GridIcons;
 
-            if (DrawToolbarToggleButton(
-                    infoRect,
-                    _session.InfoEnabled,
-                    "Info",
-                    "Toggle preview info",
-                    true,
-                    "Search Icon",
-                    "d_Search Icon",
-                    out bool nextInfoEnabled)
-                && nextInfoEnabled != _session.InfoEnabled)
-            {
-                _session.SetInfoEnabled(nextInfoEnabled);
-                RequestRepaint();
-            }
+            PreviewToolbarItem skybox = _toolbarItems[SkyboxIndex];
+            skybox.IsActive = _session.SkyboxEnabled;
+            skybox.IsEnabled = !environmentLocked;
+            skybox.FallbackText = "Skybox";
+            skybox.Tooltip = "Toggle model skybox";
+            skybox.IconNames = SkyboxIcons;
 
-            if (DrawToolbarToggleButton(
-                    skyboxRect,
-                    _session.SkyboxEnabled,
-                    "Skybox",
-                    "Toggle model skybox",
-                    !environmentLocked,
-                    "PreMatSphere",
-                    "d_PreMatSphere",
-                    out bool skyboxEnabled)
-                && skyboxEnabled != _session.SkyboxEnabled)
-            {
-                _session.SetSkyboxEnabled(skyboxEnabled);
-                RequestRepaint();
-            }
+            PreviewToolbarItem visualMode = _toolbarItems[VisualModeIndex];
+            visualMode.IsActive = _session.VisualMode != ModelPreviewVisualMode.None;
+            GetVisualModeButtonContent(
+                _session.VisualMode == ModelPreviewVisualMode.None ? _session.LastNonNoneVisualMode : _session.VisualMode,
+                out string visualLabel,
+                out string visualTooltip,
+                out bool visualTintIcon,
+                out string[] visualIcons);
+            visualMode.FallbackText = visualLabel;
+            visualMode.Tooltip = visualTooltip;
+            visualMode.TintIcon = visualTintIcon;
+            visualMode.IconNames = visualIcons;
 
-            int visualModeAction = DrawVisualModeSplitButton(visualModeRect);
-            if (visualModeAction == 1)
-            {
-                _session.CycleVisualMode();
-                RequestRepaint();
-            }
-            else if (visualModeAction == 2)
-            {
-                ShowVisualModeMenu(visualModeRect);
-            }
-
-            string modeLabel = _session.ModeContext.Effective2D ? "2D" : "3D";
-            if (PreviewToolbarControls.DrawButton(
-                    modeRect,
-                    _session.ModeOverride == PreviewModeOverride.Force2D,
-                    modeLabel,
-                    "Switch preview mode (2D/3D)"))
-            {
-                _session.CycleModeOverride();
-                RequestRepaint();
-            }
-
-            return previewRect;
+            PreviewToolbarItem mode = _toolbarItems[ModeIndex];
+            mode.IsActive = _session.ModeOverride == PreviewModeOverride.Force2D;
+            mode.IsEnabled = true;
+            mode.FallbackText = _session.ModeContext.Effective2D ? "2D" : "3D";
+            mode.Tooltip = "Switch preview mode (2D/3D)";
+            mode.IconNames = null;
         }
 
-        private static bool DrawToolbarToggleButton(
-            Rect rect,
-            bool currentValue,
-            string fallbackText,
-            string tooltip,
-            bool isEnabled,
-            string lightIconName,
-            string darkIconName,
-            out bool newValue)
+        private void OnTurntableClicked()
         {
-            bool clicked = PreviewToolbarControls.DrawToggleButton(
-                rect,
-                currentValue,
-                fallbackText,
-                tooltip,
-                isEnabled,
-                out newValue,
-                lightIconName,
-                darkIconName);
-
-            return clicked;
+            _session.SetTurntableEnabled(!_session.TurntableEnabled);
+            RequestRepaint();
         }
 
-        private int DrawVisualModeSplitButton(Rect rect)
+        private void OnInfoToggled(bool value)
         {
-            ModelPreviewVisualMode modeToShow = _session.VisualMode == ModelPreviewVisualMode.None
-                ? _session.LastNonNoneVisualMode
-                : _session.VisualMode;
-            GetVisualModeButtonContent(modeToShow, out string label, out string tooltip, out bool tintIcon, out string[] icons);
+            if (value == _session.InfoEnabled)
+                return;
 
-            return PreviewToolbarControls.DrawSplitButton(
-                rect,
-                _session.VisualMode != ModelPreviewVisualMode.None,
-                tintIcon,
-                label,
-                tooltip,
-                icons);
+            _session.SetInfoEnabled(value);
+            RequestRepaint();
         }
+
+        private void OnLightsToggled(bool value)
+        {
+            if (value == _session.LightsEnabled)
+                return;
+
+            _session.SetLightsEnabled(value);
+            RequestRepaint();
+        }
+
+        private void OnGridToggled(bool value)
+        {
+            if (value == _session.GridEnabled)
+                return;
+
+            _session.SetGridEnabled(value);
+            RequestRepaint();
+        }
+
+        private void OnSkyboxToggled(bool value)
+        {
+            if (value == _session.SkyboxEnabled)
+                return;
+
+            _session.SetSkyboxEnabled(value);
+            RequestRepaint();
+        }
+
+        private void OnVisualModePrimaryClicked()
+        {
+            _session.CycleVisualMode();
+            RequestRepaint();
+        }
+
+        private void OnVisualModeSecondaryClicked(Rect splitRect)
+        {
+            ShowVisualModeMenu(splitRect);
+        }
+
+        private void OnModeButtonClicked()
+        {
+            _session.CycleModeOverride();
+            RequestRepaint();
+        }
+        #endregion
 
         private void ShowVisualModeMenu(Rect splitRect)
         {
@@ -239,6 +275,7 @@ namespace ParticleThumbnailAndPreview.Editor
             AddVisualModeMenuItem(menu, "Normals", ModelPreviewVisualMode.Normals);
             AddVisualModeMenuItem(menu, "UV Checker", ModelPreviewVisualMode.UvChecker);
             AddVisualModeMenuItem(menu, "Vertex Color", ModelPreviewVisualMode.VertexColor);
+            AddVisualModeMenuItem(menu, "Matcap", ModelPreviewVisualMode.Matcap);
             AddVisualModeMenuItem(menu, "Overdraw", ModelPreviewVisualMode.Overdraw);
             const float arrowZoneWidth = 16f;
             Rect dropdownRect = new Rect(splitRect.xMax - arrowZoneWidth, splitRect.y, arrowZoneWidth, splitRect.height);
@@ -266,32 +303,38 @@ namespace ParticleThumbnailAndPreview.Editor
                 case ModelPreviewVisualMode.Normals:
                     label = "NM";
                     tooltip = "Normals";
-                    tintIcon = true;
-                    icons = new[] { "d_Mesh Icon", "Mesh Icon", "d_PreMatSphere", "PreMatSphere" };
+                    tintIcon = false;
+                    icons = VisualDefaultIcons;
                     break;
                 case ModelPreviewVisualMode.UvChecker:
                     label = "UV";
                     tooltip = "UV Checker";
                     tintIcon = false;
-                    icons = new[] { "d_PreTextureRGB", "PreTextureRGB", "d_RawImage Icon", "RawImage Icon" };
+                    icons = VisualDefaultIcons;
                     break;
                 case ModelPreviewVisualMode.VertexColor:
                     label = "VC";
                     tooltip = "Vertex Colors";
                     tintIcon = false;
-                    icons = new[] { "d_ColorPicker.CycleSlider", "ColorPicker.CycleSlider", "d_PreMatSphere", "PreMatSphere" };
+                    icons = VisualDefaultIcons;
+                    break;
+                case ModelPreviewVisualMode.Matcap:
+                    label = "MC";
+                    tooltip = "Matcap";
+                    tintIcon = false;
+                    icons = VisualMatcapIcons;
                     break;
                 case ModelPreviewVisualMode.Overdraw:
                     label = "OD";
                     tooltip = "Overdraw";
-                    tintIcon = true;
-                    icons = new[] { "d_Profiler.Rendering", "Profiler.Rendering", "d_SceneViewFx", "SceneViewFx" };
+                    tintIcon = false;
+                    icons = VisualDefaultIcons;
                     break;
                 default:
                     label = "NM";
                     tooltip = "Visual mode";
                     tintIcon = false;
-                    icons = new[] { "d_SceneViewFx", "SceneViewFx" };
+                    icons = VisualDefaultIcons;
                     break;
             }
         }
@@ -327,6 +370,7 @@ namespace ParticleThumbnailAndPreview.Editor
             GUI.Label(new Rect(panelRect.x + padding, y, panelRect.width - padding * 2f, style.lineHeight), line4, style);
         }
 
+        #region Update Loop
         private void EnableUpdate()
         {
             if (_updateRegistered)
@@ -357,6 +401,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (!_session.HasPendingCameraMotion)
                 DisableUpdate();
         }
+        #endregion
 
         private void RequestRepaint()
         {

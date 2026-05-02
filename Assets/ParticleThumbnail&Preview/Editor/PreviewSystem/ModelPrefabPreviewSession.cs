@@ -13,6 +13,7 @@ namespace ParticleThumbnailAndPreview.Editor
         UvChecker,
         VertexColor,
         Overdraw,
+        Matcap,
     }
 
     internal sealed class ModelPrefabPreviewSession
@@ -43,11 +44,17 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float PivotMarkerRadius = 0.07f;
         private const int PivotMarkerSegments = 24;
         private const float TurntableDegreesPerSecond = 24f;
-        private const string PackageVisualModesRoot = "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/VisualModes";
-        private const string AssetsVisualModesRoot = "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/VisualModes";
+        private static readonly string[] VisualModesRoots =
+        {
+            "Assets/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/VisualModes",
+            "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/VisualModes",
+            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/VisualModes",
+            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/VisualModes",
+        };
         private const string NormalsMaterialPath = "PrefabPreviewNormals.mat";
         private const string UvCheckerMaterialPath = "PrefabPreviewUvChecker.mat";
         private const string VertexColorMaterialPath = "PrefabPreviewVertexColor.mat";
+        private const string MatcapMaterialPath = "PrefabPreviewMatcap.mat";
         private const string OverdrawMaterialPath = "PrefabPreviewOverdraw.mat";
 
         private static Mesh s_gridMesh3D;
@@ -60,6 +67,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private static Material s_normalsMaterial;
         private static Material s_uvCheckerMaterial;
         private static Material s_vertexColorMaterial;
+        private static Material s_matcapMaterial;
         private static Material s_overdrawMaterial;
         private static readonly List<Material[]> SharedMaterialRestoreCache = new();
         private static readonly Dictionary<string, SessionStateSnapshot> SessionStateByAssetPath = new();
@@ -775,6 +783,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 ModelPreviewVisualMode.Normals => s_normalsMaterial,
                 ModelPreviewVisualMode.UvChecker => s_uvCheckerMaterial,
                 ModelPreviewVisualMode.VertexColor => s_vertexColorMaterial,
+                ModelPreviewVisualMode.Matcap => s_matcapMaterial,
                 ModelPreviewVisualMode.Overdraw => s_overdrawMaterial,
                 _ => null,
             };
@@ -1496,20 +1505,15 @@ namespace ParticleThumbnailAndPreview.Editor
             s_normalsMaterial ??= LoadVisualModeMaterial(NormalsMaterialPath);
             s_uvCheckerMaterial ??= LoadVisualModeMaterial(UvCheckerMaterialPath);
             s_vertexColorMaterial ??= LoadVisualModeMaterial(VertexColorMaterialPath);
+            s_matcapMaterial ??= LoadVisualModeMaterial(MatcapMaterialPath);
             s_overdrawMaterial ??= LoadVisualModeMaterial(OverdrawMaterialPath);
         }
 
         private static Material LoadVisualModeMaterial(string fileName)
         {
-            string[] roots =
+            for (int i = 0; i < VisualModesRoots.Length; i++)
             {
-                PackageVisualModesRoot,
-                AssetsVisualModesRoot,
-            };
-
-            for (int i = 0; i < roots.Length; i++)
-            {
-                string path = roots[i] + "/" + fileName;
+                string path = VisualModesRoots[i] + "/" + fileName;
                 Material loaded = AssetDatabase.LoadAssetAtPath<Material>(path);
                 if (loaded != null)
                     return loaded;
