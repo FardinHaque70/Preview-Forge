@@ -31,7 +31,6 @@ namespace ParticleThumbnailAndPreview.Editor
             ?? GetInstanceMethod(PropertyEditorType, "SetSelectedPreview")  // older spellings
             ?? GetInstanceMethod(PropertyEditorType, "OnPreviewSelected");
 
-        private static readonly MethodInfo CreatePreviewablesMethod = GetInstanceMethod(PropertyEditorType, "CreatePreviewables");
         private static readonly MethodInfo GetInspectedObjectMethod  = GetInstanceMethod(PropertyEditorType, "GetInspectedObject");
         private static readonly FieldInfo  PreviewsField             = GetInstanceField(PropertyEditorType, "m_Previews");
 
@@ -47,7 +46,6 @@ namespace ParticleThumbnailAndPreview.Editor
         static ParticlePreviewAutoSelector()
         {
             Selection.selectionChanged          += ScheduleAutoSelect;
-            EditorApplication.projectChanged    += ScheduleAutoSelect;
             ParticlePreviewSettings.SettingsChanged += ScheduleAutoSelect;
             ScheduleAutoSelect();
         }
@@ -143,13 +141,6 @@ namespace ParticleThumbnailAndPreview.Editor
 
                     IList previews    = PreviewsField.GetValue(propertyEditor) as IList;
                     object ourPreview = FindPreviewByTypeName(previews, ThisPreviewTypeName);
-
-                    if (ourPreview == null && ShouldForceCreatePreviewables(propertyEditor))
-                    {
-                        CreatePreviewablesMethod?.Invoke(propertyEditor, null);
-                        previews    = PreviewsField.GetValue(propertyEditor) as IList;
-                        ourPreview  = FindPreviewByTypeName(previews, ThisPreviewTypeName);
-                    }
 
                     if (ourPreview == null)
                         continue;
@@ -287,17 +278,6 @@ namespace ParticleThumbnailAndPreview.Editor
             }
             catch { return true; }
             return inspectedObject != null;
-        }
-
-        private static bool ShouldForceCreatePreviewables(UnityObject propertyEditor)
-        {
-            if (propertyEditor == null || CreatePreviewablesMethod == null)
-                return false;
-            int editorId = propertyEditor.GetInstanceID();
-            if (CreatePreviewablesAttemptsByEditor.TryGetValue(editorId, out int attempts) && attempts >= 1)
-                return false;
-            CreatePreviewablesAttemptsByEditor[editorId] = attempts + 1;
-            return true;
         }
 
         private static bool ShouldApplyToPropertyEditor(UnityObject propertyEditor)

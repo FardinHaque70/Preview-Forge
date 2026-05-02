@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.0.3] - 2026-05-02
+
+- Stop preview auto-selection from re-running on `projectChanged` refreshes triggered by prefab save and import work.
+- Remove the forced internal previewable rebuild path to keep prefab Inspector edits from briefly dropping selection and surfacing third-party shader parsing popups.
+
 ## [1.0.2] - 2026-05-02
 
 - Fix prefab Inspector edits briefly clearing the selected prefab and flashing the save prompt when the custom particle preview auto-select refreshes.
