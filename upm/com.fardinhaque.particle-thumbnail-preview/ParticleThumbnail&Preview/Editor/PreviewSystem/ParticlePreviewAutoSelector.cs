@@ -55,7 +55,7 @@ namespace ParticleThumbnailAndPreview.Editor
             EditorApplication.update -= OnEditorUpdate;
             CreatePreviewablesAttemptsByEditor.Clear();
 
-            if (!ParticlePreviewSettings.Active || !ParticlePreviewTargetGate.IsSupportedTarget(Selection.objects))
+            if (!ParticlePreviewSettings.Active || !ParticlePreviewTargetGate.ShouldSuppressCompetingPreview(Selection.objects))
             {
                 _autoSelectPending        = false;
                 _framesRemaining          = 0;
@@ -89,7 +89,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 return;
             }
 
-            if (!ParticlePreviewSettings.Active || !ParticlePreviewTargetGate.IsSupportedTarget(Selection.objects))
+            if (!ParticlePreviewSettings.Active || !ParticlePreviewTargetGate.ShouldSuppressCompetingPreview(Selection.objects))
             {
                 _autoSelectPending = false;
                 _framesRemaining   = 0;

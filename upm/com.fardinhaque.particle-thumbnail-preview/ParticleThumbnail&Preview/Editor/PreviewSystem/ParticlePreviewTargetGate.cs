@@ -10,24 +10,22 @@ namespace ParticleThumbnailAndPreview.Editor
     {
         public static bool IsSupportedTarget(UnityObject[] targets)
         {
-            if (targets == null || targets.Length != 1)
-                return false;
-
-            return IsSupportedTarget(targets[0] as GameObject);
+            return PrefabPreviewTargetClassifier.IsSupportedTarget(targets);
         }
 
         public static bool IsSupportedTarget(GameObject prefab)
         {
-            if (prefab == null)
-                return false;
+            return PrefabPreviewTargetClassifier.Classify(prefab) != PrefabPreviewTargetKind.Unsupported;
+        }
 
-            if (!EditorUtility.IsPersistent(prefab))
-                return false;
+        public static PrefabPreviewTargetKind GetTargetKind(UnityObject[] targets)
+        {
+            return PrefabPreviewTargetClassifier.Classify(targets);
+        }
 
-            if (!PrefabUtility.IsPartOfPrefabAsset(prefab))
-                return false;
-
-            return prefab.GetComponent<ParticleSystem>() != null;
+        public static PrefabPreviewTargetKind GetTargetKind(GameObject prefab)
+        {
+            return PrefabPreviewTargetClassifier.Classify(prefab);
         }
 
         public static bool ShouldSuppressCompetingPreview(UnityObject[] targets)
@@ -40,7 +38,16 @@ namespace ParticleThumbnailAndPreview.Editor
             if (!previewActive)
                 return false;
 
-            return IsSupportedTarget(targets) || IsInspectorSourceBackedParticlePrefab(targets);
+            PrefabPreviewTargetKind kind = GetTargetKind(targets);
+            if (kind != PrefabPreviewTargetKind.Unsupported)
+                return IsKindEnabled(kind);
+
+            if (!IsInspectorSourceBackedSupportedPrefab(targets))
+                return false;
+
+            GameObject resolved = PrefabPreviewTargetClassifier.ResolvePrefabAsset(targets != null && targets.Length > 0 ? targets[0] : null);
+            PrefabPreviewTargetKind sourceKind = GetTargetKind(resolved);
+            return IsKindEnabled(sourceKind);
         }
 
         public static UnityObject[] TryGetObjectPreviewTargets(object objectPreviewInstance)
@@ -70,12 +77,12 @@ namespace ParticleThumbnailAndPreview.Editor
             return null;
         }
 
-        private static bool IsInspectorSourceBackedParticlePrefab(UnityObject[] targets)
+        private static bool IsInspectorSourceBackedSupportedPrefab(UnityObject[] targets)
         {
             if (targets == null || targets.Length != 1)
                 return false;
 
-            if (TryResolveSourceParticlePrefab(targets[0], out _))
+            if (TryResolveSourceSupportedPrefab(targets[0], out _))
                 return true;
 
             if (Selection.activeObject is GameObject selectedPrefab && IsSupportedTarget(selectedPrefab))
@@ -84,24 +91,20 @@ namespace ParticleThumbnailAndPreview.Editor
             return false;
         }
 
-        private static bool TryResolveSourceParticlePrefab(UnityObject target, out GameObject prefabAsset)
+        private static bool TryResolveSourceSupportedPrefab(UnityObject target, out GameObject prefabAsset)
         {
-            prefabAsset = null;
-            if (target == null)
-                return false;
+            prefabAsset = PrefabPreviewTargetClassifier.ResolvePrefabAsset(target);
+            return prefabAsset != null && IsSupportedTarget(prefabAsset);
+        }
 
-            GameObject go = target as GameObject;
-            if (go == null && target is Component component)
-                go = component.gameObject;
-            if (go == null)
-                return false;
-
-            GameObject source = PrefabUtility.GetCorrespondingObjectFromSource(go);
-            if (source == null || !IsSupportedTarget(source))
-                return false;
-
-            prefabAsset = source;
-            return true;
+        private static bool IsKindEnabled(PrefabPreviewTargetKind kind)
+        {
+            return kind switch
+            {
+                PrefabPreviewTargetKind.Particle => ParticlePreviewSettings.Active,
+                PrefabPreviewTargetKind.Model => ParticlePreviewSettings.ModelPreviewActive,
+                _ => false,
+            };
         }
     }
 }

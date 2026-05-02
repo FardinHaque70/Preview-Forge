@@ -18,6 +18,21 @@ namespace ParticleThumbnailAndPreview.Editor
 		[SerializeField] internal float motionRadius = ParticlePreviewSettings.D_MotionRadius;
 		[SerializeField] internal float motionSpeed = ParticlePreviewSettings.D_MotionSpeed;
 		[SerializeField] internal Color backgroundColor = ParticlePreviewSettings.D_BackgroundColor;
+		[SerializeField] internal bool modelPreviewActive = ParticlePreviewSettings.D_ModelPreviewActive;
+		[SerializeField] internal PreviewModeOverride modelPreviewMode = ParticlePreviewSettings.D_ModelPreviewMode;
+		[SerializeField] internal bool modelDefaultLightingEnabled = ParticlePreviewSettings.D_ModelDefaultLightingEnabled;
+		[SerializeField] internal bool modelDefaultSkyboxEnabled = ParticlePreviewSettings.D_ModelDefaultSkyboxEnabled;
+		[SerializeField] internal Cubemap modelSkyboxCubemap = ParticlePreviewSettings.D_ModelSkyboxCubemap;
+		[SerializeField] internal Color modelAmbientColor = ParticlePreviewSettings.D_ModelAmbientColor;
+		[SerializeField] internal float modelKeyLightIntensity = ParticlePreviewSettings.D_ModelKeyLightIntensity;
+		[SerializeField] internal Vector2 modelKeyLightRotation = ParticlePreviewSettings.D_ModelKeyLightRotation;
+		[SerializeField] internal float modelFillLightIntensity = ParticlePreviewSettings.D_ModelFillLightIntensity;
+		[SerializeField] internal Vector2 modelFillLightRotation = ParticlePreviewSettings.D_ModelFillLightRotation;
+		[SerializeField] internal bool modelRimLightEnabled = ParticlePreviewSettings.D_ModelRimLightEnabled;
+		[SerializeField] internal float modelRimLightIntensity = ParticlePreviewSettings.D_ModelRimLightIntensity;
+		[SerializeField] internal Vector2 modelRimLightRotation = ParticlePreviewSettings.D_ModelRimLightRotation;
+		[SerializeField] internal Color modelRimLightColor = ParticlePreviewSettings.D_ModelRimLightColor;
+		[SerializeField] internal bool enableDiagnostics = ParticlePreviewSettings.D_EnableDiagnostics;
 
 		internal void SaveStorage()
 		{
@@ -38,6 +53,21 @@ namespace ParticleThumbnailAndPreview.Editor
 			motionRadius = ParticlePreviewSettings.D_MotionRadius;
 			motionSpeed = ParticlePreviewSettings.D_MotionSpeed;
 			backgroundColor = ParticlePreviewSettings.D_BackgroundColor;
+			modelPreviewActive = ParticlePreviewSettings.D_ModelPreviewActive;
+			modelPreviewMode = ParticlePreviewSettings.D_ModelPreviewMode;
+			modelDefaultLightingEnabled = ParticlePreviewSettings.D_ModelDefaultLightingEnabled;
+			modelDefaultSkyboxEnabled = ParticlePreviewSettings.D_ModelDefaultSkyboxEnabled;
+			modelSkyboxCubemap = ParticlePreviewSettings.D_ModelSkyboxCubemap;
+			modelAmbientColor = ParticlePreviewSettings.D_ModelAmbientColor;
+			modelKeyLightIntensity = ParticlePreviewSettings.D_ModelKeyLightIntensity;
+			modelKeyLightRotation = ParticlePreviewSettings.D_ModelKeyLightRotation;
+			modelFillLightIntensity = ParticlePreviewSettings.D_ModelFillLightIntensity;
+			modelFillLightRotation = ParticlePreviewSettings.D_ModelFillLightRotation;
+			modelRimLightEnabled = ParticlePreviewSettings.D_ModelRimLightEnabled;
+			modelRimLightIntensity = ParticlePreviewSettings.D_ModelRimLightIntensity;
+			modelRimLightRotation = ParticlePreviewSettings.D_ModelRimLightRotation;
+			modelRimLightColor = ParticlePreviewSettings.D_ModelRimLightColor;
+			enableDiagnostics = ParticlePreviewSettings.D_EnableDiagnostics;
 		}
 	}
 
@@ -63,6 +93,23 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float MinMotionSpeed = 0.1f;
 		public const float MaxMotionSpeed = 200f;
 		public static readonly Color D_BackgroundColor = new Color(0.11f, 0.11f, 0.11f, 1f);
+		public const bool D_ModelPreviewActive = true;
+		public const PreviewModeOverride D_ModelPreviewMode = PreviewModeOverride.Auto;
+		public const bool D_ModelDefaultLightingEnabled = true;
+		public const bool D_ModelDefaultSkyboxEnabled = true;
+		public const Cubemap D_ModelSkyboxCubemap = null;
+		public static readonly Color D_ModelAmbientColor = new Color(0.58f, 0.58f, 0.58f, 1f);
+		public const float D_ModelKeyLightIntensity = 1.15f;
+		public static readonly Vector2 D_ModelKeyLightRotation = new Vector2(35f, 35f);
+		public const float D_ModelFillLightIntensity = 0.7f;
+		public static readonly Vector2 D_ModelFillLightRotation = new Vector2(200f, -30f);
+		public const bool D_ModelRimLightEnabled = true;
+		public const float D_ModelRimLightIntensity = 0.5f;
+		public static readonly Vector2 D_ModelRimLightRotation = new Vector2(160f, 0f);
+		public static readonly Color D_ModelRimLightColor = Color.white;
+		public const float MinModelLightIntensity = 0f;
+		public const float MaxModelLightIntensity = 8f;
+		public const bool D_EnableDiagnostics = false;
 
 		public static event Action SettingsChanged;
 
@@ -85,6 +132,26 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static float MotionSpeed => Mathf.Clamp(Storage.motionSpeed, MinMotionSpeed, MaxMotionSpeed);
 
 		public static Color BackgroundColor => Storage.backgroundColor;
+		public static bool ModelPreviewActive => Storage.modelPreviewActive;
+		public static PreviewModeOverride ModelPreviewMode => Storage.modelPreviewMode;
+		public static bool ModelDefaultLightingEnabled => Storage.modelDefaultLightingEnabled;
+		public static bool ModelDefaultSkyboxEnabled => Storage.modelDefaultSkyboxEnabled;
+		public static Cubemap ModelSkyboxCubemap => Storage.modelSkyboxCubemap;
+		public static Color ModelAmbientColor => Storage.modelAmbientColor;
+		public static float ModelKeyLightIntensity => Mathf.Clamp(Storage.modelKeyLightIntensity, MinModelLightIntensity, MaxModelLightIntensity);
+		public static Vector2 ModelKeyLightRotation => Storage.modelKeyLightRotation;
+		public static float ModelFillLightIntensity => Mathf.Clamp(Storage.modelFillLightIntensity, MinModelLightIntensity, MaxModelLightIntensity);
+		public static Vector2 ModelFillLightRotation => Storage.modelFillLightRotation;
+		public static bool ModelRimLightEnabled => Storage.modelRimLightEnabled;
+		public static float ModelRimLightIntensity => Mathf.Clamp(Storage.modelRimLightIntensity, MinModelLightIntensity, MaxModelLightIntensity);
+		public static Vector2 ModelRimLightRotation => Storage.modelRimLightRotation;
+		public static Color ModelRimLightColor => Storage.modelRimLightColor;
+		public static bool EnableDiagnostics => Storage.enableDiagnostics;
+
+		internal static float ClampModelLightIntensityForTests(float value)
+		{
+			return Mathf.Clamp(value, MinModelLightIntensity, MaxModelLightIntensity);
+		}
 
 		internal static void NotifyChanged()
 		{
@@ -141,6 +208,68 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.backgroundColor = EditorGUILayout.ColorField(
 					new GUIContent("Background Color", "Background color behind particle preview rendering."),
 					storage.backgroundColor);
+			});
+			DrawSectionCard("Model Preview", () =>
+			{
+				storage.modelPreviewActive = EditorGUILayout.Toggle(
+					new GUIContent("Enable Model Preview", "Enable custom preview for prefabs with mesh/skinned renderers."),
+					storage.modelPreviewActive);
+				storage.modelPreviewMode = (PreviewModeOverride)EditorGUILayout.EnumPopup(
+					new GUIContent("Mode Override", "Auto follows project/pipeline detection. 2D/3D force a mode for model previews."),
+					storage.modelPreviewMode);
+			});
+			DrawSectionCard("Model Environment", () =>
+			{
+				storage.modelDefaultLightingEnabled = EditorGUILayout.Toggle(
+					new GUIContent("Default Lights", "Default toolbar state for model lights."),
+					storage.modelDefaultLightingEnabled);
+				storage.modelDefaultSkyboxEnabled = EditorGUILayout.Toggle(
+					new GUIContent("Default Skybox", "Default toolbar state for model skybox."),
+					storage.modelDefaultSkyboxEnabled);
+				storage.modelSkyboxCubemap = (Cubemap)EditorGUILayout.ObjectField(
+					new GUIContent("Skybox Cubemap", "Cubemap used when model skybox is enabled."),
+					storage.modelSkyboxCubemap,
+					typeof(Cubemap),
+					false);
+				storage.modelAmbientColor = EditorGUILayout.ColorField(
+					new GUIContent("Ambient Color", "Ambient contribution for model preview lighting."),
+					storage.modelAmbientColor);
+				storage.modelKeyLightIntensity = EditorGUILayout.Slider(
+					new GUIContent("Key Intensity", "Key directional light intensity."),
+					storage.modelKeyLightIntensity,
+					ParticlePreviewSettings.MinModelLightIntensity,
+					ParticlePreviewSettings.MaxModelLightIntensity);
+				storage.modelKeyLightRotation = EditorGUILayout.Vector2Field(
+					new GUIContent("Key Rotation", "Key light rotation as Yaw/Pitch in degrees."),
+					storage.modelKeyLightRotation);
+				storage.modelFillLightIntensity = EditorGUILayout.Slider(
+					new GUIContent("Fill Intensity", "Fill directional light intensity."),
+					storage.modelFillLightIntensity,
+					ParticlePreviewSettings.MinModelLightIntensity,
+					ParticlePreviewSettings.MaxModelLightIntensity);
+				storage.modelFillLightRotation = EditorGUILayout.Vector2Field(
+					new GUIContent("Fill Rotation", "Fill light rotation as Yaw/Pitch in degrees."),
+					storage.modelFillLightRotation);
+				storage.modelRimLightEnabled = EditorGUILayout.Toggle(
+					new GUIContent("Rim Enabled", "Enable the optional rim light in model preview."),
+					storage.modelRimLightEnabled);
+				storage.modelRimLightIntensity = EditorGUILayout.Slider(
+					new GUIContent("Rim Intensity", "Rim directional light intensity."),
+					storage.modelRimLightIntensity,
+					ParticlePreviewSettings.MinModelLightIntensity,
+					ParticlePreviewSettings.MaxModelLightIntensity);
+				storage.modelRimLightRotation = EditorGUILayout.Vector2Field(
+					new GUIContent("Rim Rotation", "Rim light rotation as Yaw/Pitch in degrees."),
+					storage.modelRimLightRotation);
+				storage.modelRimLightColor = EditorGUILayout.ColorField(
+					new GUIContent("Rim Color", "Rim light color."),
+					storage.modelRimLightColor);
+			});
+			DrawSectionCard("Debug", () =>
+			{
+				storage.enableDiagnostics = EditorGUILayout.Toggle(
+					new GUIContent("Enable Diagnostics", "Write preview lifecycle diagnostics to the Unity Console."),
+					storage.enableDiagnostics);
 			});
 			DrawSectionCard("Interaction", () =>
 			{

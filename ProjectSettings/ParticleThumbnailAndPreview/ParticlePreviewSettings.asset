@@ -11,12 +11,15 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 0}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp-Editor:ParticleThumbnailAndPreview.Editor:ParticlePreviewSettingsStorage
+  m_EditorClassIdentifier: ParticleThumbnailAndPreview.Editor:ParticleThumbnailAndPreview.Editor:ParticlePreviewSettingsStorage
   active: 1
   refreshFps: 45
   orbitSmoothing: 15
   panSmoothing: 15
-  motionPadding: 0.2
+  motionPadding: 0
   motionRadius: 3
   motionSpeed: 30
   backgroundColor: {r: 0.11, g: 0.11, b: 0.11, a: 1}
+  modelPreviewActive: 1
+  modelPreviewMode: 0
+  enableDiagnostics: 1

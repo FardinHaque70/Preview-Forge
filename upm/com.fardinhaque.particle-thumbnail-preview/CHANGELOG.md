@@ -2,6 +2,15 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.0] - 2026-05-02
+
+- Add unified custom prefab preview routing for particle and model prefabs.
+- Add lean mesh/skinned model preview with robust framing and orbit/pan/zoom interaction.
+- Add shared preview mode architecture with `Auto`, forced `2D`, and forced `3D` mode support for model previews.
+- Generalize preview target gating and competing-preview suppression to classifier-driven prefab support.
+- Add model preview settings (`Enable Model Preview`, `Mode Override`) in project settings.
+- Add EditMode tests for target classification and preview mode resolution helpers.
+
 ## [1.0.3] - 2026-05-02
 
 - Stop preview auto-selection from re-running on `projectChanged` refreshes triggered by prefab save and import work.
