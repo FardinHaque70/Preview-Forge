@@ -38,10 +38,11 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private const float DefaultGridHalfSize = 6f;
         private const float DefaultGridStep = 0.5f;
-        private const float DefaultGridAlpha = 0.14f;
+        private const float DefaultGridAlpha = 0.169f;
         private const float AxisSize = 0.65f;
         private const float PivotMarkerRadius = 0.07f;
         private const int PivotMarkerSegments = 24;
+        private const float TurntableDegreesPerSecond = 24f;
 
         private static Mesh s_gridMesh3D;
         private static Mesh s_gridMesh2D;
@@ -50,8 +51,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private static Mesh s_axesMesh;
         private static Material s_gridMaterial;
         private static Material s_solidLineMaterial;
-        private static Material s_skyboxMaterial;
-        private static Cubemap s_skyboxMaterialCubemap;
         private static Material s_normalsMaterial;
         private static Material s_uvCheckerMaterial;
         private static Material s_vertexColorMaterial;
@@ -61,6 +60,16 @@ namespace ParticleThumbnailAndPreview.Editor
         private static string s_lastSetupAssetPath;
         private static readonly Type TmpTextMeshProType = Type.GetType("TMPro.TextMeshPro, Unity.TextMeshPro");
         private static readonly Type TmpTextMeshProUiType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
+        private static readonly PreviewCameraInteractionConfig CameraInteractionConfig = new(
+            PitchMin,
+            PitchMax,
+            MaxDeltaTime,
+            OrbitEpsilon,
+            DistanceEpsilon,
+            PivotEpsilon,
+            AngularVelocityEpsilon,
+            OrbitHoldStillResetSeconds,
+            ZoomSmooth);
 
         private readonly List<Renderer> _renderers = new();
         private readonly List<bool> _rendererInitialStates = new();
@@ -70,6 +79,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private int _prefabInstanceId;
         private string _prefabAssetPath;
         private Skybox _cameraSkybox;
+        private Light _sunLight;
         private Light _rimLight;
 
         private Vector3 _pivot;
@@ -86,11 +96,9 @@ namespace ParticleThumbnailAndPreview.Editor
         private bool _gridEnabled = true;
         private bool _lightsEnabled;
         private bool _skyboxEnabled;
-        private bool _boundsEnabled;
-        private bool _pivotEnabled;
-        private bool _axesEnabled;
         private bool _infoEnabled = true;
-        private PreviewModeOverride _modeOverride = PreviewModeOverride.Auto;
+        private bool _turntableEnabled = true;
+        private PreviewModeOverride _modeOverride = PreviewModeOverride.Force3D;
         private ModelPreviewVisualMode _visualMode = ModelPreviewVisualMode.None;
         private ModelPreviewVisualMode _lastNonNoneVisualMode = ModelPreviewVisualMode.Normals;
         private Bounds _framedBounds;
@@ -111,10 +119,8 @@ namespace ParticleThumbnailAndPreview.Editor
             internal bool GridEnabled;
             internal bool LightsEnabled;
             internal bool SkyboxEnabled;
-            internal bool BoundsEnabled;
-            internal bool PivotEnabled;
-            internal bool AxesEnabled;
             internal bool InfoEnabled;
+            internal bool TurntableEnabled;
             internal PreviewModeOverride ModeOverride;
             internal ModelPreviewVisualMode VisualMode;
             internal ModelPreviewVisualMode LastNonNoneVisualMode;
@@ -125,10 +131,8 @@ namespace ParticleThumbnailAndPreview.Editor
         internal bool GridEnabled => _gridEnabled;
         internal bool LightsEnabled => _lightsEnabled;
         internal bool SkyboxEnabled => _skyboxEnabled;
-        internal bool BoundsEnabled => _boundsEnabled;
-        internal bool PivotEnabled => _pivotEnabled;
-        internal bool AxesEnabled => _axesEnabled;
         internal bool InfoEnabled => _infoEnabled;
+        internal bool TurntableEnabled => _turntableEnabled;
         internal PreviewModeOverride ModeOverride => _modeOverride;
         internal ModelPreviewVisualMode VisualMode => _visualMode;
         internal ModelPreviewVisualMode LastNonNoneVisualMode => _lastNonNoneVisualMode;
@@ -183,7 +187,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _previewRoot = UnityEngine.Object.Instantiate(prefab);
             _previewRoot.name = "ModelPreviewRoot";
             _previewRoot.hideFlags = HideFlags.HideAndDontSave;
-            ForceActivateHierarchy(_previewRoot);
+            PreviewHierarchyUtility.ForceActivateHierarchy(_previewRoot);
             _previewRoot.transform.position = Vector3.zero;
             _previewRoot.transform.rotation = prefab.transform.rotation;
 
@@ -197,13 +201,12 @@ namespace ParticleThumbnailAndPreview.Editor
             }
             ComputeStats();
 
-            _modeOverride = ParticlePreviewSettings.ModelPreviewMode;
-            _lightsEnabled = ParticlePreviewSettings.ModelDefaultLightingEnabled;
+            _modeOverride = NormalizeModeOverride(ParticlePreviewSettings.ModelPreviewMode);
+            _gridEnabled = ParticlePreviewSettings.ModelDefaultGridEnabled;
+            _lightsEnabled = true;
             _skyboxEnabled = ParticlePreviewSettings.ModelDefaultSkyboxEnabled;
-            _boundsEnabled = false;
-            _pivotEnabled = false;
-            _axesEnabled = false;
-            _infoEnabled = true;
+            _infoEnabled = ParticlePreviewSettings.ModelDefaultInfoEnabled;
+            _turntableEnabled = ParticlePreviewSettings.ModelDefaultTurntableEnabled;
             _visualMode = ModelPreviewVisualMode.None;
             _lastNonNoneVisualMode = ModelPreviewVisualMode.Normals;
             _lastGridDiagnosticsKey = null;
@@ -221,11 +224,9 @@ namespace ParticleThumbnailAndPreview.Editor
                 _gridEnabled = restored.GridEnabled;
                 _lightsEnabled = restored.LightsEnabled;
                 _skyboxEnabled = restored.SkyboxEnabled;
-                _boundsEnabled = restored.BoundsEnabled;
-                _pivotEnabled = restored.PivotEnabled;
-                _axesEnabled = restored.AxesEnabled;
                 _infoEnabled = restored.InfoEnabled;
-                _modeOverride = restored.ModeOverride;
+                _turntableEnabled = restored.TurntableEnabled;
+                _modeOverride = NormalizeModeOverride(restored.ModeOverride);
                 _visualMode = restored.VisualMode;
                 _lastNonNoneVisualMode = restored.LastNonNoneVisualMode == ModelPreviewVisualMode.None
                     ? ModelPreviewVisualMode.Normals
@@ -237,11 +238,15 @@ namespace ParticleThumbnailAndPreview.Editor
                 PreviewDiagnostics.Log("ModelSession", $"Restored cached state asset='{assetPath}'");
             }
 
+            if (ModeContext.Effective2D)
+                _turntableEnabled = false;
+
             _prefabInstanceId = instanceId;
             _prefabAssetPath = assetPath;
             s_lastSetupAssetPath = assetPath;
             _lastInteractionUpdateTime = -1d;
             EnsureGridResources();
+            EnsureSunLight();
             EnsureRimLight();
             PreviewDiagnostics.Log("ModelSession", $"Setup complete id={instanceId} asset='{assetPath}'");
         }
@@ -261,6 +266,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _lastGridDiagnosticsKey = null;
             _hasFramedBounds = false;
             _cameraSkybox = null;
+            _sunLight = null;
             _rimLight = null;
             _loggedVisualModeFailure = ModelPreviewVisualMode.None;
 
@@ -290,61 +296,40 @@ namespace ParticleThumbnailAndPreview.Editor
             if (string.IsNullOrEmpty(_prefabAssetPath))
                 return;
 
-            SessionStateByAssetPath[_prefabAssetPath] = new SessionStateSnapshot
-            {
-                Pivot = _pivot,
-                TargetPivot = _targetPivot,
-                Orbit = _orbit,
-                TargetOrbit = _targetOrbit,
-                Distance = Mathf.Clamp(_distance, MinDistance, MaxDistance),
-                TargetDistance = Mathf.Clamp(_targetDistance, MinDistance, MaxDistance),
-                GridEnabled = _gridEnabled,
-                LightsEnabled = _lightsEnabled,
-                SkyboxEnabled = _skyboxEnabled,
-                BoundsEnabled = _boundsEnabled,
-                PivotEnabled = _pivotEnabled,
-                AxesEnabled = _axesEnabled,
-                InfoEnabled = _infoEnabled,
-                ModeOverride = _modeOverride,
-                VisualMode = _visualMode,
-                LastNonNoneVisualMode = _lastNonNoneVisualMode,
-                SavedAt = EditorApplication.timeSinceStartup,
-            };
-
-            if (SessionStateByAssetPath.Count <= MaxCachedSessionStates)
-                return;
-
-            string oldestKey = null;
-            double oldestTime = double.MaxValue;
-            foreach (KeyValuePair<string, SessionStateSnapshot> pair in SessionStateByAssetPath)
-            {
-                if (pair.Value.SavedAt >= oldestTime)
-                    continue;
-
-                oldestTime = pair.Value.SavedAt;
-                oldestKey = pair.Key;
-            }
-
-            if (!string.IsNullOrEmpty(oldestKey))
-                SessionStateByAssetPath.Remove(oldestKey);
+            PreviewSessionStateCache.SaveAndTrim(
+                SessionStateByAssetPath,
+                _prefabAssetPath,
+                new SessionStateSnapshot
+                {
+                    Pivot = _pivot,
+                    TargetPivot = _targetPivot,
+                    Orbit = _orbit,
+                    TargetOrbit = _targetOrbit,
+                    Distance = Mathf.Clamp(_distance, MinDistance, MaxDistance),
+                    TargetDistance = Mathf.Clamp(_targetDistance, MinDistance, MaxDistance),
+                    GridEnabled = _gridEnabled,
+                    LightsEnabled = _lightsEnabled,
+                    SkyboxEnabled = _skyboxEnabled,
+                    InfoEnabled = _infoEnabled,
+                    TurntableEnabled = _turntableEnabled,
+                    ModeOverride = NormalizeModeOverride(_modeOverride),
+                    VisualMode = _visualMode,
+                    LastNonNoneVisualMode = _lastNonNoneVisualMode,
+                    SavedAt = EditorApplication.timeSinceStartup,
+                },
+                MaxCachedSessionStates,
+                static snapshot => snapshot.SavedAt);
         }
 
         private static bool TryRestoreSessionState(string assetPath, out SessionStateSnapshot snapshot)
         {
-            snapshot = default;
-            if (string.IsNullOrEmpty(assetPath))
-                return false;
-
-            if (!SessionStateByAssetPath.TryGetValue(assetPath, out snapshot))
-                return false;
-
-            if (EditorApplication.timeSinceStartup - snapshot.SavedAt > SessionRestoreWindowSeconds)
-            {
-                SessionStateByAssetPath.Remove(assetPath);
-                return false;
-            }
-
-            return true;
+            return PreviewSessionStateCache.TryRestore(
+                SessionStateByAssetPath,
+                assetPath,
+                EditorApplication.timeSinceStartup,
+                SessionRestoreWindowSeconds,
+                static restored => restored.SavedAt,
+                out snapshot);
         }
 
         internal void SetGridEnabled(bool enabled)
@@ -364,24 +349,16 @@ namespace ParticleThumbnailAndPreview.Editor
             _skyboxEnabled = enabled;
         }
 
-        internal void SetBoundsEnabled(bool enabled)
-        {
-            _boundsEnabled = enabled;
-        }
-
-        internal void SetPivotEnabled(bool enabled)
-        {
-            _pivotEnabled = enabled;
-        }
-
-        internal void SetAxesEnabled(bool enabled)
-        {
-            _axesEnabled = enabled;
-        }
-
         internal void SetInfoEnabled(bool enabled)
         {
             _infoEnabled = enabled;
+        }
+
+        internal void SetTurntableEnabled(bool enabled)
+        {
+            _turntableEnabled = enabled;
+            if (enabled)
+                _orbitAngularVelocity = Vector2.zero;
         }
 
         internal void SetVisualMode(ModelPreviewVisualMode mode)
@@ -407,22 +384,26 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal void CycleModeOverride()
         {
-            _modeOverride = _modeOverride switch
-            {
-                PreviewModeOverride.Auto => PreviewModeOverride.Force2D,
-                PreviewModeOverride.Force2D => PreviewModeOverride.Force3D,
-                _ => PreviewModeOverride.Auto,
-            };
+            bool wasEffective2D = ModeContext.Effective2D;
 
-            if (ModeContext.Effective2D)
+            _modeOverride = _modeOverride == PreviewModeOverride.Force2D
+                ? PreviewModeOverride.Force3D
+                : PreviewModeOverride.Force2D;
+
+            bool isEffective2D = ModeContext.Effective2D;
+            if (isEffective2D)
             {
                 _targetOrbit = Vector2.zero;
                 _orbit = Vector2.zero;
                 _orbitAngularVelocity = Vector2.zero;
                 _isOrbitDragging = false;
                 _lastOrbitInputTime = -1d;
-                _lightsEnabled = false;
-                _skyboxEnabled = false;
+                _turntableEnabled = false;
+            }
+            else if (wasEffective2D)
+            {
+                FrameCameraToContent(reason: "mode-switch-3d");
+                _turntableEnabled = true;
             }
 
             _lastGridDiagnosticsKey = null;
@@ -446,6 +427,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (isPanDrag && pointerInPreview)
             {
                 PanPreviewTarget(evt.delta, previewRect, effective2D);
+                _turntableEnabled = false;
                 evt.Use();
                 return true;
             }
@@ -458,6 +440,7 @@ namespace ParticleThumbnailAndPreview.Editor
                         _isOrbitDragging = true;
                         _orbitAngularVelocity = Vector2.zero;
                         _lastOrbitInputTime = now;
+                        _turntableEnabled = false;
                         evt.Use();
                     }
 
@@ -484,6 +467,7 @@ namespace ParticleThumbnailAndPreview.Editor
                                 delta.x / Mathf.Max(0.0001f, dt),
                                 effective2D ? 0f : delta.y / Mathf.Max(0.0001f, dt));
                             _orbitAngularVelocity = Vector2.Lerp(_orbitAngularVelocity, rawVelocity, OrbitVelocitySmoothing);
+                            _turntableEnabled = false;
                             changed = true;
                         }
 
@@ -521,6 +505,7 @@ namespace ParticleThumbnailAndPreview.Editor
                     {
                         float nextDistance = _targetDistance * (1f + evt.delta.y * ZoomFactorPerScrollUnit);
                         _targetDistance = Mathf.Clamp(nextDistance, MinDistance, MaxDistance);
+                        _turntableEnabled = false;
                         evt.Use();
                         changed = true;
                     }
@@ -541,67 +526,49 @@ namespace ParticleThumbnailAndPreview.Editor
             bool effective2D = ModeContext.Effective2D;
 
             double now = EditorApplication.timeSinceStartup;
-            if (_lastInteractionUpdateTime < 0d)
+            if (_turntableEnabled && _lastInteractionUpdateTime >= 0d)
             {
-                _lastInteractionUpdateTime = now;
-                return ComputeHasPendingCameraMotion();
+                float turntableDt = Mathf.Clamp((float)(now - _lastInteractionUpdateTime), 0f, MaxDeltaTime);
+                if (turntableDt > 0f)
+                    _targetOrbit.x += TurntableDegreesPerSecond * turntableDt;
             }
 
-            float dt = Mathf.Clamp((float)(now - _lastInteractionUpdateTime), 0f, MaxDeltaTime);
-            _lastInteractionUpdateTime = now;
-            if (dt <= 0f)
-                return ComputeHasPendingCameraMotion();
-
-            if (_isOrbitDragging && _lastOrbitInputTime >= 0d && now - _lastOrbitInputTime > OrbitHoldStillResetSeconds)
-                _orbitAngularVelocity = Vector2.zero;
-
-            float angularVelocityEpsilonSq = AngularVelocityEpsilon * AngularVelocityEpsilon;
-            if (!_isOrbitDragging && _orbitAngularVelocity.sqrMagnitude > angularVelocityEpsilonSq)
+            var state = new PreviewCameraInteractionState
             {
-                _targetOrbit.x += _orbitAngularVelocity.x * dt;
-                if (!effective2D)
-                    _targetOrbit.y = Mathf.Clamp(_targetOrbit.y + _orbitAngularVelocity.y * dt, PitchMin, PitchMax);
+                Orbit = _orbit,
+                TargetOrbit = _targetOrbit,
+                OrbitAngularVelocity = _orbitAngularVelocity,
+                Distance = _distance,
+                TargetDistance = _targetDistance,
+                Pivot = _pivot,
+                TargetPivot = _targetPivot,
+                IsOrbitDragging = _isOrbitDragging,
+                LastOrbitInputTime = _lastOrbitInputTime,
+            };
 
-                float velocityDecay = Mathf.Exp(-orbitSmoothing * dt);
-                _orbitAngularVelocity *= velocityDecay;
-                if (_orbitAngularVelocity.sqrMagnitude <= angularVelocityEpsilonSq)
-                    _orbitAngularVelocity = Vector2.zero;
-            }
+            bool pending = PreviewCameraController.Tick(
+                ref state,
+                ref _lastInteractionUpdateTime,
+                now,
+                orbitSmoothing,
+                panSmoothing,
+                effective2D,
+                CameraInteractionConfig);
 
-            _targetOrbit.y = effective2D ? 0f : Mathf.Clamp(_targetOrbit.y, PitchMin, PitchMax);
+            _orbit = state.Orbit;
+            _targetOrbit = state.TargetOrbit;
+            _orbitAngularVelocity = state.OrbitAngularVelocity;
+            _distance = state.Distance;
+            _targetDistance = state.TargetDistance;
+            _pivot = state.Pivot;
+            _targetPivot = state.TargetPivot;
+            _isOrbitDragging = state.IsOrbitDragging;
+            _lastOrbitInputTime = state.LastOrbitInputTime;
 
-            if (Vector2.Distance(_orbit, _targetOrbit) > OrbitEpsilon)
-            {
-                float orbitBlend = 1f - Mathf.Exp(-orbitSmoothing * dt);
-                _orbit = Vector2.Lerp(_orbit, _targetOrbit, orbitBlend);
-            }
-            else
-            {
-                _orbit = _targetOrbit;
-            }
+            if (effective2D)
+                _targetOrbit.y = 0f;
 
-            if (Mathf.Abs(_distance - _targetDistance) > DistanceEpsilon)
-            {
-                float zoomBlend = 1f - Mathf.Exp(-ZoomSmooth * dt);
-                _distance = Mathf.Lerp(_distance, _targetDistance, zoomBlend);
-            }
-            else
-            {
-                _distance = _targetDistance;
-            }
-
-            float pivotDeltaSqr = (_pivot - _targetPivot).sqrMagnitude;
-            if (pivotDeltaSqr > PivotEpsilon * PivotEpsilon)
-            {
-                float panBlend = 1f - Mathf.Exp(-panSmoothing * dt);
-                _pivot = Vector3.Lerp(_pivot, _targetPivot, panBlend);
-            }
-            else
-            {
-                _pivot = _targetPivot;
-            }
-
-            return ComputeHasPendingCameraMotion();
+            return _turntableEnabled || pending;
         }
 
         internal void Draw(Rect previewRect, GUIStyle background)
@@ -612,7 +579,6 @@ namespace ParticleThumbnailAndPreview.Editor
             _preview.camera.backgroundColor = ParticlePreviewSettings.BackgroundColor;
             UpdateCameraTransform();
             ApplyEnvironmentState();
-
             _preview.BeginPreview(previewRect, background ?? GUIStyle.none);
             if (_gridEnabled)
             {
@@ -636,13 +602,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 {
                     ParticleRenderCompatibilityUtility.RenderPreviewWithLegacyCameraPath(_preview);
                 }
-
-                if (_boundsEnabled)
-                    DrawBoundsOverlay();
-                if (_pivotEnabled)
-                    DrawPivotOverlay();
-                if (_axesEnabled)
-                    DrawAxesOverlay();
             }
             finally
             {
@@ -686,13 +645,34 @@ namespace ParticleThumbnailAndPreview.Editor
             bool effective2D = ModeContext.Effective2D;
             bool lightingEnabled = _lightsEnabled && !effective2D;
             bool skyboxEnabled = _skyboxEnabled && !effective2D;
+            _preview.ambientColor = Color.black;
 
-            _preview.ambientColor = lightingEnabled
-                ? ParticlePreviewSettings.ModelAmbientColor
-                : Color.black;
+            EnsureSunLight();
+            if (_sunLight != null)
+            {
+                bool sunEnabled = lightingEnabled && ParticlePreviewSettings.ModelSunLightEnabled;
+                _sunLight.enabled = sunEnabled;
+                if (sunEnabled)
+                {
+                    _sunLight.intensity = ParticlePreviewSettings.ModelSunLightIntensity;
+                    _sunLight.color = ParticlePreviewSettings.ModelSunLightColor;
+                    _sunLight.shadowStrength = ParticlePreviewSettings.ModelSunLightShadowStrength;
+                    _sunLight.transform.rotation = RotationFromYawPitch(ParticlePreviewSettings.ModelSunLightRotation);
+                }
+            }
 
-            ApplyDirectionalLight(_preview.lights[0], lightingEnabled, ParticlePreviewSettings.ModelKeyLightIntensity, ParticlePreviewSettings.ModelKeyLightRotation, Color.white);
-            ApplyDirectionalLight(_preview.lights[1], lightingEnabled, ParticlePreviewSettings.ModelFillLightIntensity, ParticlePreviewSettings.ModelFillLightRotation, Color.white);
+            ApplyDirectionalLight(
+                _preview.lights[0],
+                lightingEnabled && ParticlePreviewSettings.ModelKeyLightEnabled,
+                ParticlePreviewSettings.ModelKeyLightIntensity,
+                ParticlePreviewSettings.ModelKeyLightRotation,
+                Color.white);
+            ApplyDirectionalLight(
+                _preview.lights[1],
+                lightingEnabled && ParticlePreviewSettings.ModelFillLightEnabled,
+                ParticlePreviewSettings.ModelFillLightIntensity,
+                ParticlePreviewSettings.ModelFillLightRotation,
+                Color.white);
 
             EnsureRimLight();
             if (_rimLight != null)
@@ -709,13 +689,12 @@ namespace ParticleThumbnailAndPreview.Editor
 
             if (_cameraSkybox != null)
             {
-                Cubemap cubemap = ParticlePreviewSettings.ModelSkyboxCubemap;
-                bool canUseSkybox = skyboxEnabled && cubemap != null;
+                Material skyboxMaterial = ParticlePreviewSettings.ModelSkyboxMaterial;
+                bool canUseSkybox = skyboxEnabled && skyboxMaterial != null;
                 _cameraSkybox.enabled = canUseSkybox;
                 if (canUseSkybox)
                 {
-                    EnsureSkyboxMaterial(cubemap);
-                    _cameraSkybox.material = s_skyboxMaterial;
+                    _cameraSkybox.material = skyboxMaterial;
                     _preview.camera.clearFlags = CameraClearFlags.Skybox;
                 }
                 else
@@ -743,6 +722,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             light.type = LightType.Directional;
             light.enabled = enabled;
+            light.shadows = LightShadows.None;
             light.intensity = enabled ? intensity : 0f;
             light.color = color;
             light.transform.rotation = RotationFromYawPitch(yawPitch);
@@ -765,28 +745,19 @@ namespace ParticleThumbnailAndPreview.Editor
             _preview.AddSingleGO(rimRoot);
         }
 
-        private static void EnsureSkyboxMaterial(Cubemap cubemap)
+        private void EnsureSunLight()
         {
-            if (cubemap == null)
+            if (_sunLight != null || _preview == null)
                 return;
 
-            if (s_skyboxMaterial == null)
-            {
-                Shader shader = Shader.Find("Skybox/Cubemap");
-                if (shader == null)
-                {
-                    if (ParticlePreviewSettings.EnableDiagnostics)
-                        PreviewDiagnostics.Log("ModelSkybox", "Skybox/Cubemap shader is unavailable; falling back to solid background.");
-                    return;
-                }
-                s_skyboxMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
-            }
-
-            if (s_skyboxMaterialCubemap == cubemap)
-                return;
-
-            s_skyboxMaterial.SetTexture("_Tex", cubemap);
-            s_skyboxMaterialCubemap = cubemap;
+            var sunRoot = new GameObject("PreviewSunLight") { hideFlags = HideFlags.HideAndDontSave };
+            _sunLight = sunRoot.AddComponent<Light>();
+            _sunLight.type = LightType.Directional;
+            _sunLight.shadows = LightShadows.Soft;
+            _sunLight.shadowStrength = 0.8f;
+            _sunLight.shadowBias = 0.05f;
+            _sunLight.shadowNormalBias = 0.4f;
+            _preview.AddSingleGO(sunRoot);
         }
 
         private bool TryApplyVisualModeMaterial(out Material material)
@@ -1232,29 +1203,41 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private bool ComputeHasPendingCameraMotion()
         {
-            float angularVelocityEpsilonSq = AngularVelocityEpsilon * AngularVelocityEpsilon;
-            return Vector2.Distance(_orbit, _targetOrbit) > OrbitEpsilon
-                   || Mathf.Abs(_distance - _targetDistance) > DistanceEpsilon
-                   || (_pivot - _targetPivot).sqrMagnitude > PivotEpsilon * PivotEpsilon
-                   || (!_isOrbitDragging && _orbitAngularVelocity.sqrMagnitude > angularVelocityEpsilonSq);
+            var state = new PreviewCameraInteractionState
+            {
+                Orbit = _orbit,
+                TargetOrbit = _targetOrbit,
+                OrbitAngularVelocity = _orbitAngularVelocity,
+                Distance = _distance,
+                TargetDistance = _targetDistance,
+                Pivot = _pivot,
+                TargetPivot = _targetPivot,
+                IsOrbitDragging = _isOrbitDragging,
+                LastOrbitInputTime = _lastOrbitInputTime,
+            };
+
+            return _turntableEnabled || PreviewCameraController.HasPendingMotion(state, CameraInteractionConfig);
+        }
+
+        private static PreviewModeOverride NormalizeModeOverride(PreviewModeOverride modeOverride)
+        {
+            if (modeOverride == PreviewModeOverride.Force2D || modeOverride == PreviewModeOverride.Force3D)
+                return modeOverride;
+
+            return ResolveProjectDefaultModeOverride();
+        }
+
+        private static PreviewModeOverride ResolveProjectDefaultModeOverride()
+        {
+            PreviewModeContext projectDefaultContext = PreviewModeResolver.Resolve(PreviewModeOverride.Auto);
+            return projectDefaultContext.Effective2D
+                ? PreviewModeOverride.Force2D
+                : PreviewModeOverride.Force3D;
         }
 
         private static void EnsureGridResources()
         {
-            if (s_gridMaterial == null)
-            {
-                s_gridMaterial = new Material(Shader.Find("Hidden/Internal-Colored"))
-                {
-                    hideFlags = HideFlags.HideAndDontSave,
-                };
-
-                s_gridMaterial.SetInt("_ZWrite", 0);
-                s_gridMaterial.SetInt("_Cull", 0);
-                s_gridMaterial.SetInt("_ZTest", (int)CompareFunction.LessEqual);
-                s_gridMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
-                s_gridMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-                s_gridMaterial.renderQueue = 2999;
-            }
+            PreviewGridResources.EnsureGridMaterial(ref s_gridMaterial);
 
             if (s_solidLineMaterial == null)
             {
@@ -1270,17 +1253,8 @@ namespace ParticleThumbnailAndPreview.Editor
                 s_solidLineMaterial.renderQueue = 2999;
             }
 
-            if (s_gridMesh3D == null)
-            {
-                s_gridMesh3D = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-                BuildGridMesh(s_gridMesh3D, DefaultGridHalfSize, DefaultGridStep, DefaultGridAlpha, is2D: false);
-            }
-
-            if (s_gridMesh2D == null)
-            {
-                s_gridMesh2D = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-                BuildGridMesh(s_gridMesh2D, DefaultGridHalfSize, DefaultGridStep, DefaultGridAlpha, is2D: true);
-            }
+            PreviewGridResources.EnsureStylizedGridMesh(ref s_gridMesh3D, DefaultGridHalfSize, DefaultGridStep, DefaultGridAlpha, is2D: false);
+            PreviewGridResources.EnsureStylizedGridMesh(ref s_gridMesh2D, DefaultGridHalfSize, DefaultGridStep, DefaultGridAlpha, is2D: true);
 
             if (s_boundsWireCubeMesh == null)
             {
@@ -1666,106 +1640,5 @@ Shader ""Hidden/ParticlePreview/Overdraw""
             return new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
         }
 
-        private static void BuildGridMesh(Mesh mesh, float halfSize, float step, float alpha, bool is2D)
-        {
-            if (mesh == null)
-                return;
-
-            float safeHalfSize = Mathf.Max(0.05f, halfSize);
-            float safeStep = Mathf.Max(0.05f, step);
-            int count = Mathf.Max(1, Mathf.RoundToInt(safeHalfSize / safeStep));
-
-            var vertices = new List<Vector3>();
-            var colors = new List<Color>();
-
-            Color baseColor = EditorGUIUtility.isProSkin
-                ? new Color(1f, 1f, 1f, alpha)
-                : new Color(0f, 0f, 0f, alpha);
-            Color axisX = EditorGUIUtility.isProSkin
-                ? new Color(1f, 0.28f, 0.28f, Mathf.Clamp01(alpha * 1.85f))
-                : new Color(0.75f, 0.12f, 0.12f, Mathf.Clamp01(alpha * 1.85f));
-            Color axisY = EditorGUIUtility.isProSkin
-                ? new Color(0.28f, 1f, 0.28f, Mathf.Clamp01(alpha * 1.85f))
-                : new Color(0.12f, 0.58f, 0.12f, Mathf.Clamp01(alpha * 1.85f));
-
-            for (int i = -count; i <= count; i++)
-            {
-                float position = i * safeStep;
-                float fade = Mathf.Pow(1f - Mathf.Abs(position) / safeHalfSize, 2f);
-                bool isCenter = i == 0;
-
-                Color xLine = isCenter ? axisX : baseColor;
-                Color xPeak = new Color(xLine.r, xLine.g, xLine.b, xLine.a * fade);
-                Color xEdge = new Color(xLine.r, xLine.g, xLine.b, isCenter ? xLine.a * 0.32f : 0f);
-
-                Color yLine = isCenter ? axisY : baseColor;
-                Color yPeak = new Color(yLine.r, yLine.g, yLine.b, yLine.a * fade);
-                Color yEdge = new Color(yLine.r, yLine.g, yLine.b, isCenter ? yLine.a * 0.32f : 0f);
-
-                if (is2D)
-                {
-                    vertices.Add(new Vector3(-safeHalfSize, position, 0f));
-                    colors.Add(xEdge);
-                    vertices.Add(new Vector3(0f, position, 0f));
-                    colors.Add(xPeak);
-                    vertices.Add(new Vector3(0f, position, 0f));
-                    colors.Add(xPeak);
-                    vertices.Add(new Vector3(safeHalfSize, position, 0f));
-                    colors.Add(xEdge);
-
-                    vertices.Add(new Vector3(position, -safeHalfSize, 0f));
-                    colors.Add(yEdge);
-                    vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(yPeak);
-                    vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(yPeak);
-                    vertices.Add(new Vector3(position, safeHalfSize, 0f));
-                    colors.Add(yEdge);
-                }
-                else
-                {
-                    vertices.Add(new Vector3(-safeHalfSize, 0f, position));
-                    colors.Add(xEdge);
-                    vertices.Add(new Vector3(0f, 0f, position));
-                    colors.Add(xPeak);
-                    vertices.Add(new Vector3(0f, 0f, position));
-                    colors.Add(xPeak);
-                    vertices.Add(new Vector3(safeHalfSize, 0f, position));
-                    colors.Add(xEdge);
-
-                    vertices.Add(new Vector3(position, 0f, -safeHalfSize));
-                    colors.Add(yEdge);
-                    vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(yPeak);
-                    vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(yPeak);
-                    vertices.Add(new Vector3(position, 0f, safeHalfSize));
-                    colors.Add(yEdge);
-                }
-            }
-
-            int[] indices = new int[vertices.Count];
-            for (int i = 0; i < indices.Length; i++)
-                indices[i] = i;
-
-            mesh.Clear();
-            mesh.SetVertices(vertices);
-            mesh.SetColors(colors);
-            mesh.SetIndices(indices, MeshTopology.Lines, 0);
-        }
-
-        private static void ForceActivateHierarchy(GameObject root)
-        {
-            if (root == null)
-                return;
-
-            Transform[] transforms = root.GetComponentsInChildren<Transform>(true);
-            for (int i = 0; i < transforms.Length; i++)
-            {
-                Transform transform = transforms[i];
-                if (transform != null)
-                    transform.gameObject.SetActive(true);
-            }
-        }
     }
 }

@@ -91,7 +91,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             Rect toolbarRect = new Rect(fullRect.x, fullRect.y, fullRect.width, rowHeight);
             Rect previewRect = new Rect(fullRect.x, fullRect.y + rowHeight, fullRect.width, fullRect.height - rowHeight);
-            PreviewTheme.DrawToolbarBackground(toolbarRect);
+            PreviewToolbarTheme.DrawToolbarBackground(toolbarRect);
 
             float centerY = toolbarRect.y + rowHeight * 0.5f;
             float y = Mathf.Round(centerY - buttonSize * 0.5f);
@@ -111,11 +111,12 @@ namespace ParticleThumbnailAndPreview.Editor
             Rect infoRect = new Rect(rightGroupX, y, buttonSize, buttonSize);
             Rect gridRect = new Rect(infoRect.xMax + buttonGap, y, buttonSize, buttonSize);
 
-            GUIContent playContent = GetIconContent(_session.IsPlaying ? "Pause" : "Play", "Play or pause particle preview playback", "PlayButton", "d_PlayButton");
+            GUIContent playContent = PreviewToolbarControls.GetIconContent(_session.IsPlaying ? "Pause" : "Play", "Play or pause particle preview playback", "PlayButton", "d_PlayButton");
             if (_session.IsPlaying)
-                playContent = GetIconContent("Pause", "Pause particle preview playback", "PauseButton", "d_PauseButton");
+                playContent = PreviewToolbarControls.GetIconContent("Pause", "Pause particle preview playback", "PauseButton", "d_PauseButton");
 
-            if (DrawToolbarIconToggle(playRect, _session.IsPlaying, playContent, out bool nextPlaying) && nextPlaying != _session.IsPlaying)
+            if (PreviewToolbarControls.DrawToggleButton(playRect, _session.IsPlaying, "Play", "Play or pause particle preview playback", true, out bool nextPlaying, _session.IsPlaying ? "PauseButton" : "PlayButton", _session.IsPlaying ? "d_PauseButton" : "d_PlayButton")
+                && nextPlaying != _session.IsPlaying)
             {
                 _session.SetPlaying(nextPlaying);
                 if (nextPlaying)
@@ -126,7 +127,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 RequestPreviewRepaint();
             }
 
-            if (DrawToolbarIconButton(restartRect, GetIconContent("Restart", "Restart particle preview", "Refresh", "d_Refresh")))
+            if (PreviewToolbarControls.DrawIconButton(restartRect, PreviewToolbarControls.GetIconContent("Restart", "Restart particle preview", "Refresh", "d_Refresh")))
             {
                 _session.Restart();
                 _session.SetPlaying(true);
@@ -134,23 +135,23 @@ namespace ParticleThumbnailAndPreview.Editor
                 RequestPreviewRepaint();
             }
 
-            PreviewTheme.DrawDivider(new Rect(restartDividerX, toolbarRect.y + 8f, 1f, rowHeight - 16f));
+            PreviewToolbarTheme.DrawDivider(new Rect(restartDividerX, toolbarRect.y + 8f, 1f, rowHeight - 16f));
 
             float safeMax = Mathf.Max(0.0001f, _session.MaxPlaybackTime);
             float clampedTime = Mathf.Clamp(_session.PlaybackTime, 0f, safeMax);
             float normalized = Mathf.Clamp01(clampedTime / safeMax);
             float newTime = DrawPlaybackSlider(sliderRect, clampedTime, safeMax, normalized, _session.IntensityProfile);
 
-            PreviewTheme.DrawDivider(new Rect(dividerX, toolbarRect.y + 8f, 1f, rowHeight - 16f));
+            PreviewToolbarTheme.DrawDivider(new Rect(dividerX, toolbarRect.y + 8f, 1f, rowHeight - 16f));
 
-            if (DrawToolbarIconToggle(infoRect, s_infoOverlayEnabled, GetIconContent("Info", "Toggle preview info", "Search Icon", "d_Search Icon"), out bool nextInfoEnabled)
+            if (PreviewToolbarControls.DrawToggleButton(infoRect, s_infoOverlayEnabled, "Info", "Toggle preview info", true, out bool nextInfoEnabled, "Search Icon", "d_Search Icon")
                 && nextInfoEnabled != s_infoOverlayEnabled)
             {
                 s_infoOverlayEnabled = nextInfoEnabled;
                 RequestPreviewRepaint();
             }
 
-            if (DrawToolbarIconToggle(gridRect, _session.GridEnabled, GetIconContent("Grid", "Toggle preview grid", "Grid.BoxTool", "d_Grid.BoxTool"), out bool gridEnabled)
+            if (PreviewToolbarControls.DrawToggleButton(gridRect, _session.GridEnabled, "Grid", "Toggle preview grid", true, out bool gridEnabled, "Grid.BoxTool", "d_Grid.BoxTool")
                 && gridEnabled != _session.GridEnabled)
             {
                 _session.SetGridEnabled(gridEnabled);
@@ -244,7 +245,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             const float padding = 4f;
             const float spacing = 2f;
-            GUIStyle valueStyle = PreviewTheme.InfoValueStyle;
+            GUIStyle valueStyle = PreviewToolbarTheme.InfoValueStyle;
 
             float contentWidth = Mathf.Max(
                 valueStyle.CalcSize(new GUIContent(line1)).x,
@@ -295,10 +296,10 @@ namespace ParticleThumbnailAndPreview.Editor
             float thumbCenterX = Mathf.Lerp(trackRect.x, trackRect.xMax, normalizedTime);
             Rect thumbRect = new Rect(thumbCenterX - 5f, rect.y + rect.height * 0.5f - 8f, 10f, 16f);
 
-            EditorGUI.DrawRect(trackRect, PreviewTheme.GetSliderTrackColor());
+            EditorGUI.DrawRect(trackRect, PreviewToolbarTheme.GetSliderTrackColor());
             DrawIntensityProfile(trackRect, intensityProfile);
             DrawCurrentTimeMarker(trackRect, thumbCenterX);
-            EditorGUI.DrawRect(thumbRect, PreviewTheme.GetSliderThumbColor(GUIUtility.hotControl == controlId));
+            EditorGUI.DrawRect(thumbRect, PreviewToolbarTheme.GetSliderThumbColor(GUIUtility.hotControl == controlId));
 
             switch (evt.GetTypeForControl(controlId))
             {
@@ -359,7 +360,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 float left = Mathf.Clamp01(profile[i]);
                 float right = Mathf.Clamp01(profile[i + 1]);
                 float strength = Mathf.Clamp01(Mathf.Max(left, right));
-                Color segmentColor = Color.Lerp(PreviewTheme.GetSliderFillStart(), PreviewTheme.GetSliderFillEnd(), strength);
+                Color segmentColor = Color.Lerp(PreviewToolbarTheme.GetSliderFillStart(), PreviewToolbarTheme.GetSliderFillEnd(), strength);
                 Rect segmentRect = new Rect(trackRect.x + segmentWidth * i, trackRect.y, Mathf.Ceil(segmentWidth + 1f), trackRect.height);
                 EditorGUI.DrawRect(segmentRect, segmentColor);
             }
@@ -371,73 +372,12 @@ namespace ParticleThumbnailAndPreview.Editor
             return Mathf.Lerp(0f, maxTime, Mathf.Clamp01(t));
         }
 
-        private static bool DrawToolbarIconToggle(Rect rect, bool currentValue, GUIContent content, out bool newValue)
-        {
-            Event evt = Event.current;
-            bool hovered = rect.Contains(evt.mousePosition);
-            bool pressed = hovered && evt.type == EventType.MouseDown && evt.button == 0;
-            bool clicked = false;
-
-            newValue = currentValue;
-            if (pressed)
-            {
-                newValue = !currentValue;
-                clicked = true;
-                evt.Use();
-            }
-
-            DrawToolbarIconButtonVisual(rect, content, currentValue, hovered, pressed);
-            return clicked;
-        }
-
-        private static bool DrawToolbarIconButton(Rect rect, GUIContent content)
-        {
-            Event evt = Event.current;
-            bool hovered = rect.Contains(evt.mousePosition);
-            bool pressed = hovered && evt.type == EventType.MouseDown && evt.button == 0;
-            bool clicked = GUI.Button(rect, GUIContent.none, GUIStyle.none);
-
-            DrawToolbarIconButtonVisual(rect, content, false, hovered, pressed);
-            return clicked;
-        }
-
-        private static void DrawToolbarIconButtonVisual(Rect rect, GUIContent content, bool active, bool hovered, bool pressed)
-        {
-            Color bg = PreviewTheme.GetToolbarButtonBackground(active, hovered, pressed);
-            Color border = PreviewTheme.GetToolbarButtonBorder(active);
-
-            EditorGUI.DrawRect(rect, bg);
-            EditorGUI.DrawRect(new Rect(rect.x, rect.yMax - 1f, rect.width, 1f), border);
-            EditorGUI.DrawRect(new Rect(rect.xMax - 1f, rect.y, 1f, rect.height), border);
-
-            Texture image = content.image;
-            if (image != null)
-            {
-                float iconSize = Mathf.Min(rect.width, rect.height) - 8f;
-                Rect iconRect = new Rect(
-                    Mathf.Round(rect.center.x - iconSize * 0.5f),
-                    Mathf.Round(rect.center.y - iconSize * 0.5f),
-                    iconSize,
-                    iconSize);
-
-                Color previous = GUI.color;
-                GUI.color = PreviewTheme.GetToolbarIconTint(active, pressed);
-                GUI.DrawTexture(iconRect, image, ScaleMode.ScaleToFit, true);
-                GUI.color = previous;
-            }
-            else
-            {
-                GUI.Label(rect, content.text, PreviewTheme.ToolbarTextButtonStyle);
-            }
-        }
-
         private void EnablePlaybackUpdate()
         {
             if (_playbackUpdateRegistered)
                 return;
 
-            EditorApplication.update += OnPlaybackUpdate;
-            _playbackUpdateRegistered = true;
+            PreviewUpdateLoop.EnsureRegistered(ref _playbackUpdateRegistered, OnPlaybackUpdate);
         }
 
         private void DisablePlaybackUpdate()
@@ -445,8 +385,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (!_playbackUpdateRegistered)
                 return;
 
-            EditorApplication.update -= OnPlaybackUpdate;
-            _playbackUpdateRegistered = false;
+            PreviewUpdateLoop.EnsureUnregistered(ref _playbackUpdateRegistered, OnPlaybackUpdate);
         }
 
         private void OnPlaybackUpdate()
@@ -479,133 +418,5 @@ namespace ParticleThumbnailAndPreview.Editor
             _requestRepaint?.Invoke();
         }
 
-        private static GUIContent GetIconContent(string fallbackText, string tooltip, string lightIconName, string darkIconName)
-        {
-            GUIContent iconContent = null;
-            if (EditorGUIUtility.isProSkin)
-                iconContent = EditorGUIUtility.IconContent(darkIconName);
-            if (iconContent == null || iconContent.image == null)
-                iconContent = EditorGUIUtility.IconContent(lightIconName);
-
-            if (iconContent != null)
-            {
-                iconContent.tooltip = tooltip;
-                if (iconContent.image != null)
-                    return iconContent;
-            }
-
-            return new GUIContent(fallbackText, tooltip);
-        }
-
-        private static class PreviewTheme
-        {
-            private static readonly Color Accent = new Color(0.11f, 0.84f, 0.39f, 1f);
-            private static readonly Color AccentSoft = new Color(0.11f, 0.84f, 0.39f, 0.22f);
-            private static readonly Color AccentBright = new Color(0.18f, 0.95f, 0.46f, 1f);
-            private static readonly Color Surface = new Color(0.10f, 0.10f, 0.10f, 0.98f);
-            private static readonly Color SurfaceAlt = new Color(0.19f, 0.19f, 0.19f, 1f);
-            private static readonly Color SurfaceHover = new Color(0.24f, 0.24f, 0.24f, 1f);
-            private static readonly Color BorderStrong = new Color(1f, 1f, 1f, 0.14f);
-            private static readonly Color TextColor = new Color(0.90f, 0.90f, 0.90f, 0.92f);
-            private static readonly Color IconOnActive = new Color(0.08f, 0.08f, 0.08f, 1f);
-            private static readonly Color IconOnInactive = new Color(0.95f, 0.95f, 0.95f, 1f);
-
-            private static GUIStyle s_toolbarTextButtonStyle;
-            private static GUIStyle s_infoValueStyle;
-
-            internal static GUIStyle ToolbarTextButtonStyle
-            {
-                get
-                {
-                    if (s_toolbarTextButtonStyle == null)
-                    {
-                        s_toolbarTextButtonStyle = new GUIStyle(EditorStyles.miniLabel)
-                        {
-                            alignment = TextAnchor.MiddleCenter,
-                            fontStyle = FontStyle.Bold,
-                            normal = { textColor = TextColor },
-                            hover = { textColor = TextColor },
-                            active = { textColor = TextColor },
-                        };
-                    }
-
-                    return s_toolbarTextButtonStyle;
-                }
-            }
-
-            internal static GUIStyle InfoValueStyle
-            {
-                get
-                {
-                    if (s_infoValueStyle == null)
-                    {
-                        s_infoValueStyle = new GUIStyle(EditorStyles.miniLabel)
-                        {
-                            alignment = TextAnchor.UpperLeft,
-                            clipping = TextClipping.Clip,
-                            wordWrap = false,
-                            normal = { textColor = TextColor },
-                        };
-                    }
-
-                    return s_infoValueStyle;
-                }
-            }
-
-            internal static void DrawToolbarBackground(Rect rect)
-            {
-                EditorGUI.DrawRect(rect, Surface);
-                EditorGUI.DrawRect(new Rect(rect.x, rect.yMax - 1f, rect.width, 1f), BorderStrong);
-            }
-
-            internal static void DrawDivider(Rect rect)
-            {
-                EditorGUI.DrawRect(rect, BorderStrong);
-            }
-
-            internal static Color GetToolbarButtonBackground(bool active, bool hovered, bool pressed)
-            {
-                if (pressed)
-                    return active ? AccentBright : new Color(0.28f, 0.28f, 0.28f, 1f);
-
-                if (active)
-                    return Accent;
-
-                return hovered ? SurfaceHover : SurfaceAlt;
-            }
-
-            internal static Color GetToolbarButtonBorder(bool active)
-            {
-                return active ? AccentBright : new Color(1f, 1f, 1f, 0.07f);
-            }
-
-            internal static Color GetToolbarIconTint(bool active, bool pressed)
-            {
-                if (pressed && !active)
-                    return new Color(1f, 1f, 1f, 0.92f);
-
-                return active ? IconOnActive : IconOnInactive;
-            }
-
-            internal static Color GetSliderTrackColor()
-            {
-                return new Color(0.16f, 0.16f, 0.16f, 1f);
-            }
-
-            internal static Color GetSliderThumbColor(bool active)
-            {
-                return active ? AccentBright : TextColor;
-            }
-
-            internal static Color GetSliderFillStart()
-            {
-                return AccentSoft;
-            }
-
-            internal static Color GetSliderFillEnd()
-            {
-                return Accent;
-            }
-        }
     }
 }

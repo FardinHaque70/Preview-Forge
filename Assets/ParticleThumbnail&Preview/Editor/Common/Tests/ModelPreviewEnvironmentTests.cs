@@ -1,5 +1,4 @@
 using NUnit.Framework;
-using UnityEngine;
 
 namespace ParticleThumbnailAndPreview.Editor.Tests
 {
@@ -36,12 +35,10 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
         [Test]
         public void ModelEnvironmentDefaults_AreInitialized()
         {
-            Assert.That(ParticlePreviewSettings.D_ModelDefaultLightingEnabled, Is.True);
-            Assert.That(ParticlePreviewSettings.D_ModelDefaultSkyboxEnabled, Is.True);
+            Assert.That(ParticlePreviewSettings.D_ModelPreviewActive, Is.True);
             Assert.That(ParticlePreviewSettings.D_ModelKeyLightIntensity, Is.GreaterThan(0f));
             Assert.That(ParticlePreviewSettings.D_ModelFillLightIntensity, Is.GreaterThan(0f));
             Assert.That(ParticlePreviewSettings.D_ModelRimLightIntensity, Is.GreaterThanOrEqualTo(0f));
-            Assert.That(ParticlePreviewSettings.D_ModelAmbientColor, Is.Not.EqualTo(default(Color)));
         }
     }
 }
