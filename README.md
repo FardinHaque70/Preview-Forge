@@ -14,7 +14,10 @@ This package currently includes:
 - `Particle Thumbnail`
   Custom Project window thumbnails for particle prefabs, including better framing for effects with motion.
 - `Particle Preview`
-  A dedicated particle prefab preview in the Inspector with playback controls, timeline scrubbing, and camera interaction. Uses scoped Harmony patching for preview hooking so updates stay targeted without repainting the whole Inspector.
+  A dedicated custom prefab preview in the Inspector:
+  - Particle-focused preview for root-particle prefabs (playback controls, timeline scrubbing, motion tools).
+  - Lean model preview for mesh/skinned prefabs with robust auto-framing, orbit/pan/zoom, and Auto/2D/3D mode switching.
+  Uses scoped Harmony patching for preview hooking so updates stay targeted without repainting the whole Inspector.
 
 This repository contains the Unity source project and a synced UPM package for Git-based installation.
 
@@ -39,7 +42,7 @@ Particle prefabs can be inspected directly in the preview window, so you do not 
 ## Features
 
 - Static particle thumbnails in Project grid and list views with motion-aware framing for clearer asset recognition.
-- Dedicated particle prefab Inspector preview with play/pause/scrub controls, orbit/pan/zoom interaction, and quick info overlays.
+- Dedicated custom prefab Inspector preview with particle playback controls and model preview workflows.
 - Project-scoped settings and maintenance actions for cache control, thumbnail regeneration, and preview behavior tuning.
 - Scoped Harmony patching is used only for preview-window hook behavior, minimizing impact so Odin Inspector and other editor extension tools should keep working smoothly.
 

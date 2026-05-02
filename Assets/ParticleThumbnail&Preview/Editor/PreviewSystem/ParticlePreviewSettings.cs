@@ -235,7 +235,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 	internal static class ParticlePreviewSettingsProvider
 	{
-		private const string SettingsPath = "Project/Particle Thumbnail & Preview/Particle Preview";
+		private const string SettingsPath = "Project/Particle Thumbnail & Preview/Prefab Preview";
 
 		private static Vector2 SettingsScroll;
 		private static GUIStyle CenteredSectionHeaderStyle;
@@ -245,11 +245,12 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			return new SettingsProvider(SettingsPath, SettingsScope.Project)
 			{
-				label = "Particle Preview",
+				label = "Prefab Preview",
 				guiHandler = _ => DrawGui(),
 				keywords = new System.Collections.Generic.HashSet<string>
 				{
 					"particle",
+					"model",
 					"preview",
 					"prefab",
 					"harmony",
@@ -280,7 +281,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			DrawSectionCard("Color", () =>
 			{
 				storage.backgroundColor = EditorGUILayout.ColorField(
-					new GUIContent("Background Color", "Background color behind particle preview rendering."),
+					new GUIContent("Background Color", "Background color behind custom prefab preview rendering."),
 					storage.backgroundColor);
 			});
 			DrawSectionCard("Model Preview", () =>
@@ -439,7 +440,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			{
 				storage.active = EditorGUILayout.Toggle(storage.active, GUILayout.Width(18f));
 				EditorGUILayout.LabelField(
-					new GUIContent("Enable Particle Preview", "Turn the custom particle preview extension on or off for this project."),
+					new GUIContent("Enable Prefab Preview", "Turn the custom prefab preview extension (particle + model) on or off for this project."),
 					EditorStyles.boldLabel);
 			}
 		}
@@ -451,10 +452,10 @@ namespace ParticleThumbnailAndPreview.Editor
 				// DrawSectionHeader("Actions");
 				using (new EditorGUILayout.HorizontalScope())
 				{
-					if (GUILayout.Button(new GUIContent("Reset To Defaults", "Reset all particle preview settings to default values."), GUILayout.Height(28f)) &&
+					if (GUILayout.Button(new GUIContent("Reset To Defaults", "Reset all prefab preview settings to default values."), GUILayout.Height(28f)) &&
 					    EditorUtility.DisplayDialog(
-						    "Reset Particle Preview Settings",
-						    "Reset all particle preview settings back to default values?",
+						    "Reset Prefab Preview Settings",
+						    "Reset all prefab preview settings back to default values?",
 						    "Reset",
 						    "Cancel"))
 					{

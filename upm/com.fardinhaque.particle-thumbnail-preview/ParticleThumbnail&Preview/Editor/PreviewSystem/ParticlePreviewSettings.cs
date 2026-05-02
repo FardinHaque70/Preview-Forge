@@ -173,6 +173,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static bool ModelDefaultGridEnabled => Storage.modelDefaultGridEnabled;
 		public static bool ModelDefaultSkyboxEnabled => Storage.modelDefaultSkyboxEnabled;
 		public static Cubemap ModelSkyboxCubemap => Storage.modelSkyboxCubemap;
+
 		public static Material ModelSkyboxMaterial
 		{
 			get
@@ -181,6 +182,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				return Storage.modelSkyboxMaterial;
 			}
 		}
+
 		public static Cubemap ModelReflectionCubemap
 		{
 			get
@@ -189,6 +191,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				return Storage.modelReflectionCubemap;
 			}
 		}
+
 		public static float ModelReflectionIntensity => Mathf.Clamp(Storage.modelReflectionIntensity, MinModelReflectionIntensity, MaxModelReflectionIntensity);
 		public static bool ModelSunLightEnabled => Storage.modelSunLightEnabled;
 		public static Color ModelSunLightColor => Storage.modelSunLightColor;
@@ -225,14 +228,14 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (Storage.modelSkyboxCubemap == null)
 				Storage.modelSkyboxCubemap = ParticlePreviewSkyboxAssets.GetDefaultSkyboxCubemap();
 			Storage.modelSkyboxMaterial = ParticlePreviewSkyboxAssets.TryLoadDefaultSkyboxMaterial()
-				?? ParticlePreviewSkyboxAssets.GetOrCreateSkyboxMaterialForCubemap(Storage.modelSkyboxCubemap);
+			                              ?? ParticlePreviewSkyboxAssets.GetOrCreateSkyboxMaterialForCubemap(Storage.modelSkyboxCubemap);
 			Storage.SaveStorage();
 		}
 	}
 
 	internal static class ParticlePreviewSettingsProvider
 	{
-		private const string SettingsPath = "Project/Particle Thumbnail & Preview/Particle Preview";
+		private const string SettingsPath = "Project/Particle Thumbnail & Preview/Prefab Preview";
 
 		private static Vector2 SettingsScroll;
 		private static GUIStyle CenteredSectionHeaderStyle;
@@ -242,11 +245,12 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			return new SettingsProvider(SettingsPath, SettingsScope.Project)
 			{
-				label = "Particle Preview",
+				label = "Prefab Preview",
 				guiHandler = _ => DrawGui(),
 				keywords = new System.Collections.Generic.HashSet<string>
 				{
 					"particle",
+					"model",
 					"preview",
 					"prefab",
 					"harmony",
@@ -277,7 +281,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			DrawSectionCard("Color", () =>
 			{
 				storage.backgroundColor = EditorGUILayout.ColorField(
-					new GUIContent("Background Color", "Background color behind particle preview rendering."),
+					new GUIContent("Background Color", "Background color behind custom prefab preview rendering."),
 					storage.backgroundColor);
 			});
 			DrawSectionCard("Model Preview", () =>
@@ -285,13 +289,12 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.modelPreviewActive = EditorGUILayout.Toggle(
 					new GUIContent("Enable Model Preview", "Enable custom preview for prefabs with mesh/skinned renderers."),
 					storage.modelPreviewActive);
-				storage.modelPreviewMode = (PreviewModeOverride)EditorGUILayout.EnumPopup(
+				storage.modelPreviewMode = (PreviewModeOverride) EditorGUILayout.EnumPopup(
 					new GUIContent("Mode Override", "Auto resolves to project default (2D or 3D) when a model preview session starts. 2D/3D force a mode."),
 					storage.modelPreviewMode);
 			});
-			DrawSectionCard("Defaults", () =>
+			DrawSectionCard("Default enabled state", () =>
 			{
-				EditorGUILayout.LabelField("Default enabled state", EditorStyles.boldLabel);
 				storage.modelDefaultTurntableEnabled = EditorGUILayout.Toggle(
 					new GUIContent("Turntable", "Default state for the Turntable toggle."),
 					storage.modelDefaultTurntableEnabled);
@@ -305,9 +308,9 @@ namespace ParticleThumbnailAndPreview.Editor
 					new GUIContent("Skybox", "Default state for the Skybox toggle."),
 					storage.modelDefaultSkyboxEnabled);
 			});
-			DrawSectionCard("Model Environment", () =>
+			DrawSectionCard("Environment", () =>
 			{
-				storage.modelSkyboxMaterial = (Material)EditorGUILayout.ObjectField(
+				storage.modelSkyboxMaterial = (Material) EditorGUILayout.ObjectField(
 					new GUIContent("Skybox Material", "Material used by model preview skybox."),
 					storage.modelSkyboxMaterial != null ? storage.modelSkyboxMaterial : ParticlePreviewSkyboxAssets.TryLoadDefaultSkyboxMaterial(),
 					typeof(Material),
@@ -375,12 +378,7 @@ namespace ParticleThumbnailAndPreview.Editor
 					new GUIContent("Color", "Rim light color."),
 					storage.modelRimLightColor);
 			});
-			DrawSectionCard("Debug", () =>
-			{
-				storage.enableDiagnostics = EditorGUILayout.Toggle(
-					new GUIContent("Enable Diagnostics", "Write preview lifecycle diagnostics to the Unity Console."),
-					storage.enableDiagnostics);
-			});
+
 			DrawSectionCard("Interaction", () =>
 			{
 				float orbitSmoothing = storage.orbitSmoothing <= 0f
@@ -399,6 +397,12 @@ namespace ParticleThumbnailAndPreview.Editor
 					panSmoothing,
 					ParticlePreviewSettings.MinPanSmoothing,
 					ParticlePreviewSettings.MaxPanSmoothing);
+			});
+			DrawSectionCard("Debug", () =>
+			{
+				storage.enableDiagnostics = EditorGUILayout.Toggle(
+					new GUIContent("Enable Diagnostics", "Write preview lifecycle diagnostics to the Unity Console."),
+					storage.enableDiagnostics);
 			});
 			// DrawSectionCard("Motion Assist", () =>
 			// {
@@ -436,7 +440,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			{
 				storage.active = EditorGUILayout.Toggle(storage.active, GUILayout.Width(18f));
 				EditorGUILayout.LabelField(
-					new GUIContent("Enable Particle Preview", "Turn the custom particle preview extension on or off for this project."),
+					new GUIContent("Enable Prefab Preview", "Turn the custom prefab preview extension (particle + model) on or off for this project."),
 					EditorStyles.boldLabel);
 			}
 		}
@@ -448,10 +452,10 @@ namespace ParticleThumbnailAndPreview.Editor
 				// DrawSectionHeader("Actions");
 				using (new EditorGUILayout.HorizontalScope())
 				{
-					if (GUILayout.Button(new GUIContent("Reset To Defaults", "Reset all particle preview settings to default values."), GUILayout.Height(28f)) &&
+					if (GUILayout.Button(new GUIContent("Reset To Defaults", "Reset all prefab preview settings to default values."), GUILayout.Height(28f)) &&
 					    EditorUtility.DisplayDialog(
-						    "Reset Particle Preview Settings",
-						    "Reset all particle preview settings back to default values?",
+						    "Reset Prefab Preview Settings",
+						    "Reset all prefab preview settings back to default values?",
 						    "Reset",
 						    "Cancel"))
 					{

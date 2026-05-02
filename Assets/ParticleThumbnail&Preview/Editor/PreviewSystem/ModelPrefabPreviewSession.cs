@@ -43,6 +43,12 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float PivotMarkerRadius = 0.07f;
         private const int PivotMarkerSegments = 24;
         private const float TurntableDegreesPerSecond = 24f;
+        private const string PackageVisualModesRoot = "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/VisualModes";
+        private const string AssetsVisualModesRoot = "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/VisualModes";
+        private const string NormalsMaterialPath = "PrefabPreviewNormals.mat";
+        private const string UvCheckerMaterialPath = "PrefabPreviewUvChecker.mat";
+        private const string VertexColorMaterialPath = "PrefabPreviewVertexColor.mat";
+        private const string OverdrawMaterialPath = "PrefabPreviewOverdraw.mat";
 
         private static Mesh s_gridMesh3D;
         private static Mesh s_gridMesh2D;
@@ -762,12 +768,14 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private bool TryApplyVisualModeMaterial(out Material material)
         {
+            EnsureVisualModeMaterials();
+
             material = _visualMode switch
             {
-                ModelPreviewVisualMode.Normals => s_normalsMaterial ??= CreateNormalsMaterial(),
-                ModelPreviewVisualMode.UvChecker => s_uvCheckerMaterial ??= CreateUvCheckerMaterial(),
-                ModelPreviewVisualMode.VertexColor => s_vertexColorMaterial ??= CreateVertexColorMaterial(),
-                ModelPreviewVisualMode.Overdraw => s_overdrawMaterial ??= CreateOverdrawMaterial(),
+                ModelPreviewVisualMode.Normals => s_normalsMaterial,
+                ModelPreviewVisualMode.UvChecker => s_uvCheckerMaterial,
+                ModelPreviewVisualMode.VertexColor => s_vertexColorMaterial,
+                ModelPreviewVisualMode.Overdraw => s_overdrawMaterial,
                 _ => null,
             };
 
@@ -1483,161 +1491,31 @@ namespace ParticleThumbnailAndPreview.Editor
             mesh.SetIndices(indices, MeshTopology.Lines, 0);
         }
 
-        private static Material CreateNormalsMaterial()
+        private static void EnsureVisualModeMaterials()
         {
-            const string src = @"
-Shader ""Hidden/ParticlePreview/Normals""
-{
-	SubShader
-	{
-		Tags { ""RenderType""=""Opaque"" }
-		Pass
-		{
-			Cull Off
-			CGPROGRAM
-			#pragma vertex vert
-			#pragma fragment frag
-			#include ""UnityCG.cginc""
-			struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; };
-			struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; };
-			v2f vert(appdata v)
-			{
-				v2f o;
-				o.pos = UnityObjectToClipPos(v.vertex);
-				o.n = UnityObjectToWorldNormal(v.normal);
-				return o;
-			}
-			fixed4 frag(v2f i) : SV_Target
-			{
-				float3 n = normalize(i.n);
-				return fixed4(n * 0.5 + 0.5, 1);
-			}
-			ENDCG
-		}
-	}
-}";
-            return CreateMaterialFromSource(src);
+            s_normalsMaterial ??= LoadVisualModeMaterial(NormalsMaterialPath);
+            s_uvCheckerMaterial ??= LoadVisualModeMaterial(UvCheckerMaterialPath);
+            s_vertexColorMaterial ??= LoadVisualModeMaterial(VertexColorMaterialPath);
+            s_overdrawMaterial ??= LoadVisualModeMaterial(OverdrawMaterialPath);
         }
 
-        private static Material CreateUvCheckerMaterial()
+        private static Material LoadVisualModeMaterial(string fileName)
         {
-            const string src = @"
-Shader ""Hidden/ParticlePreview/UvChecker""
-{
-	SubShader
-	{
-		Tags { ""RenderType""=""Opaque"" }
-		Pass
-		{
-			Cull Off
-			CGPROGRAM
-			#pragma vertex vert
-			#pragma fragment frag
-			#include ""UnityCG.cginc""
-			struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
-			struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
-			v2f vert(appdata v)
-			{
-				v2f o;
-				o.pos = UnityObjectToClipPos(v.vertex);
-				o.uv = v.uv;
-				return o;
-			}
-			fixed4 frag(v2f i) : SV_Target
-			{
-				float coarse = fmod(floor(i.uv.x * 8.0) + floor(i.uv.y * 8.0), 2.0);
-				float fine = fmod(floor(i.uv.x * 64.0) + floor(i.uv.y * 64.0), 2.0);
-				float3 color = lerp(float3(0.15, 0.15, 0.18), float3(0.85, 0.85, 0.82), coarse);
-				color *= lerp(0.92, 1.0, fine);
-				return fixed4(color, 1);
-			}
-			ENDCG
-		}
-	}
-}";
-            return CreateMaterialFromSource(src);
-        }
+            string[] roots =
+            {
+                PackageVisualModesRoot,
+                AssetsVisualModesRoot,
+            };
 
-        private static Material CreateVertexColorMaterial()
-        {
-            const string src = @"
-Shader ""Hidden/ParticlePreview/VertexColor""
-{
-	SubShader
-	{
-		Tags { ""RenderType""=""Opaque"" }
-		Pass
-		{
-			Cull Off
-			CGPROGRAM
-			#pragma vertex vert
-			#pragma fragment frag
-			#include ""UnityCG.cginc""
-			struct appdata { float4 vertex : POSITION; float4 color : COLOR; };
-			struct v2f { float4 pos : SV_POSITION; float4 color : COLOR; };
-			v2f vert(appdata v)
-			{
-				v2f o;
-				o.pos = UnityObjectToClipPos(v.vertex);
-				o.color = v.color;
-				return o;
-			}
-			fixed4 frag(v2f i) : SV_Target
-			{
-				return i.color;
-			}
-			ENDCG
-		}
-	}
-}";
-            return CreateMaterialFromSource(src);
-        }
+            for (int i = 0; i < roots.Length; i++)
+            {
+                string path = roots[i] + "/" + fileName;
+                Material loaded = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (loaded != null)
+                    return loaded;
+            }
 
-        private static Material CreateOverdrawMaterial()
-        {
-            const string src = @"
-Shader ""Hidden/ParticlePreview/Overdraw""
-{
-	SubShader
-	{
-		Tags { ""RenderType""=""Transparent"" ""Queue""=""Transparent"" }
-		Pass
-		{
-			Blend One One
-			ZWrite Off
-			ZTest Always
-			Cull Off
-			CGPROGRAM
-			#pragma vertex vert
-			#pragma fragment frag
-			#include ""UnityCG.cginc""
-			struct appdata { float4 vertex : POSITION; };
-			struct v2f { float4 pos : SV_POSITION; };
-			v2f vert(appdata v)
-			{
-				v2f o;
-				o.pos = UnityObjectToClipPos(v.vertex);
-				return o;
-			}
-			fixed4 frag(v2f i) : SV_Target
-			{
-				return fixed4(0.1, 0.04, 0.02, 0.0);
-			}
-			ENDCG
-		}
-	}
-}";
-            return CreateMaterialFromSource(src);
-        }
-
-        private static Material CreateMaterialFromSource(string shaderSource)
-        {
-            Shader shader = ShaderUtil.CreateShaderAsset(shaderSource, false);
-            if (shader == null)
-                return null;
-
-            shader.hideFlags = HideFlags.HideAndDontSave;
-            return new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            return null;
         }
 
     }

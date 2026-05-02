@@ -15,7 +15,7 @@ Editor-only Unity tools for clearer particle prefab thumbnails and richer prefab
 ## Features
 
 - Static particle thumbnails in Project grid and list views with motion-aware framing for clearer asset recognition.
-- Dedicated particle prefab Inspector preview with play/pause/scrub controls, orbit/pan/zoom interaction, and quick info overlays.
+- Dedicated custom prefab Inspector preview with particle playback controls and model preview workflows.
 - Project-scoped settings and maintenance actions for cache control, thumbnail regeneration, and preview behavior tuning.
 - Scoped Harmony patching is used only for preview-window hook behavior, minimizing impact so Odin Inspector and other editor extension tools should keep working smoothly.
 

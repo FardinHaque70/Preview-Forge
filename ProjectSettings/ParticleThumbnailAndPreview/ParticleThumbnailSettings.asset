@@ -11,17 +11,17 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 0}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp-Editor:ParticleThumbnailAndPreview.Editor:ParticleThumbnailSettingsStorage
+  m_EditorClassIdentifier: ParticleThumbnailAndPreview.Editor:ParticleThumbnailAndPreview.Editor:ParticleThumbnailSettingsStorage
   enabled: 1
   drawInProjectGrid: 1
   drawInProjectList: 1
   gridRenderSize: 128
   listRenderSize: 32
-  backgroundColor: {r: 0.066037714, g: 0.066037714, b: 0.066037714, a: 1}
-  cameraFov: 10
-  cameraYaw: 0
-  cameraPitch: -21.9
-  boundsPadding: 0
+  backgroundColor: {r: 0.15, g: 0.15, b: 0.15, a: 1}
+  cameraFov: 30
+  cameraYaw: 35
+  cameraPitch: 25
+  boundsPadding: 0.15
   scanMaxSeconds: 3
   motionPadding: 0.2
   motionRadius: 3
