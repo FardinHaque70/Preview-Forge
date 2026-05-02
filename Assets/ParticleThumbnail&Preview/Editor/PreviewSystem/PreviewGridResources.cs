@@ -117,9 +117,13 @@ namespace ParticleThumbnailAndPreview.Editor
             Color axisX = EditorGUIUtility.isProSkin
                 ? new Color(1f, 0.28f, 0.28f, Mathf.Clamp01(alpha * 1.85f))
                 : new Color(0.75f, 0.12f, 0.12f, Mathf.Clamp01(alpha * 1.85f));
-            Color axisB = EditorGUIUtility.isProSkin
+            Color axisY = EditorGUIUtility.isProSkin
                 ? new Color(0.28f, 1f, 0.28f, Mathf.Clamp01(alpha * 1.85f))
                 : new Color(0.12f, 0.58f, 0.12f, Mathf.Clamp01(alpha * 1.85f));
+            Color axisZ = EditorGUIUtility.isProSkin
+                ? new Color(0.33f, 0.66f, 1f, Mathf.Clamp01(alpha * 1.85f))
+                : new Color(0.08f, 0.24f, 0.62f, Mathf.Clamp01(alpha * 1.85f));
+            Color secondaryAxis = is2D ? axisY : axisZ;
 
             for (int i = -count; i <= count; i++)
             {
@@ -131,9 +135,9 @@ namespace ParticleThumbnailAndPreview.Editor
                 Color xPeak = new Color(xLine.r, xLine.g, xLine.b, xLine.a * fade);
                 Color xEdge = new Color(xLine.r, xLine.g, xLine.b, isCenter ? xLine.a * 0.32f : 0f);
 
-                Color bLine = isCenter ? axisB : baseColor;
-                Color bPeak = new Color(bLine.r, bLine.g, bLine.b, bLine.a * fade);
-                Color bEdge = new Color(bLine.r, bLine.g, bLine.b, isCenter ? bLine.a * 0.32f : 0f);
+                Color secondaryLine = isCenter ? secondaryAxis : baseColor;
+                Color secondaryPeak = new Color(secondaryLine.r, secondaryLine.g, secondaryLine.b, secondaryLine.a * fade);
+                Color secondaryEdge = new Color(secondaryLine.r, secondaryLine.g, secondaryLine.b, isCenter ? secondaryLine.a * 0.32f : 0f);
 
                 if (is2D)
                 {
@@ -147,13 +151,13 @@ namespace ParticleThumbnailAndPreview.Editor
                     colors.Add(xEdge);
 
                     vertices.Add(new Vector3(position, -safeHalfSize, 0f));
-                    colors.Add(bEdge);
+                    colors.Add(secondaryEdge);
                     vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(bPeak);
+                    colors.Add(secondaryPeak);
                     vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(bPeak);
+                    colors.Add(secondaryPeak);
                     vertices.Add(new Vector3(position, safeHalfSize, 0f));
-                    colors.Add(bEdge);
+                    colors.Add(secondaryEdge);
                 }
                 else
                 {
@@ -167,13 +171,13 @@ namespace ParticleThumbnailAndPreview.Editor
                     colors.Add(xEdge);
 
                     vertices.Add(new Vector3(position, 0f, -safeHalfSize));
-                    colors.Add(bEdge);
+                    colors.Add(secondaryEdge);
                     vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(bPeak);
+                    colors.Add(secondaryPeak);
                     vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(bPeak);
+                    colors.Add(secondaryPeak);
                     vertices.Add(new Vector3(position, 0f, safeHalfSize));
-                    colors.Add(bEdge);
+                    colors.Add(secondaryEdge);
                 }
             }
 

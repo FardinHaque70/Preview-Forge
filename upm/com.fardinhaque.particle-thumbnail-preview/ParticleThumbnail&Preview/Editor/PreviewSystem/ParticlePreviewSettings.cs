@@ -25,6 +25,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		[SerializeField] internal bool modelDefaultTurntableEnabled = ParticlePreviewSettings.D_ModelDefaultTurntableEnabled;
 		[SerializeField] internal bool modelDefaultInfoEnabled = ParticlePreviewSettings.D_ModelDefaultInfoEnabled;
 		[SerializeField] internal bool modelDefaultGridEnabled = ParticlePreviewSettings.D_ModelDefaultGridEnabled;
+		[SerializeField] internal bool modelDefaultLightGizmoEnabled = ParticlePreviewSettings.D_ModelDefaultLightGizmoEnabled;
 		[SerializeField] internal bool modelDefaultSkyboxEnabled = ParticlePreviewSettings.D_ModelDefaultSkyboxEnabled;
 		[SerializeField] internal Cubemap modelSkyboxCubemap = ParticlePreviewSettings.D_ModelSkyboxCubemap;
 		[SerializeField] internal Material modelSkyboxMaterial;
@@ -73,6 +74,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			modelDefaultTurntableEnabled = ParticlePreviewSettings.D_ModelDefaultTurntableEnabled;
 			modelDefaultInfoEnabled = ParticlePreviewSettings.D_ModelDefaultInfoEnabled;
 			modelDefaultGridEnabled = ParticlePreviewSettings.D_ModelDefaultGridEnabled;
+			modelDefaultLightGizmoEnabled = ParticlePreviewSettings.D_ModelDefaultLightGizmoEnabled;
 			modelDefaultSkyboxEnabled = ParticlePreviewSettings.D_ModelDefaultSkyboxEnabled;
 			modelSkyboxCubemap = ParticlePreviewSettings.D_ModelSkyboxCubemap;
 			modelSkyboxMaterial = ParticlePreviewSkyboxAssets.GetOrCreateSkyboxMaterialForCubemap(modelSkyboxCubemap);
@@ -126,6 +128,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const bool D_ModelDefaultTurntableEnabled = true;
 		public const bool D_ModelDefaultInfoEnabled = true;
 		public const bool D_ModelDefaultGridEnabled = true;
+		public const bool D_ModelDefaultLightGizmoEnabled = true;
 		public const bool D_ModelDefaultSkyboxEnabled = true;
 		public const Cubemap D_ModelSkyboxCubemap = null;
 		public const Cubemap D_ModelReflectionCubemap = null;
@@ -183,6 +186,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static bool ModelDefaultTurntableEnabled => Storage.modelDefaultTurntableEnabled;
 		public static bool ModelDefaultInfoEnabled => Storage.modelDefaultInfoEnabled;
 		public static bool ModelDefaultGridEnabled => Storage.modelDefaultGridEnabled;
+		public static bool ModelDefaultLightGizmoEnabled => Storage.modelDefaultLightGizmoEnabled;
 		public static bool ModelDefaultSkyboxEnabled => Storage.modelDefaultSkyboxEnabled;
 		public static Cubemap ModelSkyboxCubemap => Storage.modelSkyboxCubemap;
 
@@ -327,6 +331,9 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.modelDefaultGridEnabled = EditorGUILayout.Toggle(
 					new GUIContent("Grid", "Default state for the Grid toggle."),
 					storage.modelDefaultGridEnabled);
+				storage.modelDefaultLightGizmoEnabled = EditorGUILayout.Toggle(
+					new GUIContent("Light Gizmo", "Default state for the Light Gizmo toggle."),
+					storage.modelDefaultLightGizmoEnabled);
 				storage.modelDefaultSkyboxEnabled = EditorGUILayout.Toggle(
 					new GUIContent("Skybox", "Default state for the Skybox toggle."),
 					storage.modelDefaultSkyboxEnabled);

@@ -44,6 +44,11 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float PivotMarkerRadius = 0.07f;
         private const int PivotMarkerSegments = 24;
         private const float TurntableDegreesPerSecond = 24f;
+        private static readonly int LightWidgetControlHash = "ModelPreviewLightWidget".GetHashCode();
+        private const float LightPadPanelSize = 89.6f;
+        private const float LightPadPanelPadding = 8f;
+        private const float LightPadInnerPadding = 7.2f;
+        private const float LightPadMarkerSize = 6.4f;
         private static readonly string[] VisualModesRoots =
         {
             "Assets/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/VisualModes",
@@ -109,6 +114,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private bool _gridEnabled = true;
         private bool _lightsEnabled;
+        private bool _lightWidgetEnabled;
         private bool _skyboxEnabled;
         private bool _infoEnabled = true;
         private bool _turntableEnabled = true;
@@ -121,6 +127,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private int _materialSlotCount;
         private ModelPreviewVisualMode _loggedVisualModeFailure = ModelPreviewVisualMode.None;
         private string _lastGridDiagnosticsKey;
+        private Vector3 _lightRigDirectionWorld;
 
         private struct SessionStateSnapshot
         {
@@ -132,6 +139,7 @@ namespace ParticleThumbnailAndPreview.Editor
             internal float TargetDistance;
             internal bool GridEnabled;
             internal bool LightsEnabled;
+            internal bool LightWidgetEnabled;
             internal bool SkyboxEnabled;
             internal bool InfoEnabled;
             internal bool TurntableEnabled;
@@ -144,6 +152,7 @@ namespace ParticleThumbnailAndPreview.Editor
         internal bool IsReady => _preview != null && _previewRoot != null;
         internal bool GridEnabled => _gridEnabled;
         internal bool LightsEnabled => _lightsEnabled;
+        internal bool LightWidgetEnabled => _lightWidgetEnabled;
         internal bool SkyboxEnabled => _skyboxEnabled;
         internal bool InfoEnabled => _infoEnabled;
         internal bool TurntableEnabled => _turntableEnabled;
@@ -218,12 +227,14 @@ namespace ParticleThumbnailAndPreview.Editor
             _modeOverride = NormalizeModeOverride(ParticlePreviewSettings.ModelPreviewMode);
             _gridEnabled = ParticlePreviewSettings.ModelDefaultGridEnabled;
             _lightsEnabled = true;
+            _lightWidgetEnabled = ParticlePreviewSettings.ModelDefaultLightGizmoEnabled;
             _skyboxEnabled = ParticlePreviewSettings.ModelDefaultSkyboxEnabled;
             _infoEnabled = ParticlePreviewSettings.ModelDefaultInfoEnabled;
             _turntableEnabled = ParticlePreviewSettings.ModelDefaultTurntableEnabled;
             _visualMode = ModelPreviewVisualMode.None;
             _lastNonNoneVisualMode = ModelPreviewVisualMode.Normals;
             _lastGridDiagnosticsKey = null;
+            ResetLightRigDirection();
             FrameCameraToContent(reason: "initial");
 
             bool shouldRestoreState = !isSwitchingToDifferentPrefab && isTransientRebuildOfSameSelection;
@@ -237,6 +248,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 _targetDistance = Mathf.Clamp(restored.TargetDistance, MinDistance, MaxDistance);
                 _gridEnabled = restored.GridEnabled;
                 _lightsEnabled = restored.LightsEnabled;
+                _lightWidgetEnabled = restored.LightWidgetEnabled;
                 _skyboxEnabled = restored.SkyboxEnabled;
                 _infoEnabled = restored.InfoEnabled;
                 _turntableEnabled = restored.TurntableEnabled;
@@ -282,6 +294,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _cameraSkybox = null;
             _sunLight = null;
             _rimLight = null;
+            _lightRigDirectionWorld = Vector3.zero;
             _loggedVisualModeFailure = ModelPreviewVisualMode.None;
 
             if (_previewRoot != null)
@@ -323,6 +336,7 @@ namespace ParticleThumbnailAndPreview.Editor
                     TargetDistance = Mathf.Clamp(_targetDistance, MinDistance, MaxDistance),
                     GridEnabled = _gridEnabled,
                     LightsEnabled = _lightsEnabled,
+                    LightWidgetEnabled = _lightWidgetEnabled,
                     SkyboxEnabled = _skyboxEnabled,
                     InfoEnabled = _infoEnabled,
                     TurntableEnabled = _turntableEnabled,
@@ -356,6 +370,11 @@ namespace ParticleThumbnailAndPreview.Editor
         internal void SetLightsEnabled(bool enabled)
         {
             _lightsEnabled = enabled;
+        }
+
+        internal void SetLightWidgetEnabled(bool enabled)
+        {
+            _lightWidgetEnabled = enabled;
         }
 
         internal void SetSkyboxEnabled(bool enabled)
@@ -429,13 +448,21 @@ namespace ParticleThumbnailAndPreview.Editor
             if (!IsReady || evt == null)
                 return false;
 
-            if (GUIUtility.hotControl != 0)
+            bool effective2D = ModeContext.Effective2D;
+            Rect lightWidgetRect = GetLightWidgetPadRect(previewRect);
+            bool lightWidgetInteractive = _lightWidgetEnabled && !effective2D;
+            int lightRigControlId = lightWidgetInteractive
+                ? GUIUtility.GetControlID(LightWidgetControlHash, FocusType.Passive, lightWidgetRect)
+                : 0;
+            if (GUIUtility.hotControl != 0 && GUIUtility.hotControl != lightRigControlId)
                 return false;
 
             bool changed = false;
             double now = EditorApplication.timeSinceStartup;
             bool pointerInPreview = previewRect.Contains(evt.mousePosition);
-            bool effective2D = ModeContext.Effective2D;
+
+            if (lightWidgetInteractive && HandleLightWidgetInput(evt, lightWidgetRect, lightRigControlId, effective2D, ref changed))
+                return changed;
 
             bool isPanDrag = evt.type == EventType.MouseDrag && (evt.button == 2 || (evt.button == 0 && evt.command));
             if (isPanDrag && pointerInPreview)
@@ -626,6 +653,161 @@ namespace ParticleThumbnailAndPreview.Editor
             Texture previewTexture = _preview.EndPreview();
             if (previewTexture != null)
                 EditorGUI.DrawPreviewTexture(previewRect, previewTexture, null, ScaleMode.StretchToFill);
+
+            if (_lightWidgetEnabled)
+                DrawLightWidget(previewRect);
+        }
+
+        private Rect GetLightWidgetPadRect(Rect previewRect)
+        {
+            Rect panelRect = new Rect(
+                previewRect.xMax - LightPadPanelSize - LightPadPanelPadding,
+                previewRect.y + LightPadPanelPadding,
+                LightPadPanelSize,
+                LightPadPanelSize);
+            return new Rect(
+                panelRect.x + LightPadInnerPadding,
+                panelRect.y + LightPadInnerPadding,
+                panelRect.width - LightPadInnerPadding * 2f,
+                panelRect.height - LightPadInnerPadding * 2f);
+        }
+
+        private void DrawLightWidget(Rect previewRect)
+        {
+            if (Event.current.type != EventType.Repaint || ModeContext.Effective2D)
+                return;
+
+            Rect padRect = GetLightWidgetPadRect(previewRect);
+
+            Vector2 center = padRect.center;
+            float radius = Mathf.Max(4f, Mathf.Min(padRect.width, padRect.height) * 0.5f - 4f);
+            Handles.BeginGUI();
+            Color prev = Handles.color;
+            Handles.color = new Color(1f, 1f, 1f, 0.221f);
+            Handles.DrawWireDisc(center, Vector3.forward, radius);
+            Handles.DrawLine(new Vector3(center.x - radius, center.y), new Vector3(center.x + radius, center.y));
+            Handles.DrawLine(new Vector3(center.x, center.y - radius), new Vector3(center.x, center.y + radius));
+            Handles.color = prev;
+            Handles.EndGUI();
+
+            Vector2 marker = GetLightWidgetMarkerPosition(padRect);
+            Rect markerRect = new Rect(marker.x - LightPadMarkerSize * 0.5f, marker.y - LightPadMarkerSize * 0.5f, LightPadMarkerSize, LightPadMarkerSize);
+            EditorGUI.DrawRect(markerRect, PreviewToolbarTheme.GetToolbarButtonBackground(active: true, hovered: false));
+            DrawRectBorder(markerRect, PreviewToolbarTheme.GetToolbarButtonBorder(active: true));
+        }
+
+        private bool HandleLightWidgetInput(Event evt, Rect padRect, int controlId, bool effective2D, ref bool changed)
+        {
+            if (effective2D)
+                return false;
+
+            switch (evt.GetTypeForControl(controlId))
+            {
+                case EventType.MouseDown:
+                    if (evt.button == 0 && padRect.Contains(evt.mousePosition))
+                    {
+                        GUIUtility.hotControl = controlId;
+                        SetLightRigDirectionFromPadPoint(evt.mousePosition, padRect);
+                        _turntableEnabled = false;
+                        changed = true;
+                        evt.Use();
+                        return true;
+                    }
+
+                    break;
+
+                case EventType.MouseDrag:
+                    if (GUIUtility.hotControl == controlId)
+                    {
+                        SetLightRigDirectionFromPadPoint(evt.mousePosition, padRect);
+                        _turntableEnabled = false;
+                        changed = true;
+                        evt.Use();
+                        return true;
+                    }
+
+                    break;
+
+                case EventType.MouseUp:
+                    if (GUIUtility.hotControl == controlId)
+                    {
+                        GUIUtility.hotControl = 0;
+                        evt.Use();
+                        return true;
+                    }
+
+                    break;
+            }
+
+            return false;
+        }
+
+        private Vector2 GetLightWidgetMarkerPosition(Rect padRect)
+        {
+            if (_preview == null || _preview.camera == null)
+                return padRect.center;
+
+            Vector3 local = _preview.camera.transform.InverseTransformDirection(GetLightRigDirectionWorld()).normalized;
+            Vector2 planar = new Vector2(local.x, local.y);
+            if (planar.sqrMagnitude > 1f)
+                planar.Normalize();
+
+            float radius = Mathf.Max(4f, Mathf.Min(padRect.width, padRect.height) * 0.5f - 4f);
+            return padRect.center + new Vector2(planar.x, -planar.y) * radius;
+        }
+
+        private void SetLightRigDirectionFromPadPoint(Vector2 mousePosition, Rect padRect)
+        {
+            if (_preview == null || _preview.camera == null)
+                return;
+
+            Vector2 center = padRect.center;
+            float radius = Mathf.Max(4f, Mathf.Min(padRect.width, padRect.height) * 0.5f - 4f);
+            Vector2 delta = (mousePosition - center) / Mathf.Max(0.0001f, radius);
+            if (delta.sqrMagnitude > 1f)
+                delta.Normalize();
+
+            float x = delta.x;
+            float y = -delta.y;
+            float z = Mathf.Sqrt(Mathf.Max(0f, 1f - x * x - y * y));
+            Vector3 local = new Vector3(x, y, z).normalized;
+            Vector3 world = _preview.camera.transform.TransformDirection(local).normalized;
+            SetLightRigDirectionWorld(world);
+        }
+
+        private static void DrawRectBorder(Rect rect, Color color)
+        {
+            EditorGUI.DrawRect(new Rect(rect.x, rect.y, rect.width, 1f), color);
+            EditorGUI.DrawRect(new Rect(rect.x, rect.yMax - 1f, rect.width, 1f), color);
+            EditorGUI.DrawRect(new Rect(rect.x, rect.y, 1f, rect.height), color);
+            EditorGUI.DrawRect(new Rect(rect.xMax - 1f, rect.y, 1f, rect.height), color);
+        }
+
+        private void ResetLightRigDirection()
+        {
+            _lightRigDirectionWorld = GetDefaultLightRigDirection();
+        }
+
+        private Vector3 GetDefaultLightRigDirection()
+        {
+            Vector3 direction = RotationFromYawPitch(ParticlePreviewSettings.ModelKeyLightRotation) * Vector3.forward;
+            return direction.sqrMagnitude <= 0.0001f ? Vector3.forward : direction.normalized;
+        }
+
+        private Vector3 GetLightRigDirectionWorld()
+        {
+            if (_lightRigDirectionWorld.sqrMagnitude <= 0.0001f)
+                _lightRigDirectionWorld = GetDefaultLightRigDirection();
+
+            return _lightRigDirectionWorld.normalized;
+        }
+
+        private void SetLightRigDirectionWorld(Vector3 direction)
+        {
+            if (direction.sqrMagnitude <= 0.0001f)
+                return;
+
+            _lightRigDirectionWorld = direction.normalized;
         }
 
         private void UpdateCameraTransform()
@@ -671,7 +853,7 @@ namespace ParticleThumbnailAndPreview.Editor
                     _sunLight.intensity = ParticlePreviewSettings.ModelSunLightIntensity;
                     _sunLight.color = ParticlePreviewSettings.ModelSunLightColor;
                     _sunLight.shadowStrength = ParticlePreviewSettings.ModelSunLightShadowStrength;
-                    _sunLight.transform.rotation = RotationFromYawPitch(ParticlePreviewSettings.ModelSunLightRotation);
+                    _sunLight.transform.rotation = GetRiggedLightRotation(ParticlePreviewSettings.ModelSunLightRotation);
                 }
             }
 
@@ -679,13 +861,13 @@ namespace ParticleThumbnailAndPreview.Editor
                 _preview.lights[0],
                 lightingEnabled && ParticlePreviewSettings.ModelKeyLightEnabled,
                 ParticlePreviewSettings.ModelKeyLightIntensity,
-                ParticlePreviewSettings.ModelKeyLightRotation,
+                GetRiggedLightRotation(ParticlePreviewSettings.ModelKeyLightRotation),
                 Color.white);
             ApplyDirectionalLight(
                 _preview.lights[1],
                 lightingEnabled && ParticlePreviewSettings.ModelFillLightEnabled,
                 ParticlePreviewSettings.ModelFillLightIntensity,
-                ParticlePreviewSettings.ModelFillLightRotation,
+                GetRiggedLightRotation(ParticlePreviewSettings.ModelFillLightRotation),
                 Color.white);
 
             EnsureRimLight();
@@ -697,7 +879,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 {
                     _rimLight.intensity = ParticlePreviewSettings.ModelRimLightIntensity;
                     _rimLight.color = ParticlePreviewSettings.ModelRimLightColor;
-                    _rimLight.transform.rotation = RotationFromYawPitch(ParticlePreviewSettings.ModelRimLightRotation);
+                    _rimLight.transform.rotation = GetRiggedLightRotation(ParticlePreviewSettings.ModelRimLightRotation);
                 }
             }
 
@@ -729,7 +911,7 @@ namespace ParticleThumbnailAndPreview.Editor
             }
         }
 
-        private static void ApplyDirectionalLight(Light light, bool enabled, float intensity, Vector2 yawPitch, Color color)
+        private static void ApplyDirectionalLight(Light light, bool enabled, float intensity, Quaternion worldRotation, Color color)
         {
             if (light == null)
                 return;
@@ -739,7 +921,14 @@ namespace ParticleThumbnailAndPreview.Editor
             light.shadows = LightShadows.None;
             light.intensity = enabled ? intensity : 0f;
             light.color = color;
-            light.transform.rotation = RotationFromYawPitch(yawPitch);
+            light.transform.rotation = worldRotation;
+        }
+
+        private Quaternion GetRiggedLightRotation(Vector2 baseYawPitch)
+        {
+            Quaternion baseRotation = RotationFromYawPitch(baseYawPitch);
+            Quaternion rigRotation = Quaternion.FromToRotation(GetDefaultLightRigDirection(), GetLightRigDirectionWorld());
+            return rigRotation * baseRotation;
         }
 
         private static Quaternion RotationFromYawPitch(Vector2 yawPitch)

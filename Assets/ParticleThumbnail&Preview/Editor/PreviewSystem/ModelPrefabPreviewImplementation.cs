@@ -17,6 +17,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private static readonly string[] TurntableIcons = BuildIconNames("Model_Turntable_Round_White.png", "d_SceneViewTools", "SceneViewTools", "d_RotateTool", "RotateTool");
         private static readonly string[] InfoIcons = BuildIconNames("Model_Info_Round_White.png", "d_SelectionList Icon", "SelectionList Icon", "d_Search Icon", "Search Icon");
         private static readonly string[] LightsIcons = BuildIconNames("Model_Lightbulb_Round_White.png", "d_Light Icon", "Light Icon", "d_SceneViewLighting", "SceneViewLighting");
+        private static readonly string[] LightGizmoIcons = BuildIconNames("Model_LightGizmo_Round_White.png", "d_PreMatSphere", "PreMatSphere", "d_SceneViewTools", "SceneViewTools");
         private static readonly string[] GridIcons = BuildIconNames("Model_GridOn_Round_White.png", "d_Grid Icon", "Grid Icon", "d_Grid.Default", "Grid.Default");
         private static readonly string[] SkyboxIcons = BuildIconNames("Model_Panorama_Round_White.png", "d_Cubemap Icon", "Cubemap Icon", "d_PreMatSphere", "PreMatSphere");
         private static readonly string[] VisualDefaultIcons = BuildIconNames("Model_Texture_Round_White.png", "d_Texture Icon", "Texture Icon");
@@ -26,12 +27,13 @@ namespace ParticleThumbnailAndPreview.Editor
         private const int InfoIndex = 1;
         private const int LightsIndex = 2;
         private const int GridIndex = 3;
-        private const int SkyboxIndex = 4;
-        private const int VisualModeIndex = 5;
-        private const int ModeIndex = 6;
+        private const int LightGizmoIndex = 4;
+        private const int SkyboxIndex = 5;
+        private const int VisualModeIndex = 6;
+        private const int ModeIndex = 7;
 
         private readonly ModelPrefabPreviewSession _session = new();
-        private readonly List<PreviewToolbarItem> _toolbarItems = new(7);
+        private readonly List<PreviewToolbarItem> _toolbarItems = new(8);
         private Action _requestRepaint;
         private bool _updateRegistered;
 
@@ -133,6 +135,11 @@ namespace ParticleThumbnailAndPreview.Editor
 
             _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
             {
+                OnToggleChanged = OnLightGizmoToggled,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
+            {
                 OnToggleChanged = OnSkyboxToggled,
             });
 
@@ -179,6 +186,13 @@ namespace ParticleThumbnailAndPreview.Editor
             grid.FallbackText = "Grid";
             grid.Tooltip = "Toggle preview grid";
             grid.IconNames = GridIcons;
+
+            PreviewToolbarItem lightGizmo = _toolbarItems[LightGizmoIndex];
+            lightGizmo.IsActive = _session.LightWidgetEnabled;
+            lightGizmo.IsEnabled = !environmentLocked;
+            lightGizmo.FallbackText = "Gizmo";
+            lightGizmo.Tooltip = "Toggle light rig gizmo";
+            lightGizmo.IconNames = LightGizmoIcons;
 
             PreviewToolbarItem skybox = _toolbarItems[SkyboxIndex];
             skybox.IsActive = _session.SkyboxEnabled;
@@ -238,6 +252,15 @@ namespace ParticleThumbnailAndPreview.Editor
                 return;
 
             _session.SetGridEnabled(value);
+            RequestRepaint();
+        }
+
+        private void OnLightGizmoToggled(bool value)
+        {
+            if (value == _session.LightWidgetEnabled)
+                return;
+
+            _session.SetLightWidgetEnabled(value);
             RequestRepaint();
         }
 

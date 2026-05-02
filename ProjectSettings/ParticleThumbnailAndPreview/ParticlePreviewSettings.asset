@@ -27,16 +27,16 @@ MonoBehaviour:
   modelDefaultTurntableEnabled: 1
   modelDefaultInfoEnabled: 1
   modelDefaultGridEnabled: 1
-  modelDefaultSkyboxEnabled: 1
+  modelDefaultSkyboxEnabled: 0
   modelSkyboxCubemap: {fileID: 8900000, guid: 83fb20c8d36eb4afe9b376da509dc0d6, type: 3}
-  modelSkyboxMaterial: {fileID: 2100000, guid: 76d1313857cc64b8c8cc99c20735e0e8, type: 2}
+  modelSkyboxMaterial: {fileID: 2100000, guid: d72d5b2b42b5346f3b62a917be65443a, type: 2}
   modelReflectionCubemap: {fileID: 8900000, guid: e628e60fedd134eae92c45e351f5f566, type: 3}
   modelReflectionIntensity: 1
   modelSunLightEnabled: 1
   modelSunLightColor: {r: 1, g: 0.9604328, b: 0.8915094, a: 1}
   modelSunLightIntensity: 1.38
   modelSunLightShadowStrength: 1
-  modelSunLightRotation: {x: 45, y: 19.3}
+  modelSunLightRotation: {x: 10.8, y: 66.8}
   modelKeyLightEnabled: 1
   modelKeyLightIntensity: 0.8
   modelKeyLightRotation: {x: 35, y: 35}
