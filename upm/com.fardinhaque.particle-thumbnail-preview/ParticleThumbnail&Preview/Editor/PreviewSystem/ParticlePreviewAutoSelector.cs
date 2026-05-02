@@ -62,13 +62,13 @@ namespace ParticleThumbnailAndPreview.Editor
                 _autoSelectPending        = false;
                 _framesRemaining          = 0;
                 _scheduledSelectionKey    = null;
-                _appliedSelectionKey      = null;
                 return;
             }
 
             string selectionKey = BuildSelectionKey(Selection.objects);
             if (!string.IsNullOrEmpty(selectionKey)
-                && string.Equals(selectionKey, _appliedSelectionKey, StringComparison.Ordinal))
+                && string.Equals(selectionKey, _appliedSelectionKey, StringComparison.Ordinal)
+                && HasSelectedPreviewInOpenPropertyEditors())
             {
                 LogDiagnostic($"Skip duplicate auto-select for same target: {selectionKey}");
                 _autoSelectPending     = false;
@@ -95,7 +95,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 _autoSelectPending = false;
                 _framesRemaining   = 0;
-                _appliedSelectionKey = null;
+                _scheduledSelectionKey = null;
                 EditorApplication.update -= OnEditorUpdate;
                 return;
             }
@@ -176,17 +176,17 @@ namespace ParticleThumbnailAndPreview.Editor
         /// </summary>
         private static bool TrySelectPreview(UnityObject propertyEditor, object preview)
         {
+            if (propertyEditor == null || preview == null)
+                return false;
+
+            if (IsPreviewAlreadySelected(propertyEditor, preview))
+                return true;
+
             // ── Path 1: call Unity's internal SelectPreview / SetSelectedPreview ──
             if (SelectPreviewMethod != null)
             {
                 try
                 {
-                    // The method signature in all known Unity versions is:
-                    //   void SelectPreview(IPreviewable preview)   or
-                    //   void SelectPreview(ObjectPreview preview)
-                    // Pass null first to deselect, then pass ours so Unity runs
-                    // its full internal input-routing update.
-                    SelectPreviewMethod.Invoke(propertyEditor, new[] { (object)null });
                     SelectPreviewMethod.Invoke(propertyEditor, new[] { preview });
                     return true;
                 }
@@ -215,6 +215,63 @@ namespace ParticleThumbnailAndPreview.Editor
             }
 
             return false;
+        }
+
+        private static bool HasSelectedPreviewInOpenPropertyEditors()
+        {
+            if (PropertyEditorType == null || PreviewsField == null)
+                return false;
+
+            UnityObject[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
+            for (int i = 0; i < propertyEditors.Length; i++)
+            {
+                UnityObject propertyEditor = propertyEditors[i];
+                if (propertyEditor == null || !ShouldApplyToPropertyEditor(propertyEditor))
+                    continue;
+
+                try
+                {
+                    if (!TryGetInspectedObject(propertyEditor, out UnityObject _))
+                        continue;
+
+                    IList previews = PreviewsField.GetValue(propertyEditor) as IList;
+                    object ourPreview = FindPreviewByTypeName(previews, ThisPreviewTypeName);
+                    if (ourPreview == null)
+                        continue;
+
+                    if (IsPreviewAlreadySelected(propertyEditor, ourPreview))
+                        return true;
+                }
+                catch
+                {
+                    // Stay resilient to Unity internals changing.
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsPreviewAlreadySelected(UnityObject propertyEditor, object preview)
+        {
+            if (propertyEditor == null || preview == null || SelectedPreviewField == null)
+                return false;
+
+            try
+            {
+                object current = SelectedPreviewField.GetValue(propertyEditor);
+                if (ReferenceEquals(current, preview))
+                    return true;
+
+                Type currentType = current?.GetType();
+                Type previewType = preview.GetType();
+                return currentType != null
+                    && previewType != null
+                    && string.Equals(currentType.FullName, previewType.FullName, StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         // ── Helpers (unchanged from original) ────────────────────────────────

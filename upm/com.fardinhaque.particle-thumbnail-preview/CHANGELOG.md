@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.0.2] - 2026-05-02
+
+- Fix prefab Inspector edits briefly clearing the selected prefab and flashing the save prompt when the custom particle preview auto-select refreshes.
+- Keep preview auto-selection stable for the same prefab across transient inspector/project refreshes.
+
 ## [1.0.1] - 2026-04-26
 
 - Minor update
