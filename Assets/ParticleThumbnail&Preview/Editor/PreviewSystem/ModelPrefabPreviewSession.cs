@@ -1503,7 +1503,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private Matrix4x4 BuildGridMatrix()
         {
-            Vector3 anchor = _pivot;
+            Vector3 anchor = _hasFramedBounds ? _framedBounds.center : _pivot;
             if (!ModeContext.Effective2D && TryComputeGridFloorY(out float floorY))
                 anchor.y = floorY;
 

@@ -15,7 +15,6 @@ namespace ParticleThumbnailAndPreview.Editor
     {
         private static readonly System.Type TmpTextMeshProType = System.Type.GetType("TMPro.TextMeshPro, Unity.TextMeshPro");
         private static readonly System.Type TmpTextMeshProUiType = System.Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
-
         public static bool IsSupportedTarget(UnityObject[] targets)
         {
             return Classify(targets) != PrefabPreviewTargetKind.Unsupported;

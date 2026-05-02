@@ -30,7 +30,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public static bool ShouldSuppressCompetingPreview(UnityObject[] targets)
         {
-            return ShouldSuppressCompetingPreview(targets, ParticlePreviewSettings.Active);
+            bool anyPreviewEnabled = ParticlePreviewSettings.Active
+                                     || ParticlePreviewSettings.ModelPreviewActive;
+            return ShouldSuppressCompetingPreview(targets, anyPreviewEnabled);
         }
 
         internal static bool ShouldSuppressCompetingPreview(UnityObject[] targets, bool previewActive)
