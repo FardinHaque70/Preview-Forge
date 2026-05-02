@@ -2,14 +2,19 @@
 
 All notable changes to this package are documented in this file.
 
-## [1.1.0] - 2026-05-02
+## [1.1.1] - 2026-05-03
 
-- Add unified custom prefab preview routing for particle and model prefabs.
-- Add lean mesh/skinned model preview with robust framing and orbit/pan/zoom interaction.
-- Add shared preview mode architecture with `Auto`, forced `2D`, and forced `3D` mode support for model previews.
-- Generalize preview target gating and competing-preview suppression to classifier-driven prefab support.
-- Add model preview settings (`Enable Model Preview`, `Mode Override`) in project settings.
-- Add EditMode tests for target classification and preview mode resolution helpers.
+- Fix missing `.meta` for `PreviewAssets/VisualModes` in the UPM package to prevent immutable-folder asset ignore warnings.
+
+## [1.1.0] - 2026-05-03
+
+- Add unified prefab preview routing for particle prefabs and mesh/skinned model prefabs.
+- Add model prefab preview with auto-framing, orbit/pan/zoom controls, and shared toolbar behavior.
+- Add model preview mode controls with `Auto`, forced `2D`, and forced `3D`, plus project settings (`Enable Model Preview`, `Mode Override`).
+- Add EditMode test coverage for preview target classification and preview mode resolution helpers.
+- Improve model preview defaults for grid, lighting, and skybox handling across preview contexts.
+- Refactor preview asset and toolbar icon loading to keep project and UPM package paths synchronized.
+- Fix model preview grid pan anchoring and roll back the broader 2D prefab preview pipeline path to preserve stable behavior.
 
 ## [1.0.3] - 2026-05-02
 
@@ -23,17 +28,12 @@ All notable changes to this package are documented in this file.
 
 ## [1.0.1] - 2026-04-26
 
-- Minor update
-- performance optimization attempt for unity 2022
-- Push all pending updates including docs, preview changes, and old iteration assets
-- Add VFX Graph thumbnail limitation note to README
-- Document scoped Harmony preview hook compatibility
-- Update particle thumbnail workflow and simplify package docs
-- Remove tag guidance from user-facing README install docs
-- Clarify UPM install guidance before release tags
-- Remove leftover ImprovedAssetTools project settings
-- Fix UPM immutable package warnings with meta files
-- Update README showcase gifs and thumbnail settings
+- Improve README content and UPM install guidance, including updated showcase media.
+- Add VFX Graph thumbnail limitation documentation.
+- Document scoped Harmony preview hook compatibility.
+- Fix UPM immutable package warnings by including missing meta files.
+- Remove leftover legacy ImprovedAssetTools project settings from the package.
+- Apply early Unity 2022 editor-flow performance tuning.
 
 ## [1.0.0] - 2026-04-26
 
