@@ -131,7 +131,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float MinMotionSpeed = 0.1f;
 		public const float MaxMotionSpeed = 200f;
 		public static readonly Color D_BackgroundColor = new Color(0.11f, 0.11f, 0.11f, 1f);
-		public const PreviewToolbarColorPreset D_ToolbarColorPreset = PreviewToolbarColorPreset.Godot;
+		public const PreviewToolbarColorPreset D_ToolbarColorPreset = PreviewToolbarColorPreset.UnityBlue;
 		public const float D_ToolbarHeight = 37.63f;
 		public const float MinToolbarHeight = 16f;
 		public const float MaxToolbarHeight = 40f;
@@ -140,7 +140,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			public const bool D_ModelDefaultTurntableEnabled = true;
 			public const bool D_ModelDefaultInfoEnabled = true;
 			public const bool D_ModelDefaultLightRotationGizmosEnabled = true;
-			public const bool D_ModelDefaultSkyboxEnabled = false;
+			public const bool D_ModelDefaultSkyboxEnabled = true;
 			public const bool D_SharedGridDefaultEnabled = true;
 			public const bool D_SharedGridAxisTextDefaultEnabled = true;
 			public const float D_SharedGridHalfSize = 6f;
@@ -155,7 +155,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			public const float MaxSharedGridAlpha = 1f;
 			public const Cubemap D_ModelSkyboxCubemap = null;
 			public const Cubemap D_ModelReflectionCubemap = null;
-			public static readonly Color D_ModelAmbientLightColor = new Color(1.1335572f, 1.1335572f, 1.1335572f, 1f);
+			public static readonly Color D_ModelAmbientLightColor = new Color(0.6132076f, 0.6045301f, 0.6045301f, 1f);
 			public const bool D_ModelSunLightEnabled = true;
 		public static readonly Color D_ModelSunLightColor = new Color(1f, 0.9604328f, 0.8915094f, 1f);
 		public const float D_ModelSunLightIntensity = 1f;
@@ -198,7 +198,9 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static float MotionSpeed => Mathf.Clamp(Storage.motionSpeed, MinMotionSpeed, MaxMotionSpeed);
 
 			public static Color BackgroundColor => Storage.backgroundColor;
-			public static PreviewToolbarColorPreset ToolbarColorPreset => Storage.toolbarColorPreset;
+			public static PreviewToolbarColorPreset ToolbarColorPreset => Enum.IsDefined(typeof(PreviewToolbarColorPreset), Storage.toolbarColorPreset)
+				? Storage.toolbarColorPreset
+				: D_ToolbarColorPreset;
 			public static float ToolbarHeight => Storage.toolbarHeight <= 0f
 				? D_ToolbarHeight
 				: Mathf.Clamp(Storage.toolbarHeight, MinToolbarHeight, MaxToolbarHeight);
@@ -333,6 +335,8 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.backgroundColor = EditorGUILayout.ColorField(
 					new GUIContent("Background Color", "Background color behind custom prefab preview rendering."),
 					storage.backgroundColor);
+				if (!Enum.IsDefined(typeof(PreviewToolbarColorPreset), storage.toolbarColorPreset))
+					storage.toolbarColorPreset = D_ToolbarColorPreset;
 				storage.toolbarColorPreset = (PreviewToolbarColorPreset) EditorGUILayout.EnumPopup(
 					new GUIContent("Toolbar Color Preset", "Temporary active-toolbar color preset while we evaluate final branding."),
 					storage.toolbarColorPreset);

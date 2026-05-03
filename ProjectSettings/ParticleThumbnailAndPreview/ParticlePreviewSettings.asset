@@ -27,7 +27,7 @@ MonoBehaviour:
   modelDefaultTurntableEnabled: 1
   modelDefaultInfoEnabled: 1
   modelDefaultLightRotationGizmosEnabled: 1
-  modelDefaultSkyboxEnabled: 0
+  modelDefaultSkyboxEnabled: 1
   sharedGridDefaultEnabled: 1
   sharedGridAxisTextDefaultEnabled: 1
   sharedGridHalfSize: 6
@@ -37,7 +37,7 @@ MonoBehaviour:
   modelSkyboxCubemap: {fileID: 0}
   modelSkyboxMaterial: {fileID: 2100000, guid: d72d5b2b42b5346f3b62a917be65443a, type: 2}
   modelReflectionCubemap: {fileID: 0}
-  modelAmbientLightColor: {r: 1.1335572, g: 1.1335572, b: 1.1335572, a: 1}
+  modelAmbientLightColor: {r: 0.6132076, g: 0.6045301, b: 0.6045301, a: 1}
   modelSunLightEnabled: 1
   modelSunLightColor: {r: 1, g: 0.9604328, b: 0.8915094, a: 1}
   modelSunLightIntensity: 1

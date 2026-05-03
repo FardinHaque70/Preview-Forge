@@ -9,7 +9,6 @@ namespace ParticleThumbnailAndPreview.Editor
         UnrealEngine = 0,
         Godot = 1,
         Blender = 2,
-        Buildbox = 3,
         VibrantGreen = 4,
         UnityBlue = 5,
     }
@@ -154,11 +153,6 @@ namespace ParticleThumbnailAndPreview.Editor
                     new Color32(0xEA, 0x76, 0x00, 0x38),
                     new Color32(0xFF, 0x92, 0x2E, 0xFF),
                     new Color32(0x12, 0x12, 0x12, 0xFF)),
-                PreviewToolbarColorPreset.Buildbox => new ToolbarPalette(
-                    new Color32(0x43, 0x86, 0x93, 0xFF),
-                    new Color32(0x43, 0x86, 0x93, 0x38),
-                    new Color32(0x59, 0x9D, 0xAA, 0xFF),
-                    new Color32(0xEA, 0xF6, 0xF8, 0xFF)),
                 PreviewToolbarColorPreset.UnityBlue => new ToolbarPalette(
                     new Color32(0x3A, 0x72, 0xB8, 0xFF),
                     new Color32(0x3A, 0x72, 0xB8, 0x38),
