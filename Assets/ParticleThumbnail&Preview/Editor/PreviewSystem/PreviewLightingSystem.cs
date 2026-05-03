@@ -49,18 +49,18 @@ namespace ParticleThumbnailAndPreview.Editor
         internal static SharedPreviewLightingProfile FromSettings()
         {
             return new SharedPreviewLightingProfile(
-                ParticlePreviewSettings.ModelAmbientLightColor,
-                ParticlePreviewSettings.ModelSunLightEnabled,
-                ParticlePreviewSettings.ModelSunLightColor,
-                ParticlePreviewSettings.ModelSunLightIntensity,
-                ParticlePreviewSettings.ModelSunLightShadowStrength,
-                ParticlePreviewSettings.ModelKeyLightEnabled,
-                ParticlePreviewSettings.ModelKeyLightIntensity,
-                ParticlePreviewSettings.ModelFillLightEnabled,
-                ParticlePreviewSettings.ModelFillLightIntensity,
-                ParticlePreviewSettings.ModelRimLightEnabled,
-                ParticlePreviewSettings.ModelRimLightIntensity,
-                ParticlePreviewSettings.ModelRimLightColor);
+                PreviewSettings.ModelAmbientLightColor,
+                PreviewSettings.ModelSunLightEnabled,
+                PreviewSettings.ModelSunLightColor,
+                PreviewSettings.ModelSunLightIntensity,
+                PreviewSettings.ModelSunLightShadowStrength,
+                PreviewSettings.ModelKeyLightEnabled,
+                PreviewSettings.ModelKeyLightIntensity,
+                PreviewSettings.ModelFillLightEnabled,
+                PreviewSettings.ModelFillLightIntensity,
+                PreviewSettings.ModelRimLightEnabled,
+                PreviewSettings.ModelRimLightIntensity,
+                PreviewSettings.ModelRimLightColor);
         }
     }
 

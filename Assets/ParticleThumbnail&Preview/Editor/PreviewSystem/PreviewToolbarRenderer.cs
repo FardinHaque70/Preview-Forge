@@ -64,12 +64,12 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public static PreviewToolbarMetrics FromSettings()
         {
-            return FromHeight(ParticlePreviewSettings.ToolbarHeight);
+            return FromHeight(PreviewSettings.ToolbarHeight);
         }
 
         public static PreviewToolbarMetrics FromHeight(float rowHeight)
         {
-            float clampedHeight = Mathf.Clamp(rowHeight, ParticlePreviewSettings.MinToolbarHeight, ParticlePreviewSettings.MaxToolbarHeight);
+            float clampedHeight = Mathf.Clamp(rowHeight, PreviewSettings.MinToolbarHeight, PreviewSettings.MaxToolbarHeight);
             float sidePadding = Mathf.Max(2f, Mathf.Round(clampedHeight * 0.18f));
             float buttonGap = Mathf.Max(2f, Mathf.Round(clampedHeight * 0.12f));
             float verticalInset = Mathf.Max(2f, Mathf.Round(clampedHeight * 0.15f));

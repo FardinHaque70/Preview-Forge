@@ -7,7 +7,7 @@ using UnityObject = UnityEngine.Object;
 
 namespace ParticleThumbnailAndPreview.Editor
 {
-    internal static class ParticlePreviewTargetGate
+    internal static class PrefabPreviewTargetGate
     {
         public static bool IsSupportedTarget(UnityObject[] targets)
         {
@@ -31,7 +31,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public static bool ShouldSuppressCompetingPreview(UnityObject[] targets)
         {
-            bool anyPreviewEnabled = ParticlePreviewSettings.AnyPrefabCustomPreviewActive;
+            bool anyPreviewEnabled = PreviewSettings.AnyPrefabCustomPreviewActive;
             return ShouldSuppressCompetingPreview(targets, anyPreviewEnabled);
         }
 
@@ -103,8 +103,8 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             return kind switch
             {
-                PrefabPreviewTargetKind.Particle => ParticlePreviewSettings.ParticlePrefabPreviewActive,
-                PrefabPreviewTargetKind.Model => ParticlePreviewSettings.ModelPreviewActive,
+                PrefabPreviewTargetKind.Particle => PreviewSettings.ParticlePrefabPreviewActive,
+                PrefabPreviewTargetKind.Model => PreviewSettings.ModelPreviewActive,
                 _ => false,
             };
         }

@@ -94,7 +94,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (!enabled)
 				return false;
 
-			PreviewGridProfile profile = request.ProfileOverride ?? ParticlePreviewSettings.SharedGridProfile;
+			PreviewGridProfile profile = request.ProfileOverride ?? PreviewSettings.SharedGridProfile;
 			profile = ClampProfile(profile);
 
 			PreviewGridResources.EnsureGridMaterial(ref s_gridMaterial);
@@ -110,7 +110,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			if (AxisMarkersEnabled && request.Space == PreviewGridSpace.Plane3D)
 			{
-				bool drawAxisText = ParticlePreviewSettings.SharedGridAxisTextDefaultEnabled;
+				bool drawAxisText = PreviewSettings.SharedGridAxisTextDefaultEnabled;
 				Mesh axisMarkerMesh = GetOrCreateAxisMarkerMesh(profile, drawAxisText);
 				if (axisMarkerMesh != null)
 					request.Preview.DrawMesh(axisMarkerMesh, matrix, s_gridMaterial, 0);
@@ -142,8 +142,8 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static PreviewGridProfile ClampProfile(PreviewGridProfile profile)
 		{
-			float halfSize = Mathf.Clamp(profile.HalfSize, ParticlePreviewSettings.MinSharedGridHalfSize, ParticlePreviewSettings.MaxSharedGridHalfSize);
-			float step = Mathf.Clamp(profile.Step, ParticlePreviewSettings.MinSharedGridStep, ParticlePreviewSettings.MaxSharedGridStep);
+			float halfSize = Mathf.Clamp(profile.HalfSize, PreviewSettings.MinSharedGridHalfSize, PreviewSettings.MaxSharedGridHalfSize);
+			float step = Mathf.Clamp(profile.Step, PreviewSettings.MinSharedGridStep, PreviewSettings.MaxSharedGridStep);
 			float alpha = Mathf.Clamp01(profile.Alpha);
 			return new PreviewGridProfile(profile.DefaultEnabled, halfSize, step, alpha, profile.Style);
 		}
@@ -221,7 +221,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static Mesh BuildAxisMarkerMesh(float step, float alpha, bool drawText)
 		{
-			float safeStep = Mathf.Max(step, ParticlePreviewSettings.MinSharedGridStep);
+			float safeStep = Mathf.Max(step, PreviewSettings.MinSharedGridStep);
 			float markerAlpha = Mathf.Clamp01(Mathf.Max(alpha * 2.6f, 0.72f));
 			float distance = safeStep * AxisMarkerDistanceSteps;
 			float lift = safeStep * AxisMarkerLiftSteps;

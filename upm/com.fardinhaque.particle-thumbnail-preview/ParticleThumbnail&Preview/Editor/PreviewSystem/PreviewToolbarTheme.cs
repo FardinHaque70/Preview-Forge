@@ -158,7 +158,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static ToolbarPalette GetPalette()
         {
-            return ParticlePreviewSettings.ToolbarColorPreset switch
+            return PreviewSettings.ToolbarColorPreset switch
             {
                 PreviewToolbarColorPreset.UnrealEngine => new ToolbarPalette(
                     new Color32(0xF3, 0x9C, 0x12, 0xFF),

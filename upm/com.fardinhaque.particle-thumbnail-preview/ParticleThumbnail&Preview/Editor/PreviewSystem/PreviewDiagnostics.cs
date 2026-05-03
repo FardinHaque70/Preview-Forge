@@ -15,7 +15,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal static void Log(string area, string message)
         {
-            if (!ParticlePreviewSettings.EnableDiagnostics)
+            if (!PreviewSettings.EnableDiagnostics)
                 return;
 
             Record("INFO", area, message, emitToConsole: false);
@@ -23,7 +23,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal static void Warn(string area, string message)
         {
-            if (!ParticlePreviewSettings.EnableDiagnostics)
+            if (!PreviewSettings.EnableDiagnostics)
                 return;
 
             Record("WARN", area, message, emitToConsole: true);
@@ -31,19 +31,19 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal static void Error(string area, string message)
         {
-            if (!ParticlePreviewSettings.EnableDiagnostics)
+            if (!PreviewSettings.EnableDiagnostics)
                 return;
 
             Record("ERROR", area, message, emitToConsole: true);
         }
 
-        [MenuItem("Tools/Particle Preview/Copy Diagnostics To Clipboard")]
+        [MenuItem("Tools/Particle Thumbnail & Preview/Copy Diagnostics To Clipboard")]
         private static void CopyDiagnosticsToClipboard()
         {
             FlushPendingLine();
 
             var builder = new StringBuilder(16_384);
-            builder.AppendLine("=== Particle Preview Diagnostics ===");
+            builder.AppendLine("=== Particle Thumbnail & Preview Diagnostics ===");
             builder.AppendLine($"Unity: {Application.unityVersion}");
             builder.AppendLine($"Time: {System.DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             builder.AppendLine($"Selection: {DescribeSelection()}");
@@ -59,16 +59,16 @@ namespace ParticleThumbnailAndPreview.Editor
 
             string report = builder.ToString();
             EditorGUIUtility.systemCopyBuffer = report;
-            Debug.Log($"[ParticlePreview][Diagnostics] Copied {Entries.Count} entries to clipboard.");
+            Debug.Log($"[ParticleThumbnailPreview][Diagnostics] Copied {Entries.Count} entries to clipboard.");
         }
 
-        [MenuItem("Tools/Particle Preview/Clear Diagnostics Buffer")]
+        [MenuItem("Tools/Particle Thumbnail & Preview/Clear Diagnostics Buffer")]
         private static void ClearDiagnosticsBuffer()
         {
             _pendingLine = null;
             _pendingRepeatCount = 0;
             Entries.Clear();
-            Debug.Log("[ParticlePreview][Diagnostics] Cleared diagnostics buffer.");
+            Debug.Log("[ParticleThumbnailPreview][Diagnostics] Cleared diagnostics buffer.");
         }
 
         private static void Record(string level, string area, string message, bool emitToConsole)
@@ -76,7 +76,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (string.IsNullOrEmpty(message))
                 return;
 
-            string line = $"[{level}] [ParticlePreview][{area}] {message}";
+            string line = $"[{level}] [ParticleThumbnailPreview][{area}] {message}";
             if (string.Equals(_pendingLine, line, System.StringComparison.Ordinal))
             {
                 _pendingRepeatCount++;

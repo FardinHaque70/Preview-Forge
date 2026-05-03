@@ -40,6 +40,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
 
         private const double TransientTargetLossGraceSeconds = 1.0d;
+        private const double ModelTabResolveGraceSeconds = 0.85d;
         private static int s_nextHostId;
 
         private ModelImporterPreviewImplementation _previewImplementation;
@@ -52,6 +53,8 @@ namespace ParticleThumbnailAndPreview.Editor
         private GameObject _cachedSelectionModelRoot;
         private int _cachedSelectionCount = -1;
         private int _cachedSelectionActiveInstanceId;
+        private Object _cachedOwningPropertyEditor;
+        private double _lastSelectionChangedTime = -1d;
         private readonly int _hostId = GetNextHostId();
         private readonly HashSet<string> _seenResolveMessages = new(StringComparer.Ordinal);
 
@@ -62,6 +65,7 @@ namespace ParticleThumbnailAndPreview.Editor
             EnsurePreviewImplementation();
             RegisterEventHandlers();
             MarkTargetSupportCacheDirty();
+            _lastSelectionChangedTime = EditorApplication.timeSinceStartup;
             LogResolveState($"initialize targets={targets?.Length ?? 0} target={DescribeObject(target)}", force: true);
         }
 
@@ -81,7 +85,7 @@ namespace ParticleThumbnailAndPreview.Editor
         #region Preview Host
         public override bool HasPreviewGUI()
         {
-            if (!ParticlePreviewSettings.ThreeDAssetPreviewActive)
+            if (!PreviewSettings.ThreeDAssetPreviewActive)
             {
                 CleanupPreview(clearSessionCache: false);
                 LogResolveState("settings-inactive");
@@ -104,7 +108,8 @@ namespace ParticleThumbnailAndPreview.Editor
                 return false;
             }
 
-            if (!IsModelImporterModelTabActive(modelAssetPath, out bool modelTabResolved))
+            bool modelTabActive = IsModelImporterModelTabActive(modelAssetPath, out bool modelTabResolved);
+            if (!modelTabActive && !CanUseUnresolvedModelTabGrace(modelRoot, modelAssetPath, modelTabResolved))
             {
                 CleanupPreview(clearSessionCache: false);
                 string reason = modelTabResolved ? "non-model-tab-default" : "model-tab-unresolved-default";
@@ -135,7 +140,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _activeModelAssetPath = modelAssetPath;
             LogResolveState(
                 $"active asset='{modelAssetPath}' root={modelRoot.name} clip={(animationClip != null ? animationClip.name : "<none>")} modelTab=true");
-            ParticlePreviewAutoSelector.NotifyModelImporterPreviewCandidate(modelAssetPath);
+            CustomPreviewAutoSelector.NotifyModelImporterPreviewCandidate(modelAssetPath);
             return true;
         }
 
@@ -155,7 +160,7 @@ namespace ParticleThumbnailAndPreview.Editor
         public override void OnPreviewSettings()
         {
             if (GUILayout.Button("Settings", EditorStyles.toolbarButton))
-                ParticlePreviewSettingsProvider.OpenSettings();
+                PreviewSettingsProvider.OpenSettings();
         }
 
         public override void OnPreviewGUI(Rect rect, GUIStyle background)
@@ -183,6 +188,28 @@ namespace ParticleThumbnailAndPreview.Editor
             _previewImplementation.Draw(rect, background, isInteractive);
         }
         #endregion
+
+        private bool CanUseUnresolvedModelTabGrace(GameObject modelRoot, string modelAssetPath, bool modelTabResolved)
+        {
+            if (modelTabResolved)
+                return false;
+
+            if (modelRoot == null || string.IsNullOrEmpty(modelAssetPath))
+                return false;
+
+            if (!TryResolveModelPreviewContext(Selection.activeObject, out GameObject selectedRoot, out string selectedAssetPath, out _))
+                return false;
+
+            if (!ReferenceEquals(selectedRoot, modelRoot)
+                && !string.Equals(selectedAssetPath, modelAssetPath, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            double now = EditorApplication.timeSinceStartup;
+            return _lastSelectionChangedTime >= 0d
+                   && now - _lastSelectionChangedTime <= ModelTabResolveGraceSeconds;
+        }
 
         #region Resolution
         private bool TryResolveActiveModelContext(out GameObject modelRoot, out string modelAssetPath, out AnimationClip animationClip)
@@ -385,6 +412,9 @@ namespace ParticleThumbnailAndPreview.Editor
             if (PropertyEditorType == null || PropertyEditorPreviewsField == null)
                 return false;
 
+            if (TryGetCachedOwningPropertyEditor(out propertyEditor))
+                return true;
+
             Object[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
             for (int i = 0; i < propertyEditors.Length; i++)
             {
@@ -406,10 +436,33 @@ namespace ParticleThumbnailAndPreview.Editor
                     continue;
 
                 propertyEditor = candidatePropertyEditor;
+                _cachedOwningPropertyEditor = propertyEditor;
                 return true;
             }
 
             LogResolveState("owner-property-editor-not-found");
+            return false;
+        }
+
+        private bool TryGetCachedOwningPropertyEditor(out Object propertyEditor)
+        {
+            propertyEditor = _cachedOwningPropertyEditor;
+            if (propertyEditor == null || PropertyEditorPreviewsField == null)
+                return false;
+
+            try
+            {
+                IList previews = PropertyEditorPreviewsField.GetValue(propertyEditor) as IList;
+                if (ContainsPreviewInstance(previews, this))
+                    return true;
+            }
+            catch
+            {
+                // If Unity internals changed, clear cache and fall back to scan.
+            }
+
+            _cachedOwningPropertyEditor = null;
+            propertyEditor = null;
             return false;
         }
 
@@ -672,7 +725,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             Selection.selectionChanged += OnSelectionChanged;
             EditorApplication.projectChanged += OnProjectChanged;
-            ParticlePreviewSettings.SettingsChanged += OnSettingsChanged;
+            PreviewSettings.SettingsChanged += OnSettingsChanged;
             _eventHandlersRegistered = true;
         }
 
@@ -683,12 +736,13 @@ namespace ParticleThumbnailAndPreview.Editor
 
             Selection.selectionChanged -= OnSelectionChanged;
             EditorApplication.projectChanged -= OnProjectChanged;
-            ParticlePreviewSettings.SettingsChanged -= OnSettingsChanged;
+            PreviewSettings.SettingsChanged -= OnSettingsChanged;
             _eventHandlersRegistered = false;
         }
 
         private void OnSelectionChanged()
         {
+            _lastSelectionChangedTime = EditorApplication.timeSinceStartup;
             MarkTargetSupportCacheDirty();
         }
 
@@ -705,6 +759,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private void MarkTargetSupportCacheDirty()
         {
             _targetSupportCacheDirty = true;
+            _cachedOwningPropertyEditor = null;
         }
 
         private void ClearTargetSupportCache()
@@ -713,6 +768,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _cachedSelectionModelRoot = null;
             _cachedSelectionCount = -1;
             _cachedSelectionActiveInstanceId = 0;
+            _cachedOwningPropertyEditor = null;
         }
 
         private static bool IsSelectionEmpty()
@@ -723,7 +779,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private void LogResolveState(string message, bool force = false)
         {
-            if (!ParticlePreviewSettings.EnableDiagnostics)
+            if (!PreviewSettings.EnableDiagnostics)
                 return;
 
             if (!force && _seenResolveMessages.Contains(message))

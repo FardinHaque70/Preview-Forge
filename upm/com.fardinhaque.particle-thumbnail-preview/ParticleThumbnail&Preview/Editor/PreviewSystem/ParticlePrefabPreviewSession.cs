@@ -176,7 +176,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			_preview = new PreviewRenderUtility(true);
 			_preview.camera.clearFlags = CameraClearFlags.SolidColor;
-			_preview.camera.backgroundColor = ParticlePreviewSettings.BackgroundColor;
+			_preview.camera.backgroundColor = PreviewSettings.BackgroundColor;
 			_preview.camera.fieldOfView = 30f;
 			_preview.camera.nearClipPlane = 0.01f;
 			_preview.camera.farClipPlane = 1000f;
@@ -203,9 +203,9 @@ namespace ParticleThumbnailAndPreview.Editor
 				ParticleRenderCompatibilityUtility.SetRenderersEnabled(_renderers, false);
 				_needsMotion = ParticleMotionDetectionUtility.NeedsMotion(_particleSystems);
 				_motionShape = ParticlePreviewMotionShape.Circle;
-				_motionSpeed = ParticlePreviewSettings.MotionSpeed;
-				_motionSize = ParticlePreviewSettings.MotionRadius;
-				_gridEnabled = ParticlePreviewSettings.SharedGridDefaultEnabled;
+				_motionSpeed = PreviewSettings.MotionSpeed;
+				_motionSize = PreviewSettings.MotionRadius;
+				_gridEnabled = PreviewSettings.SharedGridDefaultEnabled;
 				_lightsEnabled = false;
 
 			EnsureDeterministicSeeds();
@@ -242,7 +242,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				}
 				else
 				{
-					_playing = ParticlePreviewSettings.Autoplay;
+					_playing = PreviewSettings.Autoplay;
 					_lightsEnabled = false;
 				}
 
@@ -386,7 +386,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		internal void SetMotionSpeed(float speed)
 		{
-			float clamped = Mathf.Clamp(speed, ParticlePreviewSettings.MinMotionSpeed, ParticlePreviewSettings.MaxMotionSpeed);
+			float clamped = Mathf.Clamp(speed, PreviewSettings.MinMotionSpeed, PreviewSettings.MaxMotionSpeed);
 			if (Mathf.Approximately(_motionSpeed, clamped))
 				return;
 
@@ -396,7 +396,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		internal void SetMotionSize(float size)
 		{
-			float clamped = Mathf.Clamp(size, ParticlePreviewSettings.MinMotionRadius, ParticlePreviewSettings.MaxMotionRadius);
+			float clamped = Mathf.Clamp(size, PreviewSettings.MinMotionRadius, PreviewSettings.MaxMotionRadius);
 			if (Mathf.Approximately(_motionSize, clamped))
 				return;
 
@@ -440,7 +440,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (dt <= 0f)
 				return false;
 
-			double frameInterval = 1.0 / Mathf.Max(1, ParticlePreviewSettings.RefreshFps);
+			double frameInterval = 1.0 / Mathf.Max(1, PreviewSettings.RefreshFps);
 			_playbackAccumulatorSeconds = Math.Min(_playbackAccumulatorSeconds + dt, frameInterval * 8.0);
 			if (_playbackAccumulatorSeconds < frameInterval)
 				return false;
@@ -583,8 +583,8 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (!IsReady)
 				return false;
 
-			float orbitSmoothing = Mathf.Max(0.0001f, ParticlePreviewSettings.OrbitSmoothing);
-			float panSmoothing = Mathf.Max(0.0001f, ParticlePreviewSettings.PanSmoothing);
+			float orbitSmoothing = Mathf.Max(0.0001f, PreviewSettings.OrbitSmoothing);
+			float panSmoothing = Mathf.Max(0.0001f, PreviewSettings.PanSmoothing);
 
 			double now = EditorApplication.timeSinceStartup;
 			var state = new PreviewCameraInteractionState
@@ -631,7 +631,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (!IsReady || Event.current.type != EventType.Repaint)
 				return;
 
-			_preview.camera.backgroundColor = ParticlePreviewSettings.BackgroundColor;
+			_preview.camera.backgroundColor = PreviewSettings.BackgroundColor;
 			UpdateCameraTransform();
 			ApplyEnvironmentState();
 
@@ -673,10 +673,10 @@ namespace ParticleThumbnailAndPreview.Editor
 				_rimLight,
 				in lightingProfile,
 				_lightsEnabled,
-				PreviewLightingSystem.RotationFromYawPitch(ParticlePreviewSettings.ModelSunLightRotation),
-				PreviewLightingSystem.RotationFromYawPitch(ParticlePreviewSettings.ModelKeyLightRotation),
-				PreviewLightingSystem.RotationFromYawPitch(ParticlePreviewSettings.ModelFillLightRotation),
-				PreviewLightingSystem.RotationFromYawPitch(ParticlePreviewSettings.ModelRimLightRotation));
+				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelSunLightRotation),
+				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelKeyLightRotation),
+				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelFillLightRotation),
+				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelRimLightRotation));
 		}
 
 		#endregion
@@ -921,7 +921,7 @@ namespace ParticleThumbnailAndPreview.Editor
 					ComputeMotionFramingDistance(
 						_preview.camera.fieldOfView,
 						_motionSize,
-						ParticlePreviewSettings.MotionPadding),
+						PreviewSettings.MotionPadding),
 					MinDistance,
 					MaxAutoFrameDistance) * MotionFitDistanceScale;
 			}

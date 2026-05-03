@@ -7,53 +7,53 @@ using UnityEngine;
 namespace ParticleThumbnailAndPreview.Editor
 {
 	[FilePath(SettingsPath, FilePathAttribute.Location.ProjectFolder)]
-	internal sealed class ParticlePreviewSettingsStorage : ScriptableSingleton<ParticlePreviewSettingsStorage>
+	internal sealed class PreviewSettingsStorage : ScriptableSingleton<PreviewSettingsStorage>
 	{
 		private const string SettingsPath = "ProjectSettings/ParticleThumbnailAndPreview/ParticlePreviewSettings.asset";
 
-		[SerializeField] internal bool active = ParticlePreviewSettings.D_Active;
-		[SerializeField] internal int refreshFps = ParticlePreviewSettings.D_RefreshFps;
-		[SerializeField] internal float orbitSmoothing = ParticlePreviewSettings.D_OrbitSmoothing;
-		[SerializeField] internal float panSmoothing = ParticlePreviewSettings.D_PanSmoothing;
-		[SerializeField] internal float motionPadding = ParticlePreviewSettings.D_MotionPadding;
-		[SerializeField] internal float motionRadius = ParticlePreviewSettings.D_MotionRadius;
-		[SerializeField] internal float motionSpeed = ParticlePreviewSettings.D_MotionSpeed;
-		[SerializeField] internal Color backgroundColor = ParticlePreviewSettings.D_BackgroundColor;
-		[SerializeField] internal PreviewToolbarColorPreset toolbarColorPreset = ParticlePreviewSettings.D_ToolbarColorPreset;
-		[SerializeField] internal float toolbarHeight = ParticlePreviewSettings.D_ToolbarHeight;
-			[SerializeField] internal bool modelPreviewActive = ParticlePreviewSettings.D_ModelPreviewActive;
-			[SerializeField] internal bool modelImporterPreviewActive = ParticlePreviewSettings.D_ModelImporterPreviewActive;
-			[SerializeField] internal PreviewModeOverride modelPreviewMode = ParticlePreviewSettings.D_ModelPreviewMode;
-			[SerializeField] internal bool modelDefaultTurntableEnabled = ParticlePreviewSettings.D_ModelDefaultTurntableEnabled;
-			[SerializeField] internal bool modelDefaultInfoEnabled = ParticlePreviewSettings.D_ModelDefaultInfoEnabled;
-			[SerializeField] internal bool modelDefaultLightRotationGizmosEnabled = ParticlePreviewSettings.D_ModelDefaultLightRotationGizmosEnabled;
-			[SerializeField] internal bool modelDefaultSkyboxEnabled = ParticlePreviewSettings.D_ModelDefaultSkyboxEnabled;
-			[SerializeField] internal bool sharedGridDefaultEnabled = ParticlePreviewSettings.D_SharedGridDefaultEnabled;
-			[SerializeField] internal bool sharedGridAxisTextDefaultEnabled = ParticlePreviewSettings.D_SharedGridAxisTextDefaultEnabled;
-			[SerializeField] internal float sharedGridHalfSize = ParticlePreviewSettings.D_SharedGridHalfSize;
-			[SerializeField] internal float sharedGridStep = ParticlePreviewSettings.D_SharedGridStep;
-			[SerializeField] internal float sharedGridAlpha = ParticlePreviewSettings.D_SharedGridAlpha;
-			[SerializeField] internal PreviewGridStyle sharedGridStyle = ParticlePreviewSettings.D_SharedGridStyle;
-			[SerializeField] internal Cubemap modelSkyboxCubemap = ParticlePreviewSettings.D_ModelSkyboxCubemap;
+		[SerializeField] internal bool active = PreviewSettings.D_Active;
+		[SerializeField] internal int refreshFps = PreviewSettings.D_RefreshFps;
+		[SerializeField] internal float orbitSmoothing = PreviewSettings.D_OrbitSmoothing;
+		[SerializeField] internal float panSmoothing = PreviewSettings.D_PanSmoothing;
+		[SerializeField] internal float motionPadding = PreviewSettings.D_MotionPadding;
+		[SerializeField] internal float motionRadius = PreviewSettings.D_MotionRadius;
+		[SerializeField] internal float motionSpeed = PreviewSettings.D_MotionSpeed;
+		[SerializeField] internal Color backgroundColor = PreviewSettings.D_BackgroundColor;
+		[SerializeField] internal PreviewToolbarColorPreset toolbarColorPreset = PreviewSettings.D_ToolbarColorPreset;
+		[SerializeField] internal float toolbarHeight = PreviewSettings.D_ToolbarHeight;
+			[SerializeField] internal bool modelPreviewActive = PreviewSettings.D_ModelPreviewActive;
+			[SerializeField] internal bool modelImporterPreviewActive = PreviewSettings.D_ModelImporterPreviewActive;
+			[SerializeField] internal PreviewModeOverride modelPreviewMode = PreviewSettings.D_ModelPreviewMode;
+			[SerializeField] internal bool modelDefaultTurntableEnabled = PreviewSettings.D_ModelDefaultTurntableEnabled;
+			[SerializeField] internal bool modelDefaultInfoEnabled = PreviewSettings.D_ModelDefaultInfoEnabled;
+			[SerializeField] internal bool modelDefaultLightRotationGizmosEnabled = PreviewSettings.D_ModelDefaultLightRotationGizmosEnabled;
+			[SerializeField] internal bool modelDefaultSkyboxEnabled = PreviewSettings.D_ModelDefaultSkyboxEnabled;
+			[SerializeField] internal bool sharedGridDefaultEnabled = PreviewSettings.D_SharedGridDefaultEnabled;
+			[SerializeField] internal bool sharedGridAxisTextDefaultEnabled = PreviewSettings.D_SharedGridAxisTextDefaultEnabled;
+			[SerializeField] internal float sharedGridHalfSize = PreviewSettings.D_SharedGridHalfSize;
+			[SerializeField] internal float sharedGridStep = PreviewSettings.D_SharedGridStep;
+			[SerializeField] internal float sharedGridAlpha = PreviewSettings.D_SharedGridAlpha;
+			[SerializeField] internal PreviewGridStyle sharedGridStyle = PreviewSettings.D_SharedGridStyle;
+			[SerializeField] internal Cubemap modelSkyboxCubemap = PreviewSettings.D_ModelSkyboxCubemap;
 			[SerializeField] internal Material modelSkyboxMaterial;
-			[SerializeField] internal Cubemap modelReflectionCubemap = ParticlePreviewSettings.D_ModelReflectionCubemap;
-			[SerializeField] internal Color modelAmbientLightColor = ParticlePreviewSettings.D_ModelAmbientLightColor;
-			[SerializeField] internal bool modelSunLightEnabled = ParticlePreviewSettings.D_ModelSunLightEnabled;
-			[SerializeField] internal Color modelSunLightColor = ParticlePreviewSettings.D_ModelSunLightColor;
-		[SerializeField] internal float modelSunLightIntensity = ParticlePreviewSettings.D_ModelSunLightIntensity;
-		[SerializeField] internal float modelSunLightShadowStrength = ParticlePreviewSettings.D_ModelSunLightShadowStrength;
-		[SerializeField] internal Vector2 modelSunLightRotation = ParticlePreviewSettings.D_ModelSunLightRotation;
-		[SerializeField] internal bool modelKeyLightEnabled = ParticlePreviewSettings.D_ModelKeyLightEnabled;
-		[SerializeField] internal float modelKeyLightIntensity = ParticlePreviewSettings.D_ModelKeyLightIntensity;
-		[SerializeField] internal Vector2 modelKeyLightRotation = ParticlePreviewSettings.D_ModelKeyLightRotation;
-		[SerializeField] internal bool modelFillLightEnabled = ParticlePreviewSettings.D_ModelFillLightEnabled;
-		[SerializeField] internal float modelFillLightIntensity = ParticlePreviewSettings.D_ModelFillLightIntensity;
-		[SerializeField] internal Vector2 modelFillLightRotation = ParticlePreviewSettings.D_ModelFillLightRotation;
-		[SerializeField] internal bool modelRimLightEnabled = ParticlePreviewSettings.D_ModelRimLightEnabled;
-		[SerializeField] internal float modelRimLightIntensity = ParticlePreviewSettings.D_ModelRimLightIntensity;
-		[SerializeField] internal Vector2 modelRimLightRotation = ParticlePreviewSettings.D_ModelRimLightRotation;
-		[SerializeField] internal Color modelRimLightColor = ParticlePreviewSettings.D_ModelRimLightColor;
-		[SerializeField] internal bool enableDiagnostics = ParticlePreviewSettings.D_EnableDiagnostics;
+			[SerializeField] internal Cubemap modelReflectionCubemap = PreviewSettings.D_ModelReflectionCubemap;
+			[SerializeField] internal Color modelAmbientLightColor = PreviewSettings.D_ModelAmbientLightColor;
+			[SerializeField] internal bool modelSunLightEnabled = PreviewSettings.D_ModelSunLightEnabled;
+			[SerializeField] internal Color modelSunLightColor = PreviewSettings.D_ModelSunLightColor;
+		[SerializeField] internal float modelSunLightIntensity = PreviewSettings.D_ModelSunLightIntensity;
+		[SerializeField] internal float modelSunLightShadowStrength = PreviewSettings.D_ModelSunLightShadowStrength;
+		[SerializeField] internal Vector2 modelSunLightRotation = PreviewSettings.D_ModelSunLightRotation;
+		[SerializeField] internal bool modelKeyLightEnabled = PreviewSettings.D_ModelKeyLightEnabled;
+		[SerializeField] internal float modelKeyLightIntensity = PreviewSettings.D_ModelKeyLightIntensity;
+		[SerializeField] internal Vector2 modelKeyLightRotation = PreviewSettings.D_ModelKeyLightRotation;
+		[SerializeField] internal bool modelFillLightEnabled = PreviewSettings.D_ModelFillLightEnabled;
+		[SerializeField] internal float modelFillLightIntensity = PreviewSettings.D_ModelFillLightIntensity;
+		[SerializeField] internal Vector2 modelFillLightRotation = PreviewSettings.D_ModelFillLightRotation;
+		[SerializeField] internal bool modelRimLightEnabled = PreviewSettings.D_ModelRimLightEnabled;
+		[SerializeField] internal float modelRimLightIntensity = PreviewSettings.D_ModelRimLightIntensity;
+		[SerializeField] internal Vector2 modelRimLightRotation = PreviewSettings.D_ModelRimLightRotation;
+		[SerializeField] internal Color modelRimLightColor = PreviewSettings.D_ModelRimLightColor;
+		[SerializeField] internal bool enableDiagnostics = PreviewSettings.D_EnableDiagnostics;
 
 		internal void SaveStorage()
 		{
@@ -66,52 +66,52 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		internal void ResetToDefaults()
 		{
-			active = ParticlePreviewSettings.D_Active;
-			refreshFps = ParticlePreviewSettings.D_RefreshFps;
-			orbitSmoothing = ParticlePreviewSettings.D_OrbitSmoothing;
-			panSmoothing = ParticlePreviewSettings.D_PanSmoothing;
-			motionPadding = ParticlePreviewSettings.D_MotionPadding;
-			motionRadius = ParticlePreviewSettings.D_MotionRadius;
-			motionSpeed = ParticlePreviewSettings.D_MotionSpeed;
-			backgroundColor = ParticlePreviewSettings.D_BackgroundColor;
-			toolbarColorPreset = ParticlePreviewSettings.D_ToolbarColorPreset;
-			toolbarHeight = ParticlePreviewSettings.D_ToolbarHeight;
-			modelPreviewActive = ParticlePreviewSettings.D_ModelPreviewActive;
-			modelImporterPreviewActive = ParticlePreviewSettings.D_ModelImporterPreviewActive;
-			modelPreviewMode = ParticlePreviewSettings.D_ModelPreviewMode;
-			modelDefaultTurntableEnabled = ParticlePreviewSettings.D_ModelDefaultTurntableEnabled;
-			modelDefaultInfoEnabled = ParticlePreviewSettings.D_ModelDefaultInfoEnabled;
-			modelDefaultLightRotationGizmosEnabled = ParticlePreviewSettings.D_ModelDefaultLightRotationGizmosEnabled;
-			modelDefaultSkyboxEnabled = ParticlePreviewSettings.D_ModelDefaultSkyboxEnabled;
-			sharedGridDefaultEnabled = ParticlePreviewSettings.D_SharedGridDefaultEnabled;
-			sharedGridAxisTextDefaultEnabled = ParticlePreviewSettings.D_SharedGridAxisTextDefaultEnabled;
-			sharedGridHalfSize = ParticlePreviewSettings.D_SharedGridHalfSize;
-			sharedGridStep = ParticlePreviewSettings.D_SharedGridStep;
-			sharedGridAlpha = ParticlePreviewSettings.D_SharedGridAlpha;
-			sharedGridStyle = ParticlePreviewSettings.D_SharedGridStyle;
-				modelSkyboxCubemap = ParticlePreviewSettings.D_ModelSkyboxCubemap;
-				modelSkyboxMaterial = ParticlePreviewSkyboxAssets.GetOrCreateSkyboxMaterialForCubemap(modelSkyboxCubemap);
-				modelAmbientLightColor = ParticlePreviewSettings.D_ModelAmbientLightColor;
-				modelSunLightEnabled = ParticlePreviewSettings.D_ModelSunLightEnabled;
-				modelSunLightColor = ParticlePreviewSettings.D_ModelSunLightColor;
-			modelSunLightIntensity = ParticlePreviewSettings.D_ModelSunLightIntensity;
-			modelSunLightShadowStrength = ParticlePreviewSettings.D_ModelSunLightShadowStrength;
-			modelSunLightRotation = ParticlePreviewSettings.D_ModelSunLightRotation;
-			modelKeyLightEnabled = ParticlePreviewSettings.D_ModelKeyLightEnabled;
-			modelKeyLightIntensity = ParticlePreviewSettings.D_ModelKeyLightIntensity;
-			modelKeyLightRotation = ParticlePreviewSettings.D_ModelKeyLightRotation;
-			modelFillLightEnabled = ParticlePreviewSettings.D_ModelFillLightEnabled;
-			modelFillLightIntensity = ParticlePreviewSettings.D_ModelFillLightIntensity;
-			modelFillLightRotation = ParticlePreviewSettings.D_ModelFillLightRotation;
-			modelRimLightEnabled = ParticlePreviewSettings.D_ModelRimLightEnabled;
-			modelRimLightIntensity = ParticlePreviewSettings.D_ModelRimLightIntensity;
-			modelRimLightRotation = ParticlePreviewSettings.D_ModelRimLightRotation;
-			modelRimLightColor = ParticlePreviewSettings.D_ModelRimLightColor;
-			enableDiagnostics = ParticlePreviewSettings.D_EnableDiagnostics;
+			active = PreviewSettings.D_Active;
+			refreshFps = PreviewSettings.D_RefreshFps;
+			orbitSmoothing = PreviewSettings.D_OrbitSmoothing;
+			panSmoothing = PreviewSettings.D_PanSmoothing;
+			motionPadding = PreviewSettings.D_MotionPadding;
+			motionRadius = PreviewSettings.D_MotionRadius;
+			motionSpeed = PreviewSettings.D_MotionSpeed;
+			backgroundColor = PreviewSettings.D_BackgroundColor;
+			toolbarColorPreset = PreviewSettings.D_ToolbarColorPreset;
+			toolbarHeight = PreviewSettings.D_ToolbarHeight;
+			modelPreviewActive = PreviewSettings.D_ModelPreviewActive;
+			modelImporterPreviewActive = PreviewSettings.D_ModelImporterPreviewActive;
+			modelPreviewMode = PreviewSettings.D_ModelPreviewMode;
+			modelDefaultTurntableEnabled = PreviewSettings.D_ModelDefaultTurntableEnabled;
+			modelDefaultInfoEnabled = PreviewSettings.D_ModelDefaultInfoEnabled;
+			modelDefaultLightRotationGizmosEnabled = PreviewSettings.D_ModelDefaultLightRotationGizmosEnabled;
+			modelDefaultSkyboxEnabled = PreviewSettings.D_ModelDefaultSkyboxEnabled;
+			sharedGridDefaultEnabled = PreviewSettings.D_SharedGridDefaultEnabled;
+			sharedGridAxisTextDefaultEnabled = PreviewSettings.D_SharedGridAxisTextDefaultEnabled;
+			sharedGridHalfSize = PreviewSettings.D_SharedGridHalfSize;
+			sharedGridStep = PreviewSettings.D_SharedGridStep;
+			sharedGridAlpha = PreviewSettings.D_SharedGridAlpha;
+			sharedGridStyle = PreviewSettings.D_SharedGridStyle;
+				modelSkyboxCubemap = PreviewSettings.D_ModelSkyboxCubemap;
+				modelSkyboxMaterial = PreviewSkyboxAssets.GetOrCreateSkyboxMaterialForCubemap(modelSkyboxCubemap);
+				modelAmbientLightColor = PreviewSettings.D_ModelAmbientLightColor;
+				modelSunLightEnabled = PreviewSettings.D_ModelSunLightEnabled;
+				modelSunLightColor = PreviewSettings.D_ModelSunLightColor;
+			modelSunLightIntensity = PreviewSettings.D_ModelSunLightIntensity;
+			modelSunLightShadowStrength = PreviewSettings.D_ModelSunLightShadowStrength;
+			modelSunLightRotation = PreviewSettings.D_ModelSunLightRotation;
+			modelKeyLightEnabled = PreviewSettings.D_ModelKeyLightEnabled;
+			modelKeyLightIntensity = PreviewSettings.D_ModelKeyLightIntensity;
+			modelKeyLightRotation = PreviewSettings.D_ModelKeyLightRotation;
+			modelFillLightEnabled = PreviewSettings.D_ModelFillLightEnabled;
+			modelFillLightIntensity = PreviewSettings.D_ModelFillLightIntensity;
+			modelFillLightRotation = PreviewSettings.D_ModelFillLightRotation;
+			modelRimLightEnabled = PreviewSettings.D_ModelRimLightEnabled;
+			modelRimLightIntensity = PreviewSettings.D_ModelRimLightIntensity;
+			modelRimLightRotation = PreviewSettings.D_ModelRimLightRotation;
+			modelRimLightColor = PreviewSettings.D_ModelRimLightColor;
+			enableDiagnostics = PreviewSettings.D_EnableDiagnostics;
 		}
 	}
 
-	internal static class ParticlePreviewSettings
+	internal static class PreviewSettings
 	{
 		public const bool D_Active = true;
 		public const int D_RefreshFps = 45;
@@ -182,7 +182,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		public static event Action SettingsChanged;
 
-		private static ParticlePreviewSettingsStorage Storage => ParticlePreviewSettingsStorage.instance;
+		private static PreviewSettingsStorage Storage => PreviewSettingsStorage.instance;
 
 		public static bool ParticlePrefabPreviewActive => Storage.active;
 		public static bool Active => ParticlePrefabPreviewActive;
@@ -285,14 +285,14 @@ namespace ParticleThumbnailAndPreview.Editor
 				return;
 
 			if (Storage.modelSkyboxCubemap == null)
-				Storage.modelSkyboxCubemap = ParticlePreviewSkyboxAssets.GetDefaultSkyboxCubemap();
-			Storage.modelSkyboxMaterial = ParticlePreviewSkyboxAssets.TryLoadDefaultSkyboxMaterial()
-			                              ?? ParticlePreviewSkyboxAssets.GetOrCreateSkyboxMaterialForCubemap(Storage.modelSkyboxCubemap);
+				Storage.modelSkyboxCubemap = PreviewSkyboxAssets.GetDefaultSkyboxCubemap();
+			Storage.modelSkyboxMaterial = PreviewSkyboxAssets.TryLoadDefaultSkyboxMaterial()
+			                              ?? PreviewSkyboxAssets.GetOrCreateSkyboxMaterialForCubemap(Storage.modelSkyboxCubemap);
 			Storage.SaveStorage();
 		}
 	}
 
-	internal static class ParticlePreviewSettingsProvider
+	internal static class PreviewSettingsProvider
 	{
 		private const string SettingsPath = "Project/Particle Thumbnail & Preview/Prefab Preview";
 
@@ -359,7 +359,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		#region Main GUI
 		private static void DrawGui()
 		{
-			ParticlePreviewSettingsStorage storage = ParticlePreviewSettingsStorage.instance;
+			PreviewSettingsStorage storage = PreviewSettingsStorage.instance;
 
 			EditorGUI.BeginChangeCheck();
 			SettingsScroll = EditorGUILayout.BeginScrollView(SettingsScroll, false, false);
@@ -371,18 +371,18 @@ namespace ParticleThumbnailAndPreview.Editor
 			// 	storage.motionPadding = EditorGUILayout.Slider(
 			// 		new GUIContent("Motion Padding", "Extra framing margin when motion simulation is used."),
 			// 		storage.motionPadding,
-			// 		ParticlePreviewSettings.MinMotionPadding,
-			// 		ParticlePreviewSettings.MaxMotionPadding);
+			// 		PreviewSettings.MinMotionPadding,
+			// 		PreviewSettings.MaxMotionPadding);
 			// 	storage.motionRadius = EditorGUILayout.Slider(
 			// 		new GUIContent("Motion Radius", "Radius of deterministic motion path for world-space movement previews."),
 			// 		storage.motionRadius,
-			// 		ParticlePreviewSettings.MinMotionRadius,
-			// 		ParticlePreviewSettings.MaxMotionRadius);
+			// 		PreviewSettings.MinMotionRadius,
+			// 		PreviewSettings.MaxMotionRadius);
 			// 	storage.motionSpeed = EditorGUILayout.Slider(
 			// 		new GUIContent("Motion Speed", "Speed of deterministic motion path during preview simulation."),
 			// 		storage.motionSpeed,
-			// 		ParticlePreviewSettings.MinMotionSpeed,
-			// 		ParticlePreviewSettings.MaxMotionSpeed);
+			// 		PreviewSettings.MinMotionSpeed,
+			// 		PreviewSettings.MaxMotionSpeed);
 			// });
 
 			EditorGUILayout.EndScrollView();
@@ -392,7 +392,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (EditorGUI.EndChangeCheck())
 			{
 				storage.SaveStorage();
-				ParticlePreviewSettings.NotifyChanged();
+				PreviewSettings.NotifyChanged();
 			}
 		}
 		#endregion
@@ -408,7 +408,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			}
 		}
 
-		private static void DrawSelectedTab(ParticlePreviewSettingsStorage storage)
+		private static void DrawSelectedTab(PreviewSettingsStorage storage)
 		{
 			switch (SelectedTab)
 			{
@@ -430,7 +430,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			}
 		}
 
-		private static void DrawCommonTab(ParticlePreviewSettingsStorage storage)
+		private static void DrawCommonTab(PreviewSettingsStorage storage)
 		{
 			DrawSectionCard("Custom Preview Systems", () =>
 			{
@@ -456,8 +456,8 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.refreshFps = EditorGUILayout.IntSlider(
 					new GUIContent("Preview FPS", "Preview update rate while the preview is visible."),
 					storage.refreshFps,
-					ParticlePreviewSettings.MinRefreshFps,
-					ParticlePreviewSettings.MaxRefreshFps);
+					PreviewSettings.MinRefreshFps,
+					PreviewSettings.MaxRefreshFps);
 			});
 
 			DrawSectionCard("Color", () =>
@@ -466,48 +466,48 @@ namespace ParticleThumbnailAndPreview.Editor
 					new GUIContent("Background Color", "Background color behind custom prefab preview rendering."),
 					storage.backgroundColor);
 				if (!Enum.IsDefined(typeof(PreviewToolbarColorPreset), storage.toolbarColorPreset))
-					storage.toolbarColorPreset = ParticlePreviewSettings.D_ToolbarColorPreset;
+					storage.toolbarColorPreset = PreviewSettings.D_ToolbarColorPreset;
 				storage.toolbarColorPreset = (PreviewToolbarColorPreset) EditorGUILayout.EnumPopup(
 					new GUIContent("Toolbar Color Preset", "Temporary active-toolbar color preset while we evaluate final branding."),
 					storage.toolbarColorPreset);
 				float toolbarHeight = storage.toolbarHeight <= 0f
-					? ParticlePreviewSettings.D_ToolbarHeight
+					? PreviewSettings.D_ToolbarHeight
 					: storage.toolbarHeight;
 				storage.toolbarHeight = EditorGUILayout.Slider(
 					new GUIContent("Toolbar Height", "Shared height for particle and model preview toolbars. Button and scrubber sizes scale automatically."),
 					toolbarHeight,
-					ParticlePreviewSettings.MinToolbarHeight,
-					ParticlePreviewSettings.MaxToolbarHeight);
+					PreviewSettings.MinToolbarHeight,
+					PreviewSettings.MaxToolbarHeight);
 			});
 
 			DrawSectionCard("Interaction", () =>
 			{
 				float orbitSmoothing = storage.orbitSmoothing <= 0f
-					? ParticlePreviewSettings.D_OrbitSmoothing
+					? PreviewSettings.D_OrbitSmoothing
 					: storage.orbitSmoothing;
 				float panSmoothing = storage.panSmoothing <= 0f
-					? ParticlePreviewSettings.D_PanSmoothing
+					? PreviewSettings.D_PanSmoothing
 					: storage.panSmoothing;
 				storage.orbitSmoothing = EditorGUILayout.Slider(
 					new GUIContent("Orbit Smoothing", "Smoothing strength for orbit rotation input. Higher values feel softer."),
 					orbitSmoothing,
-					ParticlePreviewSettings.MinOrbitSmoothing,
-					ParticlePreviewSettings.MaxOrbitSmoothing);
+					PreviewSettings.MinOrbitSmoothing,
+					PreviewSettings.MaxOrbitSmoothing);
 				storage.panSmoothing = EditorGUILayout.Slider(
 					new GUIContent("Pan Smoothing", "Smoothing strength for panning input. Higher values feel softer."),
 					panSmoothing,
-					ParticlePreviewSettings.MinPanSmoothing,
-					ParticlePreviewSettings.MaxPanSmoothing);
+					PreviewSettings.MinPanSmoothing,
+					PreviewSettings.MaxPanSmoothing);
 			});
 		}
 
-		private static void DrawLightingTab(ParticlePreviewSettingsStorage storage)
+		private static void DrawLightingTab(PreviewSettingsStorage storage)
 		{
 			DrawSectionCard("Environment", () =>
 			{
 				storage.modelSkyboxMaterial = (Material) EditorGUILayout.ObjectField(
 					new GUIContent("Skybox Material", "Material used by model preview skybox."),
-					storage.modelSkyboxMaterial != null ? storage.modelSkyboxMaterial : ParticlePreviewSkyboxAssets.TryLoadDefaultSkyboxMaterial(),
+					storage.modelSkyboxMaterial != null ? storage.modelSkyboxMaterial : PreviewSkyboxAssets.TryLoadDefaultSkyboxMaterial(),
 					typeof(Material),
 					false);
 				storage.modelAmbientLightColor = EditorGUILayout.ColorField(
@@ -529,13 +529,13 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.modelSunLightIntensity = EditorGUILayout.Slider(
 					new GUIContent("Intensity", "Intensity of the sunlight directional light."),
 					storage.modelSunLightIntensity,
-					ParticlePreviewSettings.MinModelLightIntensity,
-					ParticlePreviewSettings.MaxModelLightIntensity);
+					PreviewSettings.MinModelLightIntensity,
+					PreviewSettings.MaxModelLightIntensity);
 				storage.modelSunLightShadowStrength = EditorGUILayout.Slider(
 					new GUIContent("Shadow Strength", "How dark sunlight shadows appear."),
 					storage.modelSunLightShadowStrength,
-					ParticlePreviewSettings.MinModelShadowStrength,
-					ParticlePreviewSettings.MaxModelShadowStrength);
+					PreviewSettings.MinModelShadowStrength,
+					PreviewSettings.MaxModelShadowStrength);
 				storage.modelSunLightRotation = EditorGUILayout.Vector2Field(
 					new GUIContent("Rotation", "Sunlight rotation as Yaw/Pitch in degrees."),
 					storage.modelSunLightRotation);
@@ -549,8 +549,8 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.modelKeyLightIntensity = EditorGUILayout.Slider(
 					new GUIContent("Intensity", "Key directional light intensity."),
 					storage.modelKeyLightIntensity,
-					ParticlePreviewSettings.MinModelLightIntensity,
-					ParticlePreviewSettings.MaxModelLightIntensity);
+					PreviewSettings.MinModelLightIntensity,
+					PreviewSettings.MaxModelLightIntensity);
 				storage.modelKeyLightRotation = EditorGUILayout.Vector2Field(
 					new GUIContent("Rotation", "Key light rotation as Yaw/Pitch in degrees."),
 					storage.modelKeyLightRotation);
@@ -564,8 +564,8 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.modelFillLightIntensity = EditorGUILayout.Slider(
 					new GUIContent("Intensity", "Fill directional light intensity."),
 					storage.modelFillLightIntensity,
-					ParticlePreviewSettings.MinModelLightIntensity,
-					ParticlePreviewSettings.MaxModelLightIntensity);
+					PreviewSettings.MinModelLightIntensity,
+					PreviewSettings.MaxModelLightIntensity);
 				storage.modelFillLightRotation = EditorGUILayout.Vector2Field(
 					new GUIContent("Rotation", "Fill light rotation as Yaw/Pitch in degrees."),
 					storage.modelFillLightRotation);
@@ -579,8 +579,8 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.modelRimLightIntensity = EditorGUILayout.Slider(
 					new GUIContent("Intensity", "Rim directional light intensity."),
 					storage.modelRimLightIntensity,
-					ParticlePreviewSettings.MinModelLightIntensity,
-					ParticlePreviewSettings.MaxModelLightIntensity);
+					PreviewSettings.MinModelLightIntensity,
+					PreviewSettings.MaxModelLightIntensity);
 				storage.modelRimLightRotation = EditorGUILayout.Vector2Field(
 					new GUIContent("Rotation", "Rim light rotation as Yaw/Pitch in degrees."),
 					storage.modelRimLightRotation);
@@ -590,7 +590,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			});
 		}
 
-		private static void DrawDefaultEnabledStateTab(ParticlePreviewSettingsStorage storage)
+		private static void DrawDefaultEnabledStateTab(PreviewSettingsStorage storage)
 		{
 			DrawSectionCard("Mode", () =>
 			{
@@ -623,7 +623,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			});
 		}
 
-		private static void DrawGridTab(ParticlePreviewSettingsStorage storage)
+		private static void DrawGridTab(PreviewSettingsStorage storage)
 		{
 			DrawSectionCard("Shared Grid", () =>
 			{
@@ -639,24 +639,24 @@ namespace ParticleThumbnailAndPreview.Editor
 				storage.sharedGridHalfSize = EditorGUILayout.Slider(
 					new GUIContent("Half Size", "World-space half extent of the preview grid."),
 					storage.sharedGridHalfSize,
-					ParticlePreviewSettings.MinSharedGridHalfSize,
-					ParticlePreviewSettings.MaxSharedGridHalfSize);
+					PreviewSettings.MinSharedGridHalfSize,
+					PreviewSettings.MaxSharedGridHalfSize);
 				storage.sharedGridStep = EditorGUILayout.Slider(
 					new GUIContent("Step", "Distance between adjacent grid lines."),
 					storage.sharedGridStep,
-					ParticlePreviewSettings.MinSharedGridStep,
-					ParticlePreviewSettings.MaxSharedGridStep);
+					PreviewSettings.MinSharedGridStep,
+					PreviewSettings.MaxSharedGridStep);
 				storage.sharedGridAlpha = EditorGUILayout.Slider(
 					new GUIContent("Alpha", "Overall transparency for grid lines."),
 					storage.sharedGridAlpha,
-					ParticlePreviewSettings.MinSharedGridAlpha,
-					ParticlePreviewSettings.MaxSharedGridAlpha);
+					PreviewSettings.MinSharedGridAlpha,
+					PreviewSettings.MaxSharedGridAlpha);
 			});
 		}
 		#endregion
 
 		#region Shared UI Helpers
-		private static void DrawBottomActionsPanel(ParticlePreviewSettingsStorage storage)
+		private static void DrawBottomActionsPanel(PreviewSettingsStorage storage)
 		{
 			using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
 			{
@@ -672,7 +672,7 @@ namespace ParticleThumbnailAndPreview.Editor
 					{
 						storage.ResetToDefaults();
 						storage.SaveStorage();
-						ParticlePreviewSettings.NotifyChanged();
+						PreviewSettings.NotifyChanged();
 						GUI.FocusControl(null);
 						GUIUtility.ExitGUI();
 					}
@@ -728,7 +728,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		#endregion
 	}
 
-	internal static class ParticlePreviewSkyboxAssets
+	internal static class PreviewSkyboxAssets
 	{
 		private const string SkyboxFolderPath = "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/Skybox";
 		private const string DefaultSkyboxGuid = "83fb20c8d36eb4afe9b376da509dc0d6";
@@ -813,12 +813,6 @@ namespace ParticleThumbnailAndPreview.Editor
 					AssetDatabase.CreateFolder(current, parts[i]);
 				current = next;
 			}
-		}
-
-		[InitializeOnLoadMethod]
-		private static void EnsureDefaultSkyboxMaterialAssetOnLoad()
-		{
-			GetOrCreateSkyboxMaterialForCubemap(null);
 		}
 	}
 }

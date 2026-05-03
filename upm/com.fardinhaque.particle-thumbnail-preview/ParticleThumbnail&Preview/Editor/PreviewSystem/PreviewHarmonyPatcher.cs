@@ -11,10 +11,10 @@ using UnityObject = UnityEngine.Object;
 namespace ParticleThumbnailAndPreview.Editor
 {
     [InitializeOnLoad]
-    internal static class ParticlePreviewHarmonyPatcher
+    internal static class PreviewHarmonyPatcher
     {
-        private const string HarmonyId = "com.particlethumbnailandpreview.particlepreview";
-        private const string PrefabPreviewTypeName = "ParticleThumbnailAndPreview.Editor.ParticlePrefabPreviewEditor";
+        private const string HarmonyId = "com.particlethumbnailandpreview.preview";
+        private const string PrefabPreviewTypeName = "ParticleThumbnailAndPreview.Editor.PrefabPreviewEditor";
         private const string ModelImporterPreviewTypeName = "ParticleThumbnailAndPreview.Editor.ModelImporterPreviewEditor";
         private const string HarmonyTypeName = "HarmonyLib.Harmony";
         private const string HarmonyMethodTypeName = "HarmonyLib.HarmonyMethod";
@@ -23,7 +23,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private const string HarmonyUpmRelativePath = "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/PreviewSystem/ThirdParty/0Harmony.dll";
         private const int MaxRetryAttempts = 12;
         private const string CompatibilityRemediationHint =
-            " If another tool (for example Odin Inspector) still overrides GameObject previews, disable Particle Preview in Project Settings > Particle Thumbnail & Preview, then re-enable after adjusting tool registration order.";
+            " If another tool (for example Odin Inspector) still overrides GameObject previews, disable this package's custom previews in Project Settings > Particle Thumbnail & Preview, then re-enable after adjusting tool registration order.";
 
         private static readonly string[] EditorAssemblyPreferenceOrder =
         {
@@ -45,7 +45,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private static ConstructorInfo _harmonyMethodCtor;
         private static ConstructorInfo _harmonyMethodCtorFromTypeName;
 
-        static ParticlePreviewHarmonyPatcher()
+        static PreviewHarmonyPatcher()
         {
             ApplyPatches();
             AssemblyReloadEvents.beforeAssemblyReload -= Unpatch;
@@ -72,7 +72,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 {
                     LogWarningOnce(
                         "missing-gameobjectinspector",
-                        $"[ParticlePreview] UnityEditor.GameObjectInspector was not found in Unity {Application.unityVersion}; Harmony patch skipped.{CompatibilityRemediationHint}");
+                        $"[ParticleThumbnailPreview] UnityEditor.GameObjectInspector was not found in Unity {Application.unityVersion}; Harmony patch skipped.{CompatibilityRemediationHint}");
                     ScheduleRetry();
                     return;
                 }
@@ -82,7 +82,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 {
                     LogWarningOnce(
                         "missing-gameobjectinspector-haspreview",
-                        $"[ParticlePreview] GameObjectInspector.HasPreviewGUI was not found in Unity {Application.unityVersion}; Harmony patch skipped.{CompatibilityRemediationHint}");
+                        $"[ParticleThumbnailPreview] GameObjectInspector.HasPreviewGUI was not found in Unity {Application.unityVersion}; Harmony patch skipped.{CompatibilityRemediationHint}");
                     ScheduleRetry();
                     return;
                 }
@@ -101,7 +101,7 @@ namespace ParticleThumbnailAndPreview.Editor
             }
             catch (Exception exception)
             {
-                LogWarningOnce("patch-apply-failed", $"[ParticlePreview] Harmony patch failed: {DescribeException(exception)}{CompatibilityRemediationHint}");
+                LogWarningOnce("patch-apply-failed", $"[ParticleThumbnailPreview] Harmony patch failed: {DescribeException(exception)}{CompatibilityRemediationHint}");
                 if (!_harmonyRuntimeUnsupported)
                     ScheduleRetry();
             }
@@ -136,7 +136,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 LogWarningOnce(
                     "patch-retry-limit-reached",
-                    $"[ParticlePreview] Harmony patch retry limit reached ({MaxRetryAttempts}) on Unity {Application.unityVersion}. Further retries are disabled for this domain reload.{CompatibilityRemediationHint}");
+                    $"[ParticleThumbnailPreview] Harmony patch retry limit reached ({MaxRetryAttempts}) on Unity {Application.unityVersion}. Further retries are disabled for this domain reload.{CompatibilityRemediationHint}");
                 return;
             }
 
@@ -163,7 +163,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 LogWarningOnce(
                     "harmony-type-missing",
-                    $"[ParticlePreview] Failed to resolve Harmony types from '{HarmonyAssemblyName}'.");
+                    $"[ParticleThumbnailPreview] Failed to resolve Harmony types from '{HarmonyAssemblyName}'.");
                 return false;
             }
 
@@ -185,7 +185,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 LogWarningOnce(
                     "harmony-api-mismatch",
-                    "[ParticlePreview] Harmony API surface does not match expected signatures.");
+                    "[ParticleThumbnailPreview] Harmony API surface does not match expected signatures.");
                 return false;
             }
 
@@ -247,7 +247,7 @@ namespace ParticleThumbnailAndPreview.Editor
             }
             catch (Exception exception)
             {
-                LogWarningOnce("unpatch-failed", $"[ParticlePreview] Harmony unpatch failed: {DescribeException(exception)}");
+                LogWarningOnce("unpatch-failed", $"[ParticleThumbnailPreview] Harmony unpatch failed: {DescribeException(exception)}");
             }
         }
 
@@ -268,7 +268,7 @@ namespace ParticleThumbnailAndPreview.Editor
             }
             catch (Exception exception)
             {
-                LogWarningOnce("harmony-load-failed", $"[ParticlePreview] Failed to load Harmony assembly: {exception.Message}");
+                LogWarningOnce("harmony-load-failed", $"[ParticleThumbnailPreview] Failed to load Harmony assembly: {exception.Message}");
                 return null;
             }
         }
@@ -319,7 +319,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (targetMethod == null || string.IsNullOrEmpty(prefixMethodName) || _harmonyPatchMethod == null)
                 return false;
 
-            MethodInfo prefixMethod = typeof(ParticlePreviewHarmonyPatcher).GetMethod(
+            MethodInfo prefixMethod = typeof(PreviewHarmonyPatcher).GetMethod(
                 prefixMethodName,
                 BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
             if (prefixMethod == null)
@@ -343,13 +343,13 @@ namespace ParticleThumbnailAndPreview.Editor
                     _harmonyRuntimeUnsupported = true;
                     LogWarningOnce(
                         "harmony-runtime-detour-blocked",
-                        $"[ParticlePreview] Harmony runtime detours are blocked on this editor runtime (mprotect EACCES). Falling back to internal auto-selection without preview suppression.{CompatibilityRemediationHint}");
+                        $"[ParticleThumbnailPreview] Harmony runtime detours are blocked on this editor runtime (mprotect EACCES). Falling back to internal auto-selection without preview suppression.{CompatibilityRemediationHint}");
                     return false;
                 }
 
                 LogWarningOnce(
                     "patch-method-failed-" + targetMethod.DeclaringType?.FullName + "." + targetMethod.Name,
-                    $"[ParticlePreview] Failed to patch '{targetMethod.DeclaringType?.FullName}.{targetMethod.Name}': {DescribeException(patchException)}{CompatibilityRemediationHint}");
+                    $"[ParticleThumbnailPreview] Failed to patch '{targetMethod.DeclaringType?.FullName}.{targetMethod.Name}': {DescribeException(patchException)}{CompatibilityRemediationHint}");
                 return false;
             }
         }
@@ -359,7 +359,7 @@ namespace ParticleThumbnailAndPreview.Editor
             try
             {
                 if (_harmonyMethodCtorFromTypeName != null)
-                    return _harmonyMethodCtorFromTypeName.Invoke(new object[] { typeof(ParticlePreviewHarmonyPatcher), methodName, null });
+                    return _harmonyMethodCtorFromTypeName.Invoke(new object[] { typeof(PreviewHarmonyPatcher), methodName, null });
 
                 if (_harmonyMethodCtor != null)
                     return _harmonyMethodCtor.Invoke(new object[] { methodInfo });
@@ -368,7 +368,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 LogWarningOnce(
                     "create-harmonymethod-failed-" + methodName,
-                    $"[ParticlePreview] Failed to create HarmonyMethod for '{methodName}': {DescribeException(exception)}");
+                    $"[ParticleThumbnailPreview] Failed to create HarmonyMethod for '{methodName}': {DescribeException(exception)}");
             }
 
             return null;
@@ -404,7 +404,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 LogWarningOnce(
                     "enumerate-competing-previews-failed",
-                    $"[ParticlePreview] Failed to enumerate competing previews: {exception.Message}{CompatibilityRemediationHint}");
+                    $"[ParticleThumbnailPreview] Failed to enumerate competing previews: {exception.Message}{CompatibilityRemediationHint}");
             }
         }
 
@@ -513,7 +513,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static bool GameObjectInspectorHasPreviewPrefix(UnityEditor.Editor __instance, ref bool __result)
         {
-            if (!ParticlePreviewTargetGate.ShouldSuppressCompetingPreview(__instance != null ? __instance.targets : null))
+            if (!PrefabPreviewTargetGate.ShouldSuppressCompetingPreview(__instance != null ? __instance.targets : null))
                 return true;
 
             __result = false;
@@ -522,8 +522,8 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static bool CustomPreviewHasPreviewPrefix(object __instance, ref bool __result)
         {
-            UnityObject[] targets = ParticlePreviewTargetGate.TryGetObjectPreviewTargets(__instance);
-            if (!ParticlePreviewTargetGate.ShouldSuppressCompetingPreview(targets))
+            UnityObject[] targets = PrefabPreviewTargetGate.TryGetObjectPreviewTargets(__instance);
+            if (!PrefabPreviewTargetGate.ShouldSuppressCompetingPreview(targets))
                 return true;
 
             __result = false;
@@ -532,13 +532,13 @@ namespace ParticleThumbnailAndPreview.Editor
     }
 
     [InitializeOnLoad]
-    internal static class UnityVersionCompatibilityPatcher
+    internal static class PreviewCompatibilityBootstrap
     {
-        static UnityVersionCompatibilityPatcher()
+        static PreviewCompatibilityBootstrap()
         {
             // Force static constructor execution explicitly so patch bootstrap remains
             // resilient even when script load ordering changes in newer Unity versions.
-            RuntimeHelpers.RunClassConstructor(typeof(ParticlePreviewHarmonyPatcher).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(PreviewHarmonyPatcher).TypeHandle);
         }
     }
 }

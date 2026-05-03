@@ -10,9 +10,9 @@ using UnityObject = UnityEngine.Object;
 namespace ParticleThumbnailAndPreview.Editor
 {
     [InitializeOnLoad]
-    internal static class ParticlePreviewAutoSelector
+    internal static class CustomPreviewAutoSelector
     {
-        private const string PrefabPreviewTypeName = "ParticleThumbnailAndPreview.Editor.ParticlePrefabPreviewEditor";
+        private const string PrefabPreviewTypeName = "ParticleThumbnailAndPreview.Editor.PrefabPreviewEditor";
         private const string ModelImporterPreviewTypeName = "ParticleThumbnailAndPreview.Editor.ModelImporterPreviewEditor";
         private const int MaxRetryFrames = 30;
         private const int ModelImporterRearmFrames = 12;
@@ -35,14 +35,6 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static readonly MethodInfo GetInspectedObjectMethod = GetInstanceMethod(PropertyEditorType, "GetInspectedObject");
         private static readonly FieldInfo PreviewsField = GetInstanceField(PropertyEditorType, "m_Previews");
-        private static readonly FieldInfo TrackerField = GetInstanceField(PropertyEditorType, "m_Tracker");
-        private static readonly PropertyInfo ActiveEditorTrackerActiveEditorsProperty =
-            typeof(ActiveEditorTracker).GetProperty("activeEditors", BindingFlags.Instance | BindingFlags.Public);
-        private static readonly Type AssetImporterEditorType =
-            ResolveEditorTypeAcrossAssemblies("UnityEditor.AssetImporters.AssetImporterEditor");
-        private static readonly PropertyInfo AssetImporterEditorShowImportedObjectProperty =
-            AssetImporterEditorType?.GetProperty("showImportedObject", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
         // Only used as a last-resort fallback when the internal method is absent.
         private static readonly FieldInfo SelectedPreviewField = GetInstanceField(PropertyEditorType, "m_SelectedPreview");
 
@@ -52,8 +44,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private static int _modelImporterRearmFramesRemaining;
         private static string _modelImporterRearmSelectionKey;
         private static bool _updateHookRegistered;
-        private static bool _modelImporterTabStateInitialized;
-        private static bool _modelImporterWasOnModelTab;
         private static readonly HashSet<string> LoggedAppliedSelectionKeys = new();
 
         private readonly struct AutoSelectRequest
@@ -68,14 +58,14 @@ namespace ParticleThumbnailAndPreview.Editor
             internal string SelectionKey { get; }
         }
 
-        static ParticlePreviewAutoSelector()
+        static CustomPreviewAutoSelector()
         {
             Selection.selectionChanged -= ScheduleAutoSelect;
-            ParticlePreviewSettings.SettingsChanged -= ScheduleAutoSelect;
+            PreviewSettings.SettingsChanged -= ScheduleAutoSelect;
             AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
 
             Selection.selectionChanged += ScheduleAutoSelect;
-            ParticlePreviewSettings.SettingsChanged += ScheduleAutoSelect;
+            PreviewSettings.SettingsChanged += ScheduleAutoSelect;
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
             ScheduleAutoSelect();
         }
@@ -88,8 +78,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 _framesRemaining = 0;
                 _modelImporterRearmFramesRemaining = 0;
                 _modelImporterRearmSelectionKey = null;
-                _modelImporterTabStateInitialized = false;
-                _modelImporterWasOnModelTab = false;
                 EnsureUpdateHook(shouldSubscribe: false);
                 return;
             }
@@ -99,15 +87,11 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 _modelImporterRearmSelectionKey = selectionKey;
                 _modelImporterRearmFramesRemaining = ModelImporterRearmFrames;
-                _modelImporterTabStateInitialized = false;
-                _modelImporterWasOnModelTab = false;
             }
             else
             {
                 _modelImporterRearmSelectionKey = null;
                 _modelImporterRearmFramesRemaining = 0;
-                _modelImporterTabStateInitialized = false;
-                _modelImporterWasOnModelTab = false;
             }
 
             if (!string.IsNullOrEmpty(selectionKey)
@@ -129,7 +113,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal static void NotifyModelImporterPreviewCandidate(string modelAssetPath)
         {
-            if (!ParticlePreviewSettings.ThreeDAssetPreviewActive || string.IsNullOrEmpty(modelAssetPath))
+            if (!PreviewSettings.ThreeDAssetPreviewActive || string.IsNullOrEmpty(modelAssetPath))
                 return;
 
             string selectionKey = "importer:" + modelAssetPath;
@@ -153,48 +137,22 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static void OnEditorUpdate()
         {
+            UnityObject[] propertyEditors = GetOpenPropertyEditors();
             if (!TryResolveAutoSelectRequest(Selection.objects, out AutoSelectRequest request))
             {
                 _autoSelectPending = false;
                 _framesRemaining = 0;
                 _modelImporterRearmFramesRemaining = 0;
                 _modelImporterRearmSelectionKey = null;
-                _modelImporterTabStateInitialized = false;
-                _modelImporterWasOnModelTab = false;
                 EnsureUpdateHook(shouldSubscribe: false);
                 return;
             }
 
             bool isModelImporterRequest = string.Equals(request.PreviewTypeName, ModelImporterPreviewTypeName, StringComparison.Ordinal);
-            bool modelImporterModelTabOpen = isModelImporterRequest && AnyModelImporterModelTabContextOpen();
-
-            if (isModelImporterRequest && !modelImporterModelTabOpen)
-            {
-                _autoSelectPending = false;
-                _framesRemaining = 0;
-                _modelImporterRearmSelectionKey = request.SelectionKey;
-                if (_modelImporterRearmFramesRemaining <= 0
-                    || (_modelImporterTabStateInitialized && _modelImporterWasOnModelTab))
-                {
-                    _modelImporterRearmFramesRemaining = ModelImporterRearmFrames;
-                }
-                if (_modelImporterTabStateInitialized && _modelImporterWasOnModelTab)
-                    RepaintOpenPropertyEditors();
-                _modelImporterTabStateInitialized = true;
-                _modelImporterWasOnModelTab = false;
-                EnsureUpdateHook(shouldSubscribe: _modelImporterRearmFramesRemaining > 0);
-                return;
-            }
-
-            if (isModelImporterRequest)
-            {
-                _modelImporterTabStateInitialized = true;
-                _modelImporterWasOnModelTab = true;
-            }
 
             bool shouldRearmModelImporter = ShouldRearmModelImporterSelection(request);
             if ((shouldRearmModelImporter || isModelImporterRequest)
-                && !HasSelectedPreviewInOpenPropertyEditors(ModelImporterPreviewTypeName))
+                && !HasSelectedPreviewInOpenPropertyEditors(ModelImporterPreviewTypeName, propertyEditors))
             {
                 _autoSelectPending = true;
                 _framesRemaining = Math.Max(_framesRemaining, MaxRetryFrames / 2);
@@ -202,7 +160,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             bool applied = false;
             if (_autoSelectPending)
-                applied = TrySelectInOpenPropertyEditors(request.PreviewTypeName);
+                applied = TrySelectInOpenPropertyEditors(request.PreviewTypeName, propertyEditors);
             if (_autoSelectPending)
                 _framesRemaining--;
 
@@ -259,7 +217,7 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
             Selection.selectionChanged -= ScheduleAutoSelect;
-            ParticlePreviewSettings.SettingsChanged -= ScheduleAutoSelect;
+            PreviewSettings.SettingsChanged -= ScheduleAutoSelect;
             EnsureUpdateHook(shouldSubscribe: false);
             _autoSelectPending = false;
             _framesRemaining = 0;
@@ -271,7 +229,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         // ── Core selection logic ─────────────────────────────────────────────
 
-        private static bool TrySelectInOpenPropertyEditors(string previewTypeName)
+        private static bool TrySelectInOpenPropertyEditors(string previewTypeName, UnityObject[] propertyEditors = null)
         {
             if (PropertyEditorType == null || PreviewsField == null)
                 return false;
@@ -282,8 +240,8 @@ namespace ParticleThumbnailAndPreview.Editor
             if (string.IsNullOrEmpty(previewTypeName))
                 return false;
 
+            propertyEditors ??= GetOpenPropertyEditors();
             bool applied = false;
-            UnityObject[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
 
             for (int i = 0; i < propertyEditors.Length; i++)
             {
@@ -365,12 +323,12 @@ namespace ParticleThumbnailAndPreview.Editor
             return false;
         }
 
-        private static bool HasSelectedPreviewInOpenPropertyEditors(string previewTypeName)
+        private static bool HasSelectedPreviewInOpenPropertyEditors(string previewTypeName, UnityObject[] propertyEditors = null)
         {
             if (PropertyEditorType == null || PreviewsField == null || string.IsNullOrEmpty(previewTypeName))
                 return false;
 
-            UnityObject[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
+            propertyEditors ??= GetOpenPropertyEditors();
             for (int i = 0; i < propertyEditors.Length; i++)
             {
                 UnityObject propertyEditor = propertyEditors[i];
@@ -439,10 +397,10 @@ namespace ParticleThumbnailAndPreview.Editor
         private static bool TryResolvePrefabAutoSelectRequest(UnityObject[] targets, out AutoSelectRequest request)
         {
             request = default;
-            if (!ParticlePreviewSettings.AnyPrefabCustomPreviewActive)
+            if (!PreviewSettings.AnyPrefabCustomPreviewActive)
                 return false;
 
-            if (!ParticlePreviewTargetGate.ShouldSuppressCompetingPreview(targets))
+            if (!PrefabPreviewTargetGate.ShouldSuppressCompetingPreview(targets))
                 return false;
 
             if (!TryGetPrefabAssetPath(targets != null && targets.Length == 1 ? targets[0] : null, out string assetPath))
@@ -455,7 +413,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private static bool TryResolveModelImporterAutoSelectRequest(UnityObject[] targets, out AutoSelectRequest request)
         {
             request = default;
-            if (!ParticlePreviewSettings.ThreeDAssetPreviewActive)
+            if (!PreviewSettings.ThreeDAssetPreviewActive)
                 return false;
 
             if (!TryGetModelImporterAssetPath(targets, out string assetPath))
@@ -477,14 +435,14 @@ namespace ParticleThumbnailAndPreview.Editor
             if (go == null)
                 return false;
 
-            if (ParticlePreviewTargetGate.IsSupportedTarget(go))
+            if (PrefabPreviewTargetGate.IsSupportedTarget(go))
             {
                 assetPath = AssetDatabase.GetAssetPath(go);
                 return !string.IsNullOrEmpty(assetPath);
             }
 
             GameObject source = PrefabUtility.GetCorrespondingObjectFromSource(go);
-            if (!ParticlePreviewTargetGate.IsSupportedTarget(source))
+            if (!PrefabPreviewTargetGate.IsSupportedTarget(source))
                 return false;
 
             assetPath = AssetDatabase.GetAssetPath(source);
@@ -567,12 +525,6 @@ namespace ParticleThumbnailAndPreview.Editor
             if (propertyEditor == null || string.IsNullOrEmpty(previewTypeName))
                 return false;
 
-            if (string.Equals(previewTypeName, ModelImporterPreviewTypeName, StringComparison.Ordinal)
-                && !IsModelImporterModelTabContext(propertyEditor))
-            {
-                return false;
-            }
-
             if (GetInspectedObjectMethod != null)
             {
                 try
@@ -597,96 +549,10 @@ namespace ParticleThumbnailAndPreview.Editor
                 return false;
 
             if (string.Equals(previewTypeName, PrefabPreviewTypeName, StringComparison.Ordinal))
-                return ParticlePreviewTargetGate.ShouldSuppressCompetingPreview(new[] { target });
+                return PrefabPreviewTargetGate.ShouldSuppressCompetingPreview(new[] { target });
 
             if (string.Equals(previewTypeName, ModelImporterPreviewTypeName, StringComparison.Ordinal))
                 return TryGetModelImporterAssetPath(new[] { target }, out _);
-
-            return false;
-        }
-
-        private static bool AnyModelImporterModelTabContextOpen()
-        {
-            if (PropertyEditorType == null)
-                return false;
-
-            UnityObject[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
-            for (int i = 0; i < propertyEditors.Length; i++)
-            {
-                if (ShouldApplyToPropertyEditor(propertyEditors[i], ModelImporterPreviewTypeName))
-                    return true;
-            }
-
-            return false;
-        }
-
-        private static void RepaintOpenPropertyEditors()
-        {
-            if (PropertyEditorType == null)
-                return;
-
-            UnityObject[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
-            for (int i = 0; i < propertyEditors.Length; i++)
-            {
-                if (propertyEditors[i] is EditorWindow window)
-                    window.Repaint();
-            }
-        }
-
-        private static bool IsModelImporterModelTabContext(UnityObject propertyEditor)
-        {
-            if (propertyEditor == null
-                || TrackerField == null
-                || ActiveEditorTrackerActiveEditorsProperty == null
-                || AssetImporterEditorType == null
-                || AssetImporterEditorShowImportedObjectProperty == null)
-            {
-                return false;
-            }
-
-            ActiveEditorTracker tracker = null;
-            try
-            {
-                tracker = TrackerField.GetValue(propertyEditor) as ActiveEditorTracker;
-            }
-            catch
-            {
-                return false;
-            }
-
-            if (tracker == null)
-                return false;
-
-            UnityEditor.Editor[] activeEditors = null;
-            try
-            {
-                activeEditors = ActiveEditorTrackerActiveEditorsProperty.GetValue(tracker, null) as UnityEditor.Editor[];
-            }
-            catch
-            {
-                return false;
-            }
-
-            if (activeEditors == null || activeEditors.Length == 0)
-                return false;
-
-            for (int i = 0; i < activeEditors.Length; i++)
-            {
-                UnityEditor.Editor editor = activeEditors[i];
-                if (editor == null || !AssetImporterEditorType.IsInstanceOfType(editor) || !(editor.target is ModelImporter))
-                    continue;
-
-                try
-                {
-                    object value = AssetImporterEditorShowImportedObjectProperty.GetValue(editor, null);
-                    if (value is bool showImportedObject)
-                        return showImportedObject;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
 
             return false;
         }
@@ -710,11 +576,20 @@ namespace ParticleThumbnailAndPreview.Editor
             return null;
         }
 
+        private static UnityObject[] GetOpenPropertyEditors()
+        {
+            if (PropertyEditorType == null)
+                return Array.Empty<UnityObject>();
+
+            UnityObject[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
+            return propertyEditors ?? Array.Empty<UnityObject>();
+        }
+
         private static void LogDiagnostic(string message)
         {
-            if (!ParticlePreviewSettings.EnableDiagnostics || string.IsNullOrEmpty(message))
+            if (!PreviewSettings.EnableDiagnostics || string.IsNullOrEmpty(message))
                 return;
-            Debug.Log("[ParticlePreview][AutoSelector] " + message);
+            Debug.Log("[ParticleThumbnailPreview][AutoSelector] " + message);
         }
 
         private static Type ResolveEditorTypeAcrossAssemblies(string fullTypeName)

@@ -199,7 +199,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             _preview = new PreviewRenderUtility(true);
             _preview.camera.clearFlags = CameraClearFlags.SolidColor;
-            _preview.camera.backgroundColor = ParticlePreviewSettings.BackgroundColor;
+            _preview.camera.backgroundColor = PreviewSettings.BackgroundColor;
             _preview.camera.fieldOfView = 30f;
             _preview.camera.nearClipPlane = 0.01f;
             _preview.camera.farClipPlane = 1000f;
@@ -211,13 +211,13 @@ namespace ParticleThumbnailAndPreview.Editor
 
             BuildPreviewRootFromPrefab(prefab);
 
-            _modeOverride = NormalizeModeOverride(ParticlePreviewSettings.ModelPreviewMode);
-            _gridEnabled = ParticlePreviewSettings.SharedGridDefaultEnabled;
+            _modeOverride = NormalizeModeOverride(PreviewSettings.ModelPreviewMode);
+            _gridEnabled = PreviewSettings.SharedGridDefaultEnabled;
             _lightsEnabled = true;
-            _lightWidgetEnabled = ParticlePreviewSettings.ModelDefaultLightRotationGizmosEnabled;
-            _skyboxEnabled = ParticlePreviewSettings.ModelDefaultSkyboxEnabled;
-            _infoEnabled = ParticlePreviewSettings.ModelDefaultInfoEnabled;
-            _turntableEnabled = ParticlePreviewSettings.ModelDefaultTurntableEnabled;
+            _lightWidgetEnabled = PreviewSettings.ModelDefaultLightRotationGizmosEnabled;
+            _skyboxEnabled = PreviewSettings.ModelDefaultSkyboxEnabled;
+            _infoEnabled = PreviewSettings.ModelDefaultInfoEnabled;
+            _turntableEnabled = PreviewSettings.ModelDefaultTurntableEnabled;
             _visualMode = ModelPreviewVisualMode.None;
             _lastNonNoneVisualMode = ModelPreviewVisualMode.Normals;
             _lastGridDiagnosticsKey = null;
@@ -585,8 +585,8 @@ namespace ParticleThumbnailAndPreview.Editor
             if (!IsReady)
                 return false;
 
-            float orbitSmoothing = Mathf.Max(0.0001f, ParticlePreviewSettings.OrbitSmoothing);
-            float panSmoothing = Mathf.Max(0.0001f, ParticlePreviewSettings.PanSmoothing);
+            float orbitSmoothing = Mathf.Max(0.0001f, PreviewSettings.OrbitSmoothing);
+            float panSmoothing = Mathf.Max(0.0001f, PreviewSettings.PanSmoothing);
             bool effective2D = ModeContext.Effective2D;
 
             double now = EditorApplication.timeSinceStartup;
@@ -641,7 +641,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (!IsReady || Event.current.type != EventType.Repaint)
                 return;
 
-            _preview.camera.backgroundColor = ParticlePreviewSettings.BackgroundColor;
+            _preview.camera.backgroundColor = PreviewSettings.BackgroundColor;
             UpdateCameraTransform();
             ApplyEnvironmentState();
             SamplePreviewAnimation();
@@ -922,7 +922,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private Vector3 GetDefaultLightRigDirection()
         {
-            Vector3 direction = PreviewLightingSystem.RotationFromYawPitch(ParticlePreviewSettings.ModelKeyLightRotation) * Vector3.forward;
+            Vector3 direction = PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelKeyLightRotation) * Vector3.forward;
             return direction.sqrMagnitude <= 0.0001f ? Vector3.forward : direction.normalized;
         }
 
@@ -982,14 +982,14 @@ namespace ParticleThumbnailAndPreview.Editor
                 _rimLight,
                 in lightingProfile,
                 lightingEnabled,
-                GetRiggedLightRotation(ParticlePreviewSettings.ModelSunLightRotation),
-                GetRiggedLightRotation(ParticlePreviewSettings.ModelKeyLightRotation),
-                GetRiggedLightRotation(ParticlePreviewSettings.ModelFillLightRotation),
-                GetRiggedLightRotation(ParticlePreviewSettings.ModelRimLightRotation));
+                GetRiggedLightRotation(PreviewSettings.ModelSunLightRotation),
+                GetRiggedLightRotation(PreviewSettings.ModelKeyLightRotation),
+                GetRiggedLightRotation(PreviewSettings.ModelFillLightRotation),
+                GetRiggedLightRotation(PreviewSettings.ModelRimLightRotation));
 
             if (_cameraSkybox != null)
             {
-                Material skyboxMaterial = ParticlePreviewSettings.ModelSkyboxMaterial;
+                Material skyboxMaterial = PreviewSettings.ModelSkyboxMaterial;
                 bool canUseSkybox = skyboxEnabled && skyboxMaterial != null;
                 _cameraSkybox.enabled = canUseSkybox;
                 if (canUseSkybox)
@@ -1036,7 +1036,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 _ => null,
             };
 
-            if (material == null && _visualMode != ModelPreviewVisualMode.None && ParticlePreviewSettings.EnableDiagnostics
+            if (material == null && _visualMode != ModelPreviewVisualMode.None && PreviewSettings.EnableDiagnostics
                 && _loggedVisualModeFailure != _visualMode)
             {
                 _loggedVisualModeFailure = _visualMode;

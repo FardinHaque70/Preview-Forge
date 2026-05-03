@@ -57,16 +57,16 @@ namespace ParticleThumbnailAndPreview.Editor
 		private const double FastModeRenderBudgetMs = 200.0;
 		private const double FastModeScanBudgetMs = 40.0;
 		private static readonly Color SelectionOutlineColor = new Color(0.11f, 0.84f, 0.39f, 1f);
+		private static bool ProjectWindowHookRegistered;
+		private static bool EditorUpdateHookRegistered;
+		private static bool SelectionChangedHookRegistered;
 
 		static ParticleThumbnailService()
 		{
-			EditorApplication.projectWindowItemOnGUI += OnProjectWindowItemGui;
-			EditorApplication.update += OnEditorUpdate;
 			EditorApplication.quitting += SafeClearProgressWindow;
 			AssemblyReloadEvents.beforeAssemblyReload += SafeClearProgressWindow;
-			Selection.selectionChanged += OnSelectionChanged;
 			ParticleThumbnailSettings.SettingsChanged += HandleSettingsChanged;
-			RefreshSelectedAssetGuidCache();
+			RefreshRuntimeHooks(refreshSelectionCacheWhenEnabled: true);
 		}
 
 		public static bool IsGenerateAllInProgress
@@ -200,6 +200,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			PendingSupportLookupSet.Clear();
 			ResetGenerateAllProgress();
 			SafeClearProgressWindow();
+			RefreshRuntimeHooks(refreshSelectionCacheWhenEnabled: true);
 			EditorApplication.RepaintProjectWindow();
 		}
 
@@ -289,6 +290,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			GenerateAllWarmupFramePending = GenerateAllUseUnthrottledProcessing;
 			UpdateGenerateAllProgressWindow();
 			RepaintAllRelevantWindows();
+			RefreshRuntimeHooks();
 
 			if (GenerateAllScanGuids.Length == 0)
 				FinalizeGenerateAllPreparation();
@@ -389,15 +391,18 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static void OnEditorUpdate()
 		{
-			UpdateGenerateAllProgressWindow();
-			bool hasGenerateAllWork = GenerateAllScanInProgress || GenerateAllPendingRequests.Count > 0;
-			if (!ParticleThumbnailSettings.Enabled && !hasGenerateAllWork)
+			if (!HasPendingEditorWork())
+			{
+				UpdateGenerateAllProgressWindow();
+				RefreshRuntimeHooks();
 				return;
+			}
 
 			if (GenerateAllWarmupFramePending)
 			{
 				GenerateAllWarmupFramePending = false;
 				RepaintAllRelevantWindows();
+				RefreshRuntimeHooks();
 				return;
 			}
 
@@ -412,6 +417,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			TryLogGenerateAllCompletion();
 			UpdateGenerateAllProgressWindow();
+			RefreshRuntimeHooks();
 		}
 
 		private static void ResolveDanglingGenerateAllRequests()
@@ -715,6 +721,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				return;
 
 			PendingSupportLookupQueue.Enqueue(guid);
+			RefreshRuntimeHooks();
 		}
 
 		private static bool TryResolveSupportCacheEntry(string guid, out SupportCacheEntry entry)
@@ -855,6 +862,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			Queued.Add(request);
 			RenderQueue.Enqueue(request);
+			RefreshRuntimeHooks();
 		}
 
 		private static void StoreCacheRecord(ParticleThumbnailRequest request, string dependencyToken, Texture2D texture, bool persistToDisk)
@@ -971,6 +979,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static void HandleSettingsChanged()
 		{
 			ClearMemoryCache();
+			RefreshRuntimeHooks(refreshSelectionCacheWhenEnabled: true);
 		}
 
 		private static void TrackGenerateAllRequest(ParticleThumbnailRequest request)
@@ -1135,6 +1144,65 @@ namespace ParticleThumbnailAndPreview.Editor
 			RefreshSelectedAssetGuidCache();
 			if (ParticleThumbnailSettings.Enabled && ParticleThumbnailSettings.DrawInProjectGrid)
 				EditorApplication.RepaintProjectWindow();
+		}
+
+		private static bool ShouldProjectWindowHookBeActive()
+		{
+			return ParticleThumbnailSettings.Enabled
+			       && (ParticleThumbnailSettings.DrawInProjectGrid || ParticleThumbnailSettings.DrawInProjectList);
+		}
+
+		private static bool HasPendingEditorWork()
+		{
+			if (GenerateAllWarmupFramePending || GenerateAllIsPreparing || GenerateAllScanInProgress)
+				return true;
+
+			if (GenerateAllPendingRequests.Count > 0)
+				return true;
+
+			if (PendingSupportLookupQueue.Count > 0)
+				return true;
+
+			return RenderQueue.Count > 0;
+		}
+
+		private static void RefreshRuntimeHooks(bool refreshSelectionCacheWhenEnabled = false)
+		{
+			bool shouldProjectWindowHookBeActive = ShouldProjectWindowHookBeActive();
+			if (shouldProjectWindowHookBeActive != ProjectWindowHookRegistered)
+			{
+				if (shouldProjectWindowHookBeActive)
+					EditorApplication.projectWindowItemOnGUI += OnProjectWindowItemGui;
+				else
+					EditorApplication.projectWindowItemOnGUI -= OnProjectWindowItemGui;
+
+				ProjectWindowHookRegistered = shouldProjectWindowHookBeActive;
+			}
+
+			bool shouldSelectionHookBeActive = shouldProjectWindowHookBeActive;
+			if (shouldSelectionHookBeActive != SelectionChangedHookRegistered)
+			{
+				if (shouldSelectionHookBeActive)
+					Selection.selectionChanged += OnSelectionChanged;
+				else
+					Selection.selectionChanged -= OnSelectionChanged;
+
+				SelectionChangedHookRegistered = shouldSelectionHookBeActive;
+			}
+
+			if (shouldSelectionHookBeActive && refreshSelectionCacheWhenEnabled)
+				RefreshSelectedAssetGuidCache();
+
+			bool shouldEditorUpdateHookBeActive = HasPendingEditorWork();
+			if (shouldEditorUpdateHookBeActive == EditorUpdateHookRegistered)
+				return;
+
+			if (shouldEditorUpdateHookBeActive)
+				EditorApplication.update += OnEditorUpdate;
+			else
+				EditorApplication.update -= OnEditorUpdate;
+
+			EditorUpdateHookRegistered = shouldEditorUpdateHookBeActive;
 		}
 	}
 

@@ -9,7 +9,7 @@ namespace ParticleThumbnailAndPreview.Editor
 {
     [CustomPreview(typeof(GameObject))]
     [CanEditMultipleObjects]
-    public sealed class ParticlePrefabPreviewEditor : ObjectPreview
+    public sealed class PrefabPreviewEditor : ObjectPreview
     {
         private static readonly string[] EditorAssemblyPreferenceOrder =
         {
@@ -72,7 +72,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public override bool HasPreviewGUI()
         {
-            if (!ParticlePreviewSettings.AnyPrefabCustomPreviewActive)
+            if (!PreviewSettings.AnyPrefabCustomPreviewActive)
             {
                 CleanupActiveImplementation();
                 LogResolveState("settings-inactive");
@@ -123,7 +123,7 @@ namespace ParticleThumbnailAndPreview.Editor
         public override void OnPreviewSettings()
         {
             if (GUILayout.Button("Settings", EditorStyles.toolbarButton))
-                ParticlePreviewSettingsProvider.OpenSettings();
+                PreviewSettingsProvider.OpenSettings();
         }
 
         public override void OnPreviewGUI(Rect rect, GUIStyle background)
@@ -200,10 +200,10 @@ namespace ParticleThumbnailAndPreview.Editor
             if (!_implementations.TryGetValue(kind, out IPrefabPreviewImplementation implementation))
                 return null;
 
-            if (kind == PrefabPreviewTargetKind.Model && !ParticlePreviewSettings.ModelPreviewActive)
+            if (kind == PrefabPreviewTargetKind.Model && !PreviewSettings.ModelPreviewActive)
                 return null;
 
-            if (kind == PrefabPreviewTargetKind.Particle && !ParticlePreviewSettings.ParticlePrefabPreviewActive)
+            if (kind == PrefabPreviewTargetKind.Particle && !PreviewSettings.ParticlePrefabPreviewActive)
                 return null;
 
             return implementation;
@@ -382,7 +382,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             Selection.selectionChanged += OnSelectionChanged;
             EditorApplication.projectChanged += OnProjectChanged;
-            ParticlePreviewSettings.SettingsChanged += OnSettingsChanged;
+            PreviewSettings.SettingsChanged += OnSettingsChanged;
             _eventHandlersRegistered = true;
         }
 
@@ -393,7 +393,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             Selection.selectionChanged -= OnSelectionChanged;
             EditorApplication.projectChanged -= OnProjectChanged;
-            ParticlePreviewSettings.SettingsChanged -= OnSettingsChanged;
+            PreviewSettings.SettingsChanged -= OnSettingsChanged;
             _eventHandlersRegistered = false;
         }
 
@@ -439,7 +439,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private void LogResolveState(string message, bool force = false)
         {
-            if (!ParticlePreviewSettings.EnableDiagnostics)
+            if (!PreviewSettings.EnableDiagnostics)
                 return;
 
             double now = EditorApplication.timeSinceStartup;
