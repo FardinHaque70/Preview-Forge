@@ -40,23 +40,13 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static GUIStyle s_toolbarTextButtonStyle;
         private static GUIStyle s_infoValueStyle;
+        private static bool s_stylesBoundToGuiSkin;
 
         internal static GUIStyle ToolbarTextButtonStyle
         {
             get
             {
-                if (s_toolbarTextButtonStyle == null)
-                {
-                    s_toolbarTextButtonStyle = new GUIStyle(EditorStyles.miniLabel)
-                    {
-                        alignment = TextAnchor.MiddleCenter,
-                        fontStyle = FontStyle.Bold,
-                        normal = { textColor = TextColor },
-                        hover = { textColor = TextColor },
-                        active = { textColor = TextColor },
-                    };
-                }
-
+                EnsureStyles();
                 return s_toolbarTextButtonStyle;
             }
         }
@@ -65,19 +55,51 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             get
             {
-                if (s_infoValueStyle == null)
-                {
-                    s_infoValueStyle = new GUIStyle(EditorStyles.miniLabel)
-                    {
-                        alignment = TextAnchor.UpperLeft,
-                        clipping = TextClipping.Clip,
-                        wordWrap = false,
-                        normal = { textColor = TextColor },
-                    };
-                }
-
+                EnsureStyles();
                 return s_infoValueStyle;
             }
+        }
+
+        private static void EnsureStyles()
+        {
+            bool hasGuiContext = Event.current != null;
+
+            if (!hasGuiContext)
+            {
+                if (s_toolbarTextButtonStyle == null)
+                    s_toolbarTextButtonStyle = CreateToolbarTextStyle(useEditorStyles: false);
+                if (s_infoValueStyle == null)
+                    s_infoValueStyle = CreateInfoValueStyle(useEditorStyles: false);
+                return;
+            }
+
+            if (s_stylesBoundToGuiSkin)
+                return;
+
+            s_toolbarTextButtonStyle = CreateToolbarTextStyle(useEditorStyles: true);
+            s_infoValueStyle = CreateInfoValueStyle(useEditorStyles: true);
+            s_stylesBoundToGuiSkin = true;
+        }
+
+        private static GUIStyle CreateToolbarTextStyle(bool useEditorStyles)
+        {
+            GUIStyle style = useEditorStyles ? new GUIStyle(EditorStyles.miniLabel) : new GUIStyle();
+            style.alignment = TextAnchor.MiddleCenter;
+            style.fontStyle = FontStyle.Bold;
+            style.normal.textColor = TextColor;
+            style.hover.textColor = TextColor;
+            style.active.textColor = TextColor;
+            return style;
+        }
+
+        private static GUIStyle CreateInfoValueStyle(bool useEditorStyles)
+        {
+            GUIStyle style = useEditorStyles ? new GUIStyle(EditorStyles.miniLabel) : new GUIStyle();
+            style.alignment = TextAnchor.UpperLeft;
+            style.clipping = TextClipping.Clip;
+            style.wordWrap = false;
+            style.normal.textColor = TextColor;
+            return style;
         }
 
         internal static void DrawToolbarBackground(Rect rect)

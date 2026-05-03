@@ -336,7 +336,7 @@ namespace ParticleThumbnailAndPreview.Editor
 					new GUIContent("Background Color", "Background color behind custom prefab preview rendering."),
 					storage.backgroundColor);
 				if (!Enum.IsDefined(typeof(PreviewToolbarColorPreset), storage.toolbarColorPreset))
-					storage.toolbarColorPreset = D_ToolbarColorPreset;
+					storage.toolbarColorPreset = ParticlePreviewSettings.D_ToolbarColorPreset;
 				storage.toolbarColorPreset = (PreviewToolbarColorPreset) EditorGUILayout.EnumPopup(
 					new GUIContent("Toolbar Color Preset", "Temporary active-toolbar color preset while we evaluate final branding."),
 					storage.toolbarColorPreset);
