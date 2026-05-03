@@ -49,7 +49,7 @@ If you see preview ownership conflicts:
 4. Paste:
 
 ```text
-https://github.com/FardinHaque70/ParticleThumbnail-Preview.git?path=upm/src#main
+https://github.com/FardinHaque70/Particle-Thumbnail-And-Preview.git?path=upm/src#main
 ```
 
 Or add to `Packages/manifest.json`:
@@ -57,7 +57,7 @@ Or add to `Packages/manifest.json`:
 ```json
 {
   "dependencies": {
-    "com.fardinhaque.particle-thumbnail-preview": "https://github.com/FardinHaque70/ParticleThumbnail-Preview.git?path=upm/src#main"
+    "com.fardinhaque.particle-thumbnail-preview": "https://github.com/FardinHaque70/Particle-Thumbnail-And-Preview.git?path=upm/src#main"
   }
 }
 ```

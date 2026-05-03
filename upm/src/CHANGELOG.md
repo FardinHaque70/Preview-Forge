@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.7] - 2026-05-03
+
+- Update all package/documentation Git URLs to the canonical repository location `Particle-Thumbnail-And-Preview` to avoid redirect-dependent UPM resolution.
+- Keep Git UPM install path at `?path=upm/src` with the new canonical repository URL.
+
 ## [1.1.6] - 2026-05-03
 
 - Move the UPM package root from `upm/com.fardinhaque.particle-thumbnail-preview` to `upm/src` to simplify Git URL installation paths.
