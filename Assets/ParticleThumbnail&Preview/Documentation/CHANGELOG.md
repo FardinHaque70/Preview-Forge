@@ -2,6 +2,13 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.5] - 2026-05-03
+
+- Add model importer preview support and selection flow improvements for model assets.
+- Guard preview GUI style initialization so named styles are only bound during active IMGUI events.
+- Consolidate preview API naming from particle-prefixed types to generic prefab preview types across mirrored `Assets` and `upm` code.
+- Refine model importer auto-selection to respect active model-tab state in importer inspectors.
+
 ## [1.1.4] - 2026-05-03
 
 - Harden preview hook safety by adding a bounded Harmony retry budget to prevent unbounded delayed retry scheduling in incompatible editor states.
