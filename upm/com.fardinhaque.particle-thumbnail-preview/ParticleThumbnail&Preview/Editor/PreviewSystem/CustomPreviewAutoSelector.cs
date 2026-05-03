@@ -35,8 +35,17 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static readonly MethodInfo GetInspectedObjectMethod = GetInstanceMethod(PropertyEditorType, "GetInspectedObject");
         private static readonly FieldInfo PreviewsField = GetInstanceField(PropertyEditorType, "m_Previews");
+        private static readonly FieldInfo PropertyEditorTrackerField = GetInstanceField(PropertyEditorType, "m_Tracker");
         // Only used as a last-resort fallback when the internal method is absent.
         private static readonly FieldInfo SelectedPreviewField = GetInstanceField(PropertyEditorType, "m_SelectedPreview");
+        private static readonly PropertyInfo ActiveEditorTrackerActiveEditorsProperty =
+            typeof(ActiveEditorTracker).GetProperty("activeEditors", BindingFlags.Instance | BindingFlags.Public);
+        private static readonly Type AssetImporterEditorType =
+            ResolveEditorTypeAcrossAssemblies("UnityEditor.AssetImporters.AssetImporterEditor");
+        private static readonly PropertyInfo AssetImporterEditorShowImportedObjectProperty =
+            AssetImporterEditorType?.GetProperty(
+                "showImportedObject",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         private static int _framesRemaining;
         private static bool _autoSelectPending;
@@ -123,7 +132,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 // unless we are already in an active retry window.
                 if (!_autoSelectPending && _modelImporterRearmFramesRemaining <= 0)
                     return;
-
                 EnsureUpdateHook(shouldSubscribe: true);
                 return;
             }
@@ -149,8 +157,22 @@ namespace ParticleThumbnailAndPreview.Editor
             }
 
             bool isModelImporterRequest = string.Equals(request.PreviewTypeName, ModelImporterPreviewTypeName, StringComparison.Ordinal);
+            bool keepPassiveModelImporterWatch = isModelImporterRequest;
 
             bool shouldRearmModelImporter = ShouldRearmModelImporterSelection(request);
+            bool modelTabActive = true;
+            if (isModelImporterRequest)
+            {
+                modelTabActive = IsModelImporterModelTabActive(request.SelectionKey, propertyEditors, out bool modelTabResolved);
+                if (modelTabResolved && !modelTabActive)
+                {
+                    _autoSelectPending = false;
+                    _framesRemaining = 0;
+                    EnsureUpdateHook(shouldSubscribe: keepPassiveModelImporterWatch);
+                    return;
+                }
+            }
+
             if ((shouldRearmModelImporter || isModelImporterRequest)
                 && !HasSelectedPreviewInOpenPropertyEditors(ModelImporterPreviewTypeName, propertyEditors))
             {
@@ -175,7 +197,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
                 _autoSelectPending = false;
                 _framesRemaining = 0;
-                EnsureUpdateHook(shouldSubscribe: _modelImporterRearmFramesRemaining > 0);
+                EnsureUpdateHook(shouldSubscribe: keepPassiveModelImporterWatch || _modelImporterRearmFramesRemaining > 0);
             }
         }
 
@@ -499,6 +521,105 @@ namespace ParticleThumbnailAndPreview.Editor
             int dotIndex = fileName.LastIndexOf('.');
             string fileStem = dotIndex > 0 ? fileName.Substring(0, dotIndex) : fileName;
             return fileStem.IndexOf('@') >= 0;
+        }
+
+        private static bool IsModelImporterModelTabActive(string selectionKey, UnityObject[] propertyEditors, out bool resolved)
+        {
+            resolved = false;
+            if (!TryGetModelImporterAssetPathFromSelectionKey(selectionKey, out string modelAssetPath))
+                return false;
+
+            if (PropertyEditorTrackerField == null || ActiveEditorTrackerActiveEditorsProperty == null)
+                return false;
+
+            propertyEditors ??= GetOpenPropertyEditors();
+            for (int i = 0; i < propertyEditors.Length; i++)
+            {
+                UnityObject propertyEditor = propertyEditors[i];
+                if (propertyEditor == null)
+                    continue;
+
+                ActiveEditorTracker tracker = null;
+                try
+                {
+                    tracker = PropertyEditorTrackerField.GetValue(propertyEditor) as ActiveEditorTracker;
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (tracker == null)
+                    continue;
+
+                UnityEditor.Editor[] activeEditors = null;
+                try
+                {
+                    activeEditors = ActiveEditorTrackerActiveEditorsProperty.GetValue(tracker, null) as UnityEditor.Editor[];
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (activeEditors == null || activeEditors.Length == 0)
+                    continue;
+
+                for (int editorIndex = 0; editorIndex < activeEditors.Length; editorIndex++)
+                {
+                    UnityEditor.Editor activeEditor = activeEditors[editorIndex];
+                    if (activeEditor == null || !(activeEditor.target is ModelImporter modelImporter))
+                        continue;
+
+                    if (!string.Equals(modelImporter.assetPath, modelAssetPath, StringComparison.Ordinal))
+                        continue;
+
+                    resolved = true;
+                    return TryGetShowImportedObject(activeEditor, out bool showImportedObject) && showImportedObject;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetModelImporterAssetPathFromSelectionKey(string selectionKey, out string assetPath)
+        {
+            assetPath = null;
+            if (string.IsNullOrEmpty(selectionKey))
+                return false;
+
+            const string prefix = "importer:";
+            if (!selectionKey.StartsWith(prefix, StringComparison.Ordinal))
+                return false;
+
+            assetPath = selectionKey.Substring(prefix.Length);
+            return !string.IsNullOrEmpty(assetPath);
+        }
+
+        private static bool TryGetShowImportedObject(UnityEditor.Editor importerEditor, out bool showImportedObject)
+        {
+            showImportedObject = false;
+            if (importerEditor == null || AssetImporterEditorType == null || AssetImporterEditorShowImportedObjectProperty == null)
+                return false;
+
+            if (!AssetImporterEditorType.IsInstanceOfType(importerEditor))
+                return false;
+
+            try
+            {
+                object rawValue = AssetImporterEditorShowImportedObjectProperty.GetValue(importerEditor, null);
+                if (rawValue is bool value)
+                {
+                    showImportedObject = value;
+                    return true;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+
+            return false;
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
