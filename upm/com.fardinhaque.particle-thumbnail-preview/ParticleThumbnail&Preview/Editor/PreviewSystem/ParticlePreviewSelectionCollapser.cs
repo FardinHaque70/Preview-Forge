@@ -1,4 +1,5 @@
 using UnityEditor;
+// Preserves a compatibility entry point for selection-collapse behavior while cursor ownership is handled by active preview rendering.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

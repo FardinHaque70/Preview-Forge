@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+// Stores thumbnail feature configuration and renders the settings interface used to tune quality and behavior.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

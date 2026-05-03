@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+// Persists thumbnail textures and metadata to disk, restores cache entries, and handles best-effort cache cleanup.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

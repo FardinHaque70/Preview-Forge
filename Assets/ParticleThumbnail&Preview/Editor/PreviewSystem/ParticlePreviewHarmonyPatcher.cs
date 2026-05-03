@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using UnityEditor;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
+// Installs and maintains Harmony integration patches so preview behavior stays stable when Unity internals or registration paths differ.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

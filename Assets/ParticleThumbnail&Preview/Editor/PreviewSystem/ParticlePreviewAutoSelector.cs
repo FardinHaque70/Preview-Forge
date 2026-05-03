@@ -5,6 +5,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
+// Keeps this custom preview selected in inspector hosts when possible, with resilient fallbacks across Unity internal API variations.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

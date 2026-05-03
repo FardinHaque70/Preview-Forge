@@ -1,4 +1,5 @@
 using UnityEditor;
+// Listens for relevant asset import changes and invalidates thumbnail cache entries to keep project thumbnails up to date.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

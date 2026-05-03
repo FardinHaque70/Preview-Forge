@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+// Resolves effective preview mode behavior from settings and runtime overrides, including 2D and 3D mode decisions.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+// Coordinates thumbnail request queuing, cache lifetime, render scheduling, and Project window drawing hooks for particle prefabs.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

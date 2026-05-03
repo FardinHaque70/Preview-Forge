@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+// Defines the shared preview implementation contract used by prefab preview hosts to initialize, draw, and clean up sessions predictably.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

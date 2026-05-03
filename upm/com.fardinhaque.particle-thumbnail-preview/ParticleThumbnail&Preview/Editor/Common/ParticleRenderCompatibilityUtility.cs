@@ -4,6 +4,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+// Applies rendering compatibility safeguards so particle output remains consistent across Built-in, URP, and HDRP editor contexts.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
@@ -94,25 +95,28 @@ namespace ParticleThumbnailAndPreview.Editor
                 $"Render path for {kind}: {(usedSrpPath ? "Render(true)" : "Render()")}, fallback={fallbackUsed}.");
         }
 
-        internal static void RenderPreviewWithLegacyCameraPath(PreviewRenderUtility preview)
+        internal static void RenderPreviewWithCameraPath(PreviewRenderUtility preview)
         {
             if (preview == null || preview.camera == null)
                 return;
 
             bool fallbackUsed = false;
-            try
+            using (new AmbientRenderSettingsScope(preview.ambientColor))
             {
-                preview.camera.Render();
-            }
-            catch
-            {
-                fallbackUsed = true;
-                RenderPreviewWithCompatibility(preview);
+                try
+                {
+                    preview.camera.Render();
+                }
+                catch
+                {
+                    fallbackUsed = true;
+                    RenderPreviewWithCompatibility(preview);
+                }
             }
 
             LogDiagnosticOnce(
-                $"legacy-camera-path:fallback:{fallbackUsed}",
-                $"Legacy preview camera render path used. fallback={fallbackUsed}.");
+                $"camera-path:fallback:{fallbackUsed}",
+                $"Preview camera render path used. fallback={fallbackUsed}.");
         }
 
         internal static ShaderTimeScope PushShaderTime(float time)
@@ -206,6 +210,36 @@ namespace ParticleThumbnailAndPreview.Editor
 
                     renderer.enabled = _previousStates[i];
                 }
+            }
+        }
+
+        private readonly struct AmbientRenderSettingsScope : IDisposable
+        {
+            private readonly AmbientMode _previousAmbientMode;
+            private readonly Color _previousAmbientLight;
+            private readonly Color _previousAmbientSkyColor;
+            private readonly Color _previousAmbientEquatorColor;
+            private readonly Color _previousAmbientGroundColor;
+
+            internal AmbientRenderSettingsScope(Color ambientColor)
+            {
+                _previousAmbientMode = RenderSettings.ambientMode;
+                _previousAmbientLight = RenderSettings.ambientLight;
+                _previousAmbientSkyColor = RenderSettings.ambientSkyColor;
+                _previousAmbientEquatorColor = RenderSettings.ambientEquatorColor;
+                _previousAmbientGroundColor = RenderSettings.ambientGroundColor;
+
+                RenderSettings.ambientMode = AmbientMode.Flat;
+                RenderSettings.ambientLight = ambientColor;
+            }
+
+            public void Dispose()
+            {
+                RenderSettings.ambientMode = _previousAmbientMode;
+                RenderSettings.ambientLight = _previousAmbientLight;
+                RenderSettings.ambientSkyColor = _previousAmbientSkyColor;
+                RenderSettings.ambientEquatorColor = _previousAmbientEquatorColor;
+                RenderSettings.ambientGroundColor = _previousAmbientGroundColor;
             }
         }
 

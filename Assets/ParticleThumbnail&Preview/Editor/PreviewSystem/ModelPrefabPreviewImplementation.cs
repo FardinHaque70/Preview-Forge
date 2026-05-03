@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+// Coordinates model-prefab preview lifecycle calls and delegates rendering responsibilities to the dedicated model preview session.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

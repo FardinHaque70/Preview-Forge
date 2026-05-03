@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+// Lays out and renders the preview toolbar, including adaptive grouping, spacing rules, and interaction handoff.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

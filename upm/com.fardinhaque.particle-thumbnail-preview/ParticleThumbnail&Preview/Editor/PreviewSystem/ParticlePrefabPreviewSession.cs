@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+// Builds and maintains isolated particle prefab preview scenes, handling simulation stepping, framing, interaction, and cleanup behavior.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
@@ -33,18 +34,14 @@ namespace ParticleThumbnailAndPreview.Editor
 		private const float PivotEpsilon = 0.0001f;
 		private const float AngularVelocityEpsilon = 0.01f;
 
-		private const float MinDistance = 0.25f;
-		private const float MaxDistance = 300f;
-		private const float OrbitSensitivity = 1.2f;
-		private const float ZoomFactorPerScrollUnit = 0.1f;
-		private const float PitchMin = -85f;
-		private const float PitchMax = 85f;
-		private const float MaxDeltaTime = 0.05f;
-
-		private const float DefaultGridHalfSize = 6f;
-		private const float DefaultGridStep = 0.5f;
-		private const float DefaultGridAlpha = 0.169f;
-		private const float MinAxisExtent = 0.02f;
+			private const float MinDistance = 0.25f;
+			private const float MaxDistance = 300f;
+			private const float OrbitSensitivity = 1.2f;
+			private const float ZoomFactorPerScrollUnit = 0.1f;
+			private const float PitchMin = -85f;
+			private const float PitchMax = 85f;
+			private const float MaxDeltaTime = 0.05f;
+			private const float MinAxisExtent = 0.02f;
 
 		private const float FramingScanMaxSeconds = 2f;
 		private const float FramingScanStep = 1f / 60f;
@@ -65,6 +62,8 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private PreviewRenderUtility _preview;
 		private GameObject _previewRoot;
+		private Light _sunLight;
+		private Light _rimLight;
 		private int _prefabInstanceId;
 		private string _prefabAssetPath;
 		private Vector3 _authoredRootPosition;
@@ -83,24 +82,22 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private bool _playing;
 		private bool _gridEnabled = true;
+		private bool _lightsEnabled;
 		private bool _hasLoopingSystem;
 		private ParticlePreviewMotionShape _motionShape = ParticlePreviewMotionShape.Circle;
 		private float _motionSpeed = 60f;
 		private float _motionSize = 3f;
 		private float _maxPlaybackTime = 5f;
 		private float[] _intensityProfile = Array.Empty<float>();
-		private int _peakVisibleParticleCount;
-		private int _subParticleSystemCount;
+			private int _peakVisibleParticleCount;
+			private int _subParticleSystemCount;
 
-		private double _lastUpdateTime = -1d;
-		private double _lastInteractionUpdateTime = -1d;
-		private double _playbackAccumulatorSeconds;
-		private float _playbackTime;
-
-		private static Mesh s_gridMesh;
-		private static Material s_gridMaterial;
-		private static readonly Dictionary<string, SessionStateSnapshot> SessionStateByAssetPath = new();
-		private static string s_lastSetupAssetPath;
+			private double _lastUpdateTime = -1d;
+			private double _lastInteractionUpdateTime = -1d;
+			private double _playbackAccumulatorSeconds;
+			private float _playbackTime;
+			private static readonly Dictionary<string, SessionStateSnapshot> SessionStateByAssetPath = new();
+			private static string s_lastSetupAssetPath;
 		private static readonly PreviewCameraInteractionConfig CameraInteractionConfig = new(
 			PitchMin,
 			PitchMax,
@@ -116,16 +113,18 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		#region Session Snapshot Cache
 
-		private struct SessionStateSnapshot
-		{
-			internal float PlaybackTime;
-			internal bool Playing;
-			internal Vector2 Orbit;
-			internal float Distance;
-			internal float TargetDistance;
-			internal Vector3 Pivot;
-			internal double SavedAt;
-		}
+			private struct SessionStateSnapshot
+			{
+				internal float PlaybackTime;
+				internal bool Playing;
+				internal bool GridEnabled;
+				internal bool LightsEnabled;
+				internal Vector2 Orbit;
+				internal float Distance;
+				internal float TargetDistance;
+				internal Vector3 Pivot;
+				internal double SavedAt;
+			}
 
 		#endregion
 
@@ -135,6 +134,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		internal bool IsPlaying => _playing;
 		internal bool NeedsMotion => _needsMotion;
 		internal bool GridEnabled => _gridEnabled;
+		internal bool LightsEnabled => _lightsEnabled;
 		internal ParticlePreviewMotionShape MotionShape => _motionShape;
 		internal float MotionSpeed => _motionSpeed;
 		internal float MotionSize => _motionSize;
@@ -181,11 +181,8 @@ namespace ParticleThumbnailAndPreview.Editor
 			_preview.camera.nearClipPlane = 0.01f;
 			_preview.camera.farClipPlane = 1000f;
 			_preview.camera.orthographic = false;
-			_preview.lights[0].intensity = 1.15f;
-			_preview.lights[0].transform.rotation = Quaternion.Euler(35f, 35f, 0f);
-			_preview.lights[1].intensity = 0.7f;
-			_preview.lights[1].transform.rotation = Quaternion.Euler(330f, 200f, 0f);
-			_preview.ambientColor = Color.gray * 0.55f;
+			PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
+			PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
 
 			_previewRoot = UnityEngine.Object.Instantiate(prefab);
 			_previewRoot.name = "ParticlePreviewRoot";
@@ -199,15 +196,17 @@ namespace ParticleThumbnailAndPreview.Editor
 			_pivot = _authoredRootPosition;
 			_targetPivot = _pivot;
 
-			_preview.AddSingleGO(_previewRoot);
-			_previewRoot.GetComponentsInChildren(true, _particleSystems);
-			SanitizeCustomSimulationSpaces();
-			_previewRoot.GetComponentsInChildren(true, _renderers);
-			ParticleRenderCompatibilityUtility.SetRenderersEnabled(_renderers, false);
-			_needsMotion = ParticleMotionDetectionUtility.NeedsMotion(_particleSystems);
-			_motionShape = ParticlePreviewMotionShape.Circle;
-			_motionSpeed = ParticlePreviewSettings.MotionSpeed;
-			_motionSize = ParticlePreviewSettings.MotionRadius;
+				_preview.AddSingleGO(_previewRoot);
+				_previewRoot.GetComponentsInChildren(true, _particleSystems);
+				SanitizeCustomSimulationSpaces();
+				_previewRoot.GetComponentsInChildren(true, _renderers);
+				ParticleRenderCompatibilityUtility.SetRenderersEnabled(_renderers, false);
+				_needsMotion = ParticleMotionDetectionUtility.NeedsMotion(_particleSystems);
+				_motionShape = ParticlePreviewMotionShape.Circle;
+				_motionSpeed = ParticlePreviewSettings.MotionSpeed;
+				_motionSize = ParticlePreviewSettings.MotionRadius;
+				_gridEnabled = ParticlePreviewSettings.SharedGridDefaultEnabled;
+				_lightsEnabled = false;
 
 			EnsureDeterministicSeeds();
 			ComputePlaybackRangeAndLoopingMode();
@@ -232,27 +231,28 @@ namespace ParticleThumbnailAndPreview.Editor
 				_isOrbitDragging = false;
 				_lastOrbitInputTime = -1d;
 
-				float restoredTime = Mathf.Clamp(restored.PlaybackTime, 0f, Mathf.Max(0.0001f, _maxPlaybackTime));
-				if (restoredTime > 0.0001f)
-					SimulateToTime(restoredTime);
+					float restoredTime = Mathf.Clamp(restored.PlaybackTime, 0f, Mathf.Max(0.0001f, _maxPlaybackTime));
+					if (restoredTime > 0.0001f)
+						SimulateToTime(restoredTime);
 
-				_playbackTime = restoredTime;
-				_playing = restored.Playing;
+					_playbackTime = restoredTime;
+					_playing = restored.Playing;
+					_gridEnabled = restored.GridEnabled;
+					_lightsEnabled = restored.LightsEnabled;
+				}
+				else
+				{
+					_playing = ParticlePreviewSettings.Autoplay;
+					_lightsEnabled = false;
+				}
+
+				_lastUpdateTime = -1d;
+				_playbackAccumulatorSeconds = 0d;
+				_lastInteractionUpdateTime = -1d;
+				_prefabInstanceId = instanceId;
+				_prefabAssetPath = assetPath;
+				s_lastSetupAssetPath = assetPath;
 			}
-			else
-			{
-				_playing = ParticlePreviewSettings.Autoplay;
-			}
-
-			_lastUpdateTime = -1d;
-			_playbackAccumulatorSeconds = 0d;
-			_lastInteractionUpdateTime = -1d;
-			_prefabInstanceId = instanceId;
-			_prefabAssetPath = assetPath;
-			s_lastSetupAssetPath = assetPath;
-
-			EnsureGridResources();
-		}
 
 		internal void Cleanup(bool cacheState = true)
 		{
@@ -277,6 +277,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			_orbitAngularVelocity = Vector2.zero;
 			_targetDistance = _distance;
 			_needsMotion = false;
+			_lightsEnabled = false;
 			_authoredRootPosition = Vector3.zero;
 			_authoredRootRotation = Quaternion.identity;
 			_isOrbitDragging = false;
@@ -294,6 +295,9 @@ namespace ParticleThumbnailAndPreview.Editor
 				_preview.Cleanup();
 				_preview = null;
 			}
+
+			_sunLight = null;
+			_rimLight = null;
 		}
 
 		internal static void ClearSessionStateCache()
@@ -310,16 +314,18 @@ namespace ParticleThumbnailAndPreview.Editor
 			PreviewSessionStateCache.SaveAndTrim(
 				SessionStateByAssetPath,
 				_prefabAssetPath,
-				new SessionStateSnapshot
-				{
-					PlaybackTime = Mathf.Clamp(_playbackTime, 0f, Mathf.Max(0.0001f, _maxPlaybackTime)),
-					Playing = _playing,
-					Orbit = _orbit,
-					Distance = Mathf.Clamp(_distance, MinDistance, MaxDistance),
-					TargetDistance = Mathf.Clamp(_targetDistance, MinDistance, MaxDistance),
-					Pivot = _pivot,
-					SavedAt = EditorApplication.timeSinceStartup,
-				},
+					new SessionStateSnapshot
+					{
+						PlaybackTime = Mathf.Clamp(_playbackTime, 0f, Mathf.Max(0.0001f, _maxPlaybackTime)),
+						Playing = _playing,
+						GridEnabled = _gridEnabled,
+						LightsEnabled = _lightsEnabled,
+						Orbit = _orbit,
+						Distance = Mathf.Clamp(_distance, MinDistance, MaxDistance),
+						TargetDistance = Mathf.Clamp(_targetDistance, MinDistance, MaxDistance),
+						Pivot = _pivot,
+						SavedAt = EditorApplication.timeSinceStartup,
+					},
 				MaxCachedSessionStates,
 				static snapshot => snapshot.SavedAt);
 		}
@@ -362,6 +368,11 @@ namespace ParticleThumbnailAndPreview.Editor
 		internal void SetGridEnabled(bool enabled)
 		{
 			_gridEnabled = enabled;
+		}
+
+		internal void SetLightsEnabled(bool enabled)
+		{
+			_lightsEnabled = enabled;
 		}
 
 		internal void SetMotionShape(ParticlePreviewMotionShape shape)
@@ -622,15 +633,15 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			_preview.camera.backgroundColor = ParticlePreviewSettings.BackgroundColor;
 			UpdateCameraTransform();
+			ApplyEnvironmentState();
 
-			_preview.BeginPreview(previewRect, background ?? GUIStyle.none);
-			if (_gridEnabled)
+				_preview.BeginPreview(previewRect, background ?? GUIStyle.none);
 				DrawGrid();
 
 			using (ParticleRenderCompatibilityUtility.PushShaderTime(_playbackTime))
 			using (ParticleRenderCompatibilityUtility.EnableRenderersScoped(_renderers))
 			{
-				ParticleRenderCompatibilityUtility.RenderPreviewWithLegacyCameraPath(_preview);
+				ParticleRenderCompatibilityUtility.RenderPreviewWithCameraPath(_preview);
 			}
 
 			Texture previewTexture = _preview.EndPreview();
@@ -649,6 +660,23 @@ namespace ParticleThumbnailAndPreview.Editor
 			camera.transform.rotation = rotation;
 			camera.nearClipPlane = Mathf.Max(0.01f, _distance * 0.01f);
 			camera.farClipPlane = Mathf.Max(100f, _distance * 30f);
+		}
+
+		private void ApplyEnvironmentState()
+		{
+			PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
+			PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
+			SharedPreviewLightingProfile lightingProfile = PreviewLightingSystem.CreateProfileFromSettings();
+			PreviewLightingSystem.ApplyLighting(
+				_preview,
+				_sunLight,
+				_rimLight,
+				in lightingProfile,
+				_lightsEnabled,
+				PreviewLightingSystem.RotationFromYawPitch(ParticlePreviewSettings.ModelSunLightRotation),
+				PreviewLightingSystem.RotationFromYawPitch(ParticlePreviewSettings.ModelKeyLightRotation),
+				PreviewLightingSystem.RotationFromYawPitch(ParticlePreviewSettings.ModelFillLightRotation),
+				PreviewLightingSystem.RotationFromYawPitch(ParticlePreviewSettings.ModelRimLightRotation));
 		}
 
 		#endregion
@@ -886,6 +914,10 @@ namespace ParticleThumbnailAndPreview.Editor
 			// Build framing bounds from a short deterministic simulation scan.
 			if (!TryBuildFramingBoundsFromScan(out Bounds framingBounds))
 				framingBounds = new Bounds(Vector3.zero, Vector3.one * 2f);
+
+			Vector3 framingCenter = _needsMotion ? _authoredRootPosition : framingBounds.center;
+			_pivot = framingCenter;
+			_targetPivot = framingCenter;
 
 			if (_needsMotion)
 			{
@@ -1156,18 +1188,14 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		#region Grid
 
-		private static void EnsureGridResources()
-		{
-			PreviewGridResources.EnsureGridMaterial(ref s_gridMaterial);
-			PreviewGridResources.EnsureStylizedGridMesh(ref s_gridMesh, DefaultGridHalfSize, DefaultGridStep, DefaultGridAlpha, is2D: false);
-		}
-
 		private void DrawGrid()
 		{
-			if (s_gridMesh == null || s_gridMaterial == null)
-				return;
-
-			_preview.DrawMesh(s_gridMesh, Matrix4x4.identity, s_gridMaterial, 0);
+			var request = new PreviewGridDrawRequest(
+				_preview,
+				PreviewGridSpace.Plane3D,
+				_gridEnabled,
+				gridTransformOverride: Matrix4x4.identity);
+			PreviewGridSystem.Draw(request);
 		}
 
 		#endregion

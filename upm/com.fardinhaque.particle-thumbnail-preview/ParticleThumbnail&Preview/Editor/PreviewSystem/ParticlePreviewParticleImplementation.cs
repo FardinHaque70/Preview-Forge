@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+// Provides the particle-prefab preview implementation bridge between the host editor and the underlying particle preview session.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
@@ -9,25 +10,27 @@ namespace ParticleThumbnailAndPreview.Editor
     {
         private static readonly string[] ToolbarIconRoots =
         {
-            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
-            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
             "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
             "Assets/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
+            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
+            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
         };
         private static readonly string[] PlayIcons = BuildIconNames("Particle_PlayArrow_Round_White.png", "d_PlayButton", "PlayButton");
         private static readonly string[] PauseIcons = BuildIconNames("Particle_Pause_Round_White.png", "d_PauseButton", "PauseButton");
         private static readonly string[] RestartIcons = BuildIconNames("Particle_Replay_Round_White.png", "d_Refresh", "Refresh");
         private static readonly string[] InfoIcons = BuildIconNames("Particle_Info_Round_White.png", "d_Search Icon", "Search Icon");
+        private static readonly string[] LightsIcons = BuildIconNames("Model_Lightbulb_Round_White.png", "d_SceneViewLighting", "SceneViewLighting");
         private static readonly string[] GridIcons = BuildIconNames("Particle_GridOn_Round_White.png", "d_Grid.BoxTool", "Grid.BoxTool");
 
         private const int PlayIndex = 0;
         private const int RestartIndex = 1;
         private const int ScrubberIndex = 3;
         private const int InfoIndex = 5;
-        private const int GridIndex = 6;
+        private const int LightsIndex = 6;
+        private const int GridIndex = 7;
 
         private ParticlePrefabPreviewSession _session;
-        private readonly List<PreviewToolbarItem> _toolbarItems = new(7);
+        private readonly List<PreviewToolbarItem> _toolbarItems = new(8);
         private bool _playbackUpdateRegistered;
         private Action _requestRepaint;
         private static bool s_infoOverlayEnabled = true;
@@ -153,6 +156,11 @@ namespace ParticleThumbnailAndPreview.Editor
 
             _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle, PreviewToolbarItemGroup.Right)
             {
+                OnToggleChanged = OnLightsToggled,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle, PreviewToolbarItemGroup.Right)
+            {
                 OnToggleChanged = OnGridToggled,
             });
         }
@@ -182,6 +190,13 @@ namespace ParticleThumbnailAndPreview.Editor
             info.FallbackText = "Info";
             info.Tooltip = "Toggle preview info";
             info.IconNames = InfoIcons;
+
+            PreviewToolbarItem lights = _toolbarItems[LightsIndex];
+            lights.IsActive = _session.LightsEnabled;
+            lights.IsEnabled = true;
+            lights.FallbackText = "Lights";
+            lights.Tooltip = "Toggle shared preview lights";
+            lights.IconNames = LightsIcons;
 
             PreviewToolbarItem grid = _toolbarItems[GridIndex];
             grid.IsActive = _session.GridEnabled;
@@ -235,6 +250,15 @@ namespace ParticleThumbnailAndPreview.Editor
                 return;
 
             s_infoOverlayEnabled = value;
+            RequestPreviewRepaint();
+        }
+
+        private void OnLightsToggled(bool value)
+        {
+            if (value == _session.LightsEnabled)
+                return;
+
+            _session.SetLightsEnabled(value);
             RequestPreviewRepaint();
         }
 

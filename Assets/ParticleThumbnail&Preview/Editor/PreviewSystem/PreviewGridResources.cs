@@ -2,11 +2,33 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+// Loads, caches, and serves grid/checker resources required for stable and performant preview background rendering.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
     internal static class PreviewGridResources
     {
+        internal static Mesh CreateGridMesh(float halfSize, float step, float alpha, bool is2D, PreviewGridStyle style)
+        {
+            var mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
+            RebuildGridMesh(mesh, halfSize, step, alpha, is2D, style);
+            return mesh;
+        }
+
+        internal static void RebuildGridMesh(Mesh mesh, float halfSize, float step, float alpha, bool is2D, PreviewGridStyle style)
+        {
+            if (mesh == null)
+                return;
+
+            if (style == PreviewGridStyle.Classic)
+            {
+                BuildGridMesh(mesh, halfSize, step, alpha, is2D);
+                return;
+            }
+
+            BuildStylizedGridMesh(mesh, halfSize, step, alpha, is2D);
+        }
+
         internal static void EnsureGridMaterial(ref Material material)
         {
             if (material != null)
@@ -23,24 +45,6 @@ namespace ParticleThumbnailAndPreview.Editor
             material.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
             material.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
             material.renderQueue = 2999;
-        }
-
-        internal static void EnsureGridMesh(ref Mesh mesh, float halfSize, float step, float alpha, bool is2D)
-        {
-            if (mesh != null)
-                return;
-
-            mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-            BuildGridMesh(mesh, halfSize, step, alpha, is2D);
-        }
-
-        internal static void EnsureStylizedGridMesh(ref Mesh mesh, float halfSize, float step, float alpha, bool is2D)
-        {
-            if (mesh != null)
-                return;
-
-            mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-            BuildStylizedGridMesh(mesh, halfSize, step, alpha, is2D);
         }
 
         private static void BuildGridMesh(Mesh mesh, float halfSize, float step, float alpha, bool is2D)
@@ -133,11 +137,11 @@ namespace ParticleThumbnailAndPreview.Editor
 
                 Color xLine = isCenter ? axisX : baseColor;
                 Color xPeak = new Color(xLine.r, xLine.g, xLine.b, xLine.a * fade);
-                Color xEdge = new Color(xLine.r, xLine.g, xLine.b, isCenter ? xLine.a * 0.32f : 0f);
+                Color xEdge = new Color(xLine.r, xLine.g, xLine.b, 0f);
 
                 Color secondaryLine = isCenter ? secondaryAxis : baseColor;
                 Color secondaryPeak = new Color(secondaryLine.r, secondaryLine.g, secondaryLine.b, secondaryLine.a * fade);
-                Color secondaryEdge = new Color(secondaryLine.r, secondaryLine.g, secondaryLine.b, isCenter ? secondaryLine.a * 0.32f : 0f);
+                Color secondaryEdge = new Color(secondaryLine.r, secondaryLine.g, secondaryLine.b, 0f);
 
                 if (is2D)
                 {

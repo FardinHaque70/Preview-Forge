@@ -3,6 +3,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
+// Safely inspects Unity inspector target context and gates preview activation to supported, conflict-safe target scenarios.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

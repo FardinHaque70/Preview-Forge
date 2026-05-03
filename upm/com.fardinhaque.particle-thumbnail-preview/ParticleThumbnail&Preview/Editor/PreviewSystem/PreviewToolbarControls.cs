@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+// Defines reusable toolbar control helpers, icon resolution logic, and small UI primitives shared by preview toolbars.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

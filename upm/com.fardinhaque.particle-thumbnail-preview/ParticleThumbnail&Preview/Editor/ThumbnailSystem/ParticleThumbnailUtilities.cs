@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+// Provides shared utility helpers for thumbnail drawing, overlay rendering, texture handling, and GUI convenience workflows.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+// Defines core thumbnail request, cache, and result data structures shared across rendering, caching, and service layers.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+// Manages the full model preview scene lifecycle, including camera controls, lighting, overlays, visual modes, and render-state restoration.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
@@ -37,9 +38,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float MaxDistance = 500f;
         private const float ZoomSmooth = 8f;
 
-        private const float DefaultGridHalfSize = 6f;
-        private const float DefaultGridStep = 0.5f;
-        private const float DefaultGridAlpha = 0.169f;
         private const float AxisSize = 0.65f;
         private const float PivotMarkerRadius = 0.07f;
         private const int PivotMarkerSegments = 24;
@@ -62,12 +60,9 @@ namespace ParticleThumbnailAndPreview.Editor
         private const string MatcapMaterialPath = "PrefabPreviewMatcap.mat";
         private const string OverdrawMaterialPath = "PrefabPreviewOverdraw.mat";
 
-        private static Mesh s_gridMesh3D;
-        private static Mesh s_gridMesh2D;
         private static Mesh s_boundsWireCubeMesh;
         private static Mesh s_pivotCrossMesh;
         private static Mesh s_axesMesh;
-        private static Material s_gridMaterial;
         private static Material s_solidLineMaterial;
         private static Material s_normalsMaterial;
         private static Material s_uvCheckerMaterial;
@@ -225,9 +220,9 @@ namespace ParticleThumbnailAndPreview.Editor
             ComputeStats();
 
             _modeOverride = NormalizeModeOverride(ParticlePreviewSettings.ModelPreviewMode);
-            _gridEnabled = ParticlePreviewSettings.ModelDefaultGridEnabled;
+            _gridEnabled = ParticlePreviewSettings.SharedGridDefaultEnabled;
             _lightsEnabled = true;
-            _lightWidgetEnabled = ParticlePreviewSettings.ModelDefaultLightGizmoEnabled;
+            _lightWidgetEnabled = ParticlePreviewSettings.ModelDefaultLightRotationGizmosEnabled;
             _skyboxEnabled = ParticlePreviewSettings.ModelDefaultSkyboxEnabled;
             _infoEnabled = ParticlePreviewSettings.ModelDefaultInfoEnabled;
             _turntableEnabled = ParticlePreviewSettings.ModelDefaultTurntableEnabled;
@@ -271,9 +266,9 @@ namespace ParticleThumbnailAndPreview.Editor
             _prefabAssetPath = assetPath;
             s_lastSetupAssetPath = assetPath;
             _lastInteractionUpdateTime = -1d;
-            EnsureGridResources();
-            EnsureSunLight();
-            EnsureRimLight();
+            EnsureOverlayResources();
+            PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
+            PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
             PreviewDiagnostics.Log("ModelSession", $"Setup complete id={instanceId} asset='{assetPath}'");
         }
 
@@ -621,14 +616,10 @@ namespace ParticleThumbnailAndPreview.Editor
             UpdateCameraTransform();
             ApplyEnvironmentState();
             _preview.BeginPreview(previewRect, background ?? GUIStyle.none);
-            if (_gridEnabled)
-            {
-                DrawGrid();
-            }
+            if (DrawGrid())
+                LogGridDiagnosticsState("drawn");
             else
-            {
-                LogGridDiagnosticsState("skip-grid-disabled");
-            }
+                LogGridDiagnosticsState(_gridEnabled ? "skip-grid-draw-failed" : "skip-grid-disabled");
 
             bool restoreMaterials = false;
             if (TryApplyVisualModeMaterial(out Material visualModeMaterial))
@@ -641,7 +632,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 using (ParticleRenderCompatibilityUtility.EnableRenderersScoped(_renderers))
                 {
-                    ParticleRenderCompatibilityUtility.RenderPreviewWithLegacyCameraPath(_preview);
+                    ParticleRenderCompatibilityUtility.RenderPreviewWithCameraPath(_preview);
                 }
             }
             finally
@@ -790,7 +781,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private Vector3 GetDefaultLightRigDirection()
         {
-            Vector3 direction = RotationFromYawPitch(ParticlePreviewSettings.ModelKeyLightRotation) * Vector3.forward;
+            Vector3 direction = PreviewLightingSystem.RotationFromYawPitch(ParticlePreviewSettings.ModelKeyLightRotation) * Vector3.forward;
             return direction.sqrMagnitude <= 0.0001f ? Vector3.forward : direction.normalized;
         }
 
@@ -841,47 +832,19 @@ namespace ParticleThumbnailAndPreview.Editor
             bool effective2D = ModeContext.Effective2D;
             bool lightingEnabled = _lightsEnabled && !effective2D;
             bool skyboxEnabled = _skyboxEnabled && !effective2D;
-            _preview.ambientColor = Color.black;
-
-            EnsureSunLight();
-            if (_sunLight != null)
-            {
-                bool sunEnabled = lightingEnabled && ParticlePreviewSettings.ModelSunLightEnabled;
-                _sunLight.enabled = sunEnabled;
-                if (sunEnabled)
-                {
-                    _sunLight.intensity = ParticlePreviewSettings.ModelSunLightIntensity;
-                    _sunLight.color = ParticlePreviewSettings.ModelSunLightColor;
-                    _sunLight.shadowStrength = ParticlePreviewSettings.ModelSunLightShadowStrength;
-                    _sunLight.transform.rotation = GetRiggedLightRotation(ParticlePreviewSettings.ModelSunLightRotation);
-                }
-            }
-
-            ApplyDirectionalLight(
-                _preview.lights[0],
-                lightingEnabled && ParticlePreviewSettings.ModelKeyLightEnabled,
-                ParticlePreviewSettings.ModelKeyLightIntensity,
+            PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
+            PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
+            SharedPreviewLightingProfile lightingProfile = PreviewLightingSystem.CreateProfileFromSettings();
+            PreviewLightingSystem.ApplyLighting(
+                _preview,
+                _sunLight,
+                _rimLight,
+                in lightingProfile,
+                lightingEnabled,
+                GetRiggedLightRotation(ParticlePreviewSettings.ModelSunLightRotation),
                 GetRiggedLightRotation(ParticlePreviewSettings.ModelKeyLightRotation),
-                Color.white);
-            ApplyDirectionalLight(
-                _preview.lights[1],
-                lightingEnabled && ParticlePreviewSettings.ModelFillLightEnabled,
-                ParticlePreviewSettings.ModelFillLightIntensity,
                 GetRiggedLightRotation(ParticlePreviewSettings.ModelFillLightRotation),
-                Color.white);
-
-            EnsureRimLight();
-            if (_rimLight != null)
-            {
-                bool rimEnabled = lightingEnabled && ParticlePreviewSettings.ModelRimLightEnabled;
-                _rimLight.enabled = rimEnabled;
-                if (rimEnabled)
-                {
-                    _rimLight.intensity = ParticlePreviewSettings.ModelRimLightIntensity;
-                    _rimLight.color = ParticlePreviewSettings.ModelRimLightColor;
-                    _rimLight.transform.rotation = GetRiggedLightRotation(ParticlePreviewSettings.ModelRimLightRotation);
-                }
-            }
+                GetRiggedLightRotation(ParticlePreviewSettings.ModelRimLightRotation));
 
             if (_cameraSkybox != null)
             {
@@ -911,56 +874,11 @@ namespace ParticleThumbnailAndPreview.Editor
             }
         }
 
-        private static void ApplyDirectionalLight(Light light, bool enabled, float intensity, Quaternion worldRotation, Color color)
-        {
-            if (light == null)
-                return;
-
-            light.type = LightType.Directional;
-            light.enabled = enabled;
-            light.shadows = LightShadows.None;
-            light.intensity = enabled ? intensity : 0f;
-            light.color = color;
-            light.transform.rotation = worldRotation;
-        }
-
         private Quaternion GetRiggedLightRotation(Vector2 baseYawPitch)
         {
-            Quaternion baseRotation = RotationFromYawPitch(baseYawPitch);
+            Quaternion baseRotation = PreviewLightingSystem.RotationFromYawPitch(baseYawPitch);
             Quaternion rigRotation = Quaternion.FromToRotation(GetDefaultLightRigDirection(), GetLightRigDirectionWorld());
             return rigRotation * baseRotation;
-        }
-
-        private static Quaternion RotationFromYawPitch(Vector2 yawPitch)
-        {
-            return Quaternion.Euler(yawPitch.y, yawPitch.x, 0f);
-        }
-
-        private void EnsureRimLight()
-        {
-            if (_rimLight != null || _preview == null)
-                return;
-
-            var rimRoot = new GameObject("PreviewRimLight") { hideFlags = HideFlags.HideAndDontSave };
-            _rimLight = rimRoot.AddComponent<Light>();
-            _rimLight.type = LightType.Directional;
-            _rimLight.shadows = LightShadows.None;
-            _preview.AddSingleGO(rimRoot);
-        }
-
-        private void EnsureSunLight()
-        {
-            if (_sunLight != null || _preview == null)
-                return;
-
-            var sunRoot = new GameObject("PreviewSunLight") { hideFlags = HideFlags.HideAndDontSave };
-            _sunLight = sunRoot.AddComponent<Light>();
-            _sunLight.type = LightType.Directional;
-            _sunLight.shadows = LightShadows.Soft;
-            _sunLight.shadowStrength = 0.8f;
-            _sunLight.shadowBias = 0.05f;
-            _sunLight.shadowNormalBias = 0.4f;
-            _preview.AddSingleGO(sunRoot);
         }
 
         private bool TryApplyVisualModeMaterial(out Material material)
@@ -1441,10 +1359,8 @@ namespace ParticleThumbnailAndPreview.Editor
                 : PreviewModeOverride.Force3D;
         }
 
-        private static void EnsureGridResources()
+        private static void EnsureOverlayResources()
         {
-            PreviewGridResources.EnsureGridMaterial(ref s_gridMaterial);
-
             if (s_solidLineMaterial == null)
             {
                 s_solidLineMaterial = new Material(Shader.Find("Hidden/Internal-Colored"))
@@ -1458,9 +1374,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 s_solidLineMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
                 s_solidLineMaterial.renderQueue = 2999;
             }
-
-            PreviewGridResources.EnsureStylizedGridMesh(ref s_gridMesh3D, DefaultGridHalfSize, DefaultGridStep, DefaultGridAlpha, is2D: false);
-            PreviewGridResources.EnsureStylizedGridMesh(ref s_gridMesh2D, DefaultGridHalfSize, DefaultGridStep, DefaultGridAlpha, is2D: true);
 
             if (s_boundsWireCubeMesh == null)
             {
@@ -1481,86 +1394,17 @@ namespace ParticleThumbnailAndPreview.Editor
             }
         }
 
-        private void DrawGrid()
+        private bool DrawGrid()
         {
-            if (s_gridMaterial == null)
-            {
-                LogGridDiagnosticsState("skip-material-null");
-                return;
-            }
-
-            Mesh gridMesh = ModeContext.Effective2D ? s_gridMesh2D : s_gridMesh3D;
-            if (gridMesh == null)
-            {
-                LogGridDiagnosticsState("skip-mesh-null");
-                return;
-            }
-
-            Matrix4x4 gridMatrix = BuildGridMatrix();
-            _preview.DrawMesh(gridMesh, gridMatrix, s_gridMaterial, 0);
-            LogGridDiagnosticsState("drawn");
-        }
-
-        private Matrix4x4 BuildGridMatrix()
-        {
-            Vector3 anchor = _hasFramedBounds ? _framedBounds.center : _pivot;
-            if (!ModeContext.Effective2D && TryComputeGridFloorY(out float floorY))
-                anchor.y = floorY;
-
-            return Matrix4x4.TRS(anchor, Quaternion.identity, Vector3.one);
-        }
-
-        private bool TryComputeGridFloorY(out float floorY)
-        {
-            floorY = 0f;
-
-            bool foundPreferred = false;
-            float preferredMinY = float.PositiveInfinity;
-            bool foundFallback = false;
-            float fallbackMinY = float.PositiveInfinity;
-
-            for (int i = 0; i < _renderers.Count; i++)
-            {
-                Renderer renderer = _renderers[i];
-                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
-                    continue;
-
-                if (renderer is ParticleSystemRenderer)
-                    continue;
-
-                Bounds worldBounds = GetRendererWorldBounds(renderer);
-                if (worldBounds.size.sqrMagnitude <= 0.000001f)
-                    continue;
-
-                float minY = worldBounds.min.y;
-                if (minY < fallbackMinY)
-                {
-                    fallbackMinY = minY;
-                    foundFallback = true;
-                }
-
-                // In mixed prefabs (mesh + sprite/canvas), keep the 3D grid on mesh floor.
-                bool preferred3DRenderer = renderer is MeshRenderer || renderer is SkinnedMeshRenderer;
-                if (preferred3DRenderer && minY < preferredMinY)
-                {
-                    preferredMinY = minY;
-                    foundPreferred = true;
-                }
-            }
-
-            if (foundPreferred)
-            {
-                floorY = preferredMinY;
-                return true;
-            }
-
-            if (foundFallback)
-            {
-                floorY = fallbackMinY;
-                return true;
-            }
-
-            return false;
+            PreviewGridSpace space = ModeContext.Effective2D
+                ? PreviewGridSpace.Plane2D
+                : PreviewGridSpace.Plane3D;
+            var request = new PreviewGridDrawRequest(
+                _preview,
+                space,
+                _gridEnabled,
+                gridTransformOverride: Matrix4x4.identity);
+            return PreviewGridSystem.Draw(request);
         }
 
         private void LogGridDiagnosticsState(string state)
@@ -1569,7 +1413,7 @@ namespace ParticleThumbnailAndPreview.Editor
             bool hasTmpUi = HasComponentInChildren(_previewRoot, TmpTextMeshProUiType);
             bool hasTmpMesh = HasComponentInChildren(_previewRoot, TmpTextMeshProType);
             bool effective2D = ModeContext.Effective2D;
-            Vector3 gridAnchor = _pivot;
+            Vector3 gridAnchor = Vector3.zero;
             string key = string.Concat(
                 state, "|", _gridEnabled ? "1" : "0", "|", effective2D ? "2d" : "3d", "|",
                 hasCanvas ? "canvas1" : "canvas0", "|", hasTmpUi ? "tmpui1" : "tmpui0", "|", hasTmpMesh ? "tmpmesh1" : "tmpmesh0");

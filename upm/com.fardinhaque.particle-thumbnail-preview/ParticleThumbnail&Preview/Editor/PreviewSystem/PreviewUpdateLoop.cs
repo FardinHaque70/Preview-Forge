@@ -1,4 +1,5 @@
 using UnityEditor;
+// Maintains a minimal editor update registration loop for active preview refresh and simulation work while avoiding unnecessary overhead.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

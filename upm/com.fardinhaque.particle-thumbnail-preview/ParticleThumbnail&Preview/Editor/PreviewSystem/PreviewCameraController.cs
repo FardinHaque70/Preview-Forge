@@ -1,4 +1,5 @@
 using UnityEngine;
+// Provides reusable camera orbit, pan, and zoom math used by preview sessions for smooth and predictable interaction.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

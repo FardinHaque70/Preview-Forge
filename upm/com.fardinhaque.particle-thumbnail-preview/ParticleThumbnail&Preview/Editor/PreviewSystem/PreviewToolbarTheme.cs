@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+// Defines toolbar visual styling constants and shared color/theme helpers for consistent preview UI presentation.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

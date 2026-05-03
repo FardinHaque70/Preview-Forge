@@ -2,11 +2,33 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+// Loads, caches, and serves grid/checker resources required for stable and performant preview background rendering.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
     internal static class PreviewGridResources
     {
+        internal static Mesh CreateGridMesh(float halfSize, float step, float alpha, bool is2D, PreviewGridStyle style)
+        {
+            var mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
+            RebuildGridMesh(mesh, halfSize, step, alpha, is2D, style);
+            return mesh;
+        }
+
+        internal static void RebuildGridMesh(Mesh mesh, float halfSize, float step, float alpha, bool is2D, PreviewGridStyle style)
+        {
+            if (mesh == null)
+                return;
+
+            if (style == PreviewGridStyle.Classic)
+            {
+                BuildGridMesh(mesh, halfSize, step, alpha, is2D);
+                return;
+            }
+
+            BuildStylizedGridMesh(mesh, halfSize, step, alpha, is2D);
+        }
+
         internal static void EnsureGridMaterial(ref Material material)
         {
             if (material != null)
@@ -23,24 +45,6 @@ namespace ParticleThumbnailAndPreview.Editor
             material.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
             material.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
             material.renderQueue = 2999;
-        }
-
-        internal static void EnsureGridMesh(ref Mesh mesh, float halfSize, float step, float alpha, bool is2D)
-        {
-            if (mesh != null)
-                return;
-
-            mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-            BuildGridMesh(mesh, halfSize, step, alpha, is2D);
-        }
-
-        internal static void EnsureStylizedGridMesh(ref Mesh mesh, float halfSize, float step, float alpha, bool is2D)
-        {
-            if (mesh != null)
-                return;
-
-            mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-            BuildStylizedGridMesh(mesh, halfSize, step, alpha, is2D);
         }
 
         private static void BuildGridMesh(Mesh mesh, float halfSize, float step, float alpha, bool is2D)
@@ -117,9 +121,13 @@ namespace ParticleThumbnailAndPreview.Editor
             Color axisX = EditorGUIUtility.isProSkin
                 ? new Color(1f, 0.28f, 0.28f, Mathf.Clamp01(alpha * 1.85f))
                 : new Color(0.75f, 0.12f, 0.12f, Mathf.Clamp01(alpha * 1.85f));
-            Color axisB = EditorGUIUtility.isProSkin
+            Color axisY = EditorGUIUtility.isProSkin
                 ? new Color(0.28f, 1f, 0.28f, Mathf.Clamp01(alpha * 1.85f))
                 : new Color(0.12f, 0.58f, 0.12f, Mathf.Clamp01(alpha * 1.85f));
+            Color axisZ = EditorGUIUtility.isProSkin
+                ? new Color(0.33f, 0.66f, 1f, Mathf.Clamp01(alpha * 1.85f))
+                : new Color(0.08f, 0.24f, 0.62f, Mathf.Clamp01(alpha * 1.85f));
+            Color secondaryAxis = is2D ? axisY : axisZ;
 
             for (int i = -count; i <= count; i++)
             {
@@ -129,11 +137,11 @@ namespace ParticleThumbnailAndPreview.Editor
 
                 Color xLine = isCenter ? axisX : baseColor;
                 Color xPeak = new Color(xLine.r, xLine.g, xLine.b, xLine.a * fade);
-                Color xEdge = new Color(xLine.r, xLine.g, xLine.b, isCenter ? xLine.a * 0.32f : 0f);
+                Color xEdge = new Color(xLine.r, xLine.g, xLine.b, 0f);
 
-                Color bLine = isCenter ? axisB : baseColor;
-                Color bPeak = new Color(bLine.r, bLine.g, bLine.b, bLine.a * fade);
-                Color bEdge = new Color(bLine.r, bLine.g, bLine.b, isCenter ? bLine.a * 0.32f : 0f);
+                Color secondaryLine = isCenter ? secondaryAxis : baseColor;
+                Color secondaryPeak = new Color(secondaryLine.r, secondaryLine.g, secondaryLine.b, secondaryLine.a * fade);
+                Color secondaryEdge = new Color(secondaryLine.r, secondaryLine.g, secondaryLine.b, 0f);
 
                 if (is2D)
                 {
@@ -147,13 +155,13 @@ namespace ParticleThumbnailAndPreview.Editor
                     colors.Add(xEdge);
 
                     vertices.Add(new Vector3(position, -safeHalfSize, 0f));
-                    colors.Add(bEdge);
+                    colors.Add(secondaryEdge);
                     vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(bPeak);
+                    colors.Add(secondaryPeak);
                     vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(bPeak);
+                    colors.Add(secondaryPeak);
                     vertices.Add(new Vector3(position, safeHalfSize, 0f));
-                    colors.Add(bEdge);
+                    colors.Add(secondaryEdge);
                 }
                 else
                 {
@@ -167,13 +175,13 @@ namespace ParticleThumbnailAndPreview.Editor
                     colors.Add(xEdge);
 
                     vertices.Add(new Vector3(position, 0f, -safeHalfSize));
-                    colors.Add(bEdge);
+                    colors.Add(secondaryEdge);
                     vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(bPeak);
+                    colors.Add(secondaryPeak);
                     vertices.Add(new Vector3(position, 0f, 0f));
-                    colors.Add(bPeak);
+                    colors.Add(secondaryPeak);
                     vertices.Add(new Vector3(position, 0f, safeHalfSize));
-                    colors.Add(bEdge);
+                    colors.Add(secondaryEdge);
                 }
             }
 

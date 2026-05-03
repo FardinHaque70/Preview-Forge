@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+// Shows first-run onboarding guidance and setup actions that help users enable and configure thumbnail features quickly.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

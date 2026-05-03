@@ -1,4 +1,5 @@
 using UnityEngine;
+// Centralizes lightweight diagnostic logging helpers with scoped categories and throttling to avoid noisy editor output.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

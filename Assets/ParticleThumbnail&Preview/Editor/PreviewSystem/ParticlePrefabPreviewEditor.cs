@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
+// Serves as the Unity custom preview entry point and routes each supported prefab target to the correct preview implementation.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+// Analyzes particle-system configurations to determine whether motion-driven simulation is required for accurate preview and thumbnail playback.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

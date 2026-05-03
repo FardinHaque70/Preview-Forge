@@ -1,4 +1,5 @@
 using UnityEngine;
+// Offers hierarchy traversal and activation helpers to keep instantiated preview roots in a valid, renderable state.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

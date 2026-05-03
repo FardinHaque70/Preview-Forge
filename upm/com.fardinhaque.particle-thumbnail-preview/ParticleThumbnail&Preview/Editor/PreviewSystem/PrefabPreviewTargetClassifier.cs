@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
+// Classifies prefab targets into supported preview categories so the host can choose the proper rendering pipeline.
 
 namespace ParticleThumbnailAndPreview.Editor
 {

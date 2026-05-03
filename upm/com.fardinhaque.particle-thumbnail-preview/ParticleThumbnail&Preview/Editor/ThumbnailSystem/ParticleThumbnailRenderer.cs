@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
+// Renders particle prefab thumbnails in isolated preview scenes and outputs textures suitable for Project window display.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
@@ -771,7 +772,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 preview.BeginPreview(new Rect(0f, 0f, thumbnailSize, thumbnailSize), GUIStyle.none);
                 using (ParticleRenderCompatibilityUtility.EnableRenderersScoped(renderers))
                 {
-                    ParticleRenderCompatibilityUtility.RenderPreviewWithLegacyCameraPath(preview);
+                    ParticleRenderCompatibilityUtility.RenderPreviewWithCameraPath(preview);
                 }
 
                 Texture result = preview.EndPreview();

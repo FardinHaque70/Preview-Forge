@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+// Caches lightweight per-asset preview state so short editor refreshes can restore interaction context without full reinitialization.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
