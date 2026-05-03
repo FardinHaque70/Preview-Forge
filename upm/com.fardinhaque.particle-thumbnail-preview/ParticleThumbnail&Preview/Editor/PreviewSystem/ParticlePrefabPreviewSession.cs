@@ -915,10 +915,6 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (!TryBuildFramingBoundsFromScan(out Bounds framingBounds))
 				framingBounds = new Bounds(Vector3.zero, Vector3.one * 2f);
 
-			Vector3 framingCenter = _needsMotion ? _authoredRootPosition : framingBounds.center;
-			_pivot = framingCenter;
-			_targetPivot = framingCenter;
-
 			if (_needsMotion)
 			{
 				_targetDistance = Mathf.Clamp(

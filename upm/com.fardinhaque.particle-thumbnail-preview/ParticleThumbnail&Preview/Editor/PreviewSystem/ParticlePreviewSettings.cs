@@ -132,7 +132,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float MaxMotionSpeed = 200f;
 		public static readonly Color D_BackgroundColor = new Color(0.11f, 0.11f, 0.11f, 1f);
 		public const PreviewToolbarColorPreset D_ToolbarColorPreset = PreviewToolbarColorPreset.Godot;
-		public const float D_ToolbarHeight = 33f;
+		public const float D_ToolbarHeight = 37.63f;
 		public const float MinToolbarHeight = 16f;
 		public const float MaxToolbarHeight = 40f;
 		public const bool D_ModelPreviewActive = true;
@@ -145,7 +145,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			public const bool D_SharedGridAxisTextDefaultEnabled = true;
 			public const float D_SharedGridHalfSize = 6f;
 			public const float D_SharedGridStep = 0.5f;
-			public const float D_SharedGridAlpha = 0.169f;
+			public const float D_SharedGridAlpha = 0.217f;
 			public const PreviewGridStyle D_SharedGridStyle = PreviewGridStyle.Stylized;
 			public const float MinSharedGridHalfSize = 0.5f;
 			public const float MaxSharedGridHalfSize = 50f;
@@ -155,10 +155,10 @@ namespace ParticleThumbnailAndPreview.Editor
 			public const float MaxSharedGridAlpha = 1f;
 			public const Cubemap D_ModelSkyboxCubemap = null;
 			public const Cubemap D_ModelReflectionCubemap = null;
-			public static readonly Color D_ModelAmbientLightColor = new Color(0.55f, 0.55f, 0.55f, 1f);
+			public static readonly Color D_ModelAmbientLightColor = new Color(1.1335572f, 1.1335572f, 1.1335572f, 1f);
 			public const bool D_ModelSunLightEnabled = true;
 		public static readonly Color D_ModelSunLightColor = new Color(1f, 0.9604328f, 0.8915094f, 1f);
-		public const float D_ModelSunLightIntensity = 1.38f;
+		public const float D_ModelSunLightIntensity = 1f;
 		public const float D_ModelSunLightShadowStrength = 1f;
 		public static readonly Vector2 D_ModelSunLightRotation = new Vector2(10.8f, 66.8f);
 		public const bool D_ModelKeyLightEnabled = true;
@@ -168,7 +168,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float D_ModelFillLightIntensity = 0.3f;
 		public static readonly Vector2 D_ModelFillLightRotation = new Vector2(200f, -30f);
 		public const bool D_ModelRimLightEnabled = false;
-		public const float D_ModelRimLightIntensity = 1f;
+		public const float D_ModelRimLightIntensity = 0.5f;
 		public static readonly Vector2 D_ModelRimLightRotation = new Vector2(160f, 0f);
 		public static readonly Color D_ModelRimLightColor = Color.white;
 		public const float MinModelLightIntensity = 0f;

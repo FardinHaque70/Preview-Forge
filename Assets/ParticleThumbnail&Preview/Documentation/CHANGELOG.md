@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.2] - 2026-05-03
+
+- Sync preview default constants with current Project Settings values (toolbar height, shared grid alpha, ambient light, sun intensity, rim intensity).
+- Keep mirrored `Assets` and `upm` preview settings/code paths synchronized for matching package behavior.
+- Preserve existing particle preview camera pivot initialization behavior in mirrored preview session code.
+
 ## [1.1.1] - 2026-05-03
 
 - Fix missing `.meta` for `PreviewAssets/VisualModes` in the UPM package to prevent immutable-folder asset ignore warnings.

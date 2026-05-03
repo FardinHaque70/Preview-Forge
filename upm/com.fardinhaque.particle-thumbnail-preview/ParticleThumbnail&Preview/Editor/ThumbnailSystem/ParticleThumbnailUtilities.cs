@@ -55,7 +55,7 @@ namespace ParticleThumbnailAndPreview.Editor
     internal static class ParticleThumbnailProjectWindowUi
     {
         private const float ListViewIconOffsetX = 2f;
-        private const float ThumbnailRectScale = 0.92f;
+        private const float ThumbnailRectScale = 0.95f;
 
         public static ParticleThumbnailSurface GetSurface(Rect selectionRect)
         {
