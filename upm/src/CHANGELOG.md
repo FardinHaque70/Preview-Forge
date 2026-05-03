@@ -2,6 +2,13 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.6] - 2026-05-03
+
+- Move the UPM package root from `upm/com.fardinhaque.particle-thumbnail-preview` to `upm/src` to simplify Git URL installation paths.
+- Update Git UPM install/documentation URLs to `?path=upm/src` for consistent package resolution across projects.
+- Update package/documentation metadata and sync tooling to use the new `upm/src` package root.
+- Add AGENTS policy requirements to keep UPM path, changelog, package version, and Assets/UPM sync checks aligned before push.
+
 ## [1.1.5] - 2026-05-03
 
 - Add model importer preview support and selection flow improvements for model assets.

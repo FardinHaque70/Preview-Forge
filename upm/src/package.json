@@ -1,6 +1,6 @@
 {
   "name": "com.fardinhaque.particle-thumbnail-preview",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "displayName": "Particle Thumbnail & Preview",
   "description": "Editor-only Unity tools for rendered particle prefab thumbnails and an enhanced particle preview workflow.",
   "unity": "2021.3",
@@ -16,7 +16,7 @@
     "name": "Fardin Haque",
     "url": "https://github.com/FardinHaque70/ParticleThumbnail-Preview"
   },
-  "documentationUrl": "https://github.com/FardinHaque70/ParticleThumbnail-Preview/tree/main/upm/com.fardinhaque.particle-thumbnail-preview",
-  "changelogUrl": "https://github.com/FardinHaque70/ParticleThumbnail-Preview/blob/main/upm/com.fardinhaque.particle-thumbnail-preview/CHANGELOG.md",
-  "licensesUrl": "https://github.com/FardinHaque70/ParticleThumbnail-Preview/blob/main/upm/com.fardinhaque.particle-thumbnail-preview/THIRD_PARTY_NOTICES.md"
+  "documentationUrl": "https://github.com/FardinHaque70/ParticleThumbnail-Preview/tree/main/upm/src",
+  "changelogUrl": "https://github.com/FardinHaque70/ParticleThumbnail-Preview/blob/main/upm/src/CHANGELOG.md",
+  "licensesUrl": "https://github.com/FardinHaque70/ParticleThumbnail-Preview/blob/main/upm/src/THIRD_PARTY_NOTICES.md"
 }

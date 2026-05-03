@@ -8,7 +8,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SOURCE_ROOT="$REPO_ROOT/Assets/ParticleThumbnail&Preview"
 SOURCE_ROOT_META="$REPO_ROOT/Assets/ParticleThumbnail&Preview.meta"
 DOCS_ROOT="$SOURCE_ROOT/Documentation"
-PACKAGE_ROOT="$REPO_ROOT/upm/com.fardinhaque.particle-thumbnail-preview"
+PACKAGE_ROOT="$REPO_ROOT/upm/src"
 TOOL_FOLDER_NAME="ParticleThumbnail&Preview"
 TOOL_PACKAGE_ROOT="$PACKAGE_ROOT/$TOOL_FOLDER_NAME"
 

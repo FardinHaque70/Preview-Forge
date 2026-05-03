@@ -11,4 +11,4 @@ This package includes third-party software.
 The Harmony assembly is included in this project under:
 
 - `Assets/ParticleThumbnail&Preview/Editor/PreviewSystem/ThirdParty/0Harmony.dll`
-- `upm/com.fardinhaque.particle-thumbnail-preview/Editor/PreviewSystem/ThirdParty/0Harmony.dll`
+- `upm/src/ParticleThumbnail&Preview/Editor/PreviewSystem/ThirdParty/0Harmony.dll`
