@@ -134,7 +134,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float MaxMotionSpeed = 200f;
 		public static readonly Color D_BackgroundColor = new Color(0.11f, 0.11f, 0.11f, 1f);
 		public const PreviewToolbarColorPreset D_ToolbarColorPreset = PreviewToolbarColorPreset.UnityBlue;
-		public const float D_ToolbarHeight = 37.63f;
+			public const float D_ToolbarHeight = 35f;
 		public const float MinToolbarHeight = 16f;
 		public const float MaxToolbarHeight = 40f;
 		public const bool D_ModelPreviewActive = true;

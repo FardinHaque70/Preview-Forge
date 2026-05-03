@@ -173,12 +173,16 @@ namespace ParticleThumbnailAndPreview.Editor
                 _autoSelectPending = false;
                 _framesRemaining = 0;
                 _modelImporterRearmSelectionKey = request.SelectionKey;
-                _modelImporterRearmFramesRemaining = ModelImporterRearmFrames;
+                if (_modelImporterRearmFramesRemaining <= 0
+                    || (_modelImporterTabStateInitialized && _modelImporterWasOnModelTab))
+                {
+                    _modelImporterRearmFramesRemaining = ModelImporterRearmFrames;
+                }
                 if (_modelImporterTabStateInitialized && _modelImporterWasOnModelTab)
                     RepaintOpenPropertyEditors();
                 _modelImporterTabStateInitialized = true;
                 _modelImporterWasOnModelTab = false;
-                EnsureUpdateHook(shouldSubscribe: true);
+                EnsureUpdateHook(shouldSubscribe: _modelImporterRearmFramesRemaining > 0);
                 return;
             }
 
@@ -213,8 +217,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
                 _autoSelectPending = false;
                 _framesRemaining = 0;
-                bool keepModelImporterMonitor = isModelImporterRequest;
-                EnsureUpdateHook(shouldSubscribe: keepModelImporterMonitor || _modelImporterRearmFramesRemaining > 0);
+                EnsureUpdateHook(shouldSubscribe: _modelImporterRearmFramesRemaining > 0);
             }
         }
 

@@ -2,6 +2,15 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.4] - 2026-05-03
+
+- Harden preview hook safety by adding a bounded Harmony retry budget to prevent unbounded delayed retry scheduling in incompatible editor states.
+- Reduce model importer auto-selection update churn so rearm monitoring only stays subscribed while pending work exists.
+- Remove stale preview asset fallback roots and keep preview asset loading scoped to current package paths.
+- Add actionable compatibility diagnostics to Harmony patch warnings so third-party preview/inspector integration issues are easier to resolve.
+- Restore missing editor test assembly/files for preview mode, target classification, and SRP environment behavior checks.
+- Document supported Unity baseline (`2021.3+`), SRP coverage, integration notes, and extension guidance.
+
 ## [1.1.3] - 2026-05-03
 
 - Remove the `Buildbox` toolbar color preset from preview theme options.

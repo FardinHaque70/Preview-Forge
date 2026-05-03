@@ -11,9 +11,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private static readonly string[] ToolbarIconRoots =
         {
             "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
-            "Assets/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
             "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
-            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
         };
         private static readonly string[] TurntableIcons = BuildIconNames("Model_Turntable_Round_White.png", "d_SceneViewTools", "SceneViewTools", "d_RotateTool", "RotateTool");
         private static readonly string[] InfoIcons = BuildIconNames("Model_Info_Round_White.png", "d_SelectionList Icon", "SelectionList Icon", "d_Search Icon", "Search Icon");

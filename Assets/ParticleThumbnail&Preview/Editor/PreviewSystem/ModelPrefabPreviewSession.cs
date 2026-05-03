@@ -51,10 +51,8 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float LightPadMarkerSize = 6.4f;
         private static readonly string[] VisualModesRoots =
         {
-            "Assets/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/VisualModes",
             "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/VisualModes",
             "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/VisualModes",
-            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/VisualModes",
         };
         private const string NormalsMaterialPath = "PrefabPreviewNormals.mat";
         private const string UvCheckerMaterialPath = "PrefabPreviewUvChecker.mat";

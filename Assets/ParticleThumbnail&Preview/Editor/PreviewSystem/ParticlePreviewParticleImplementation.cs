@@ -11,9 +11,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private static readonly string[] ToolbarIconRoots =
         {
             "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
-            "Assets/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
             "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
-            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/PreviewSystem/PreviewAssets/ToolbarIcons",
         };
         private static readonly string[] PlayIcons = BuildIconNames("Particle_PlayArrow_Round_White.png", "d_PlayButton", "PlayButton");
         private static readonly string[] PauseIcons = BuildIconNames("Particle_Pause_Round_White.png", "d_PauseButton", "PauseButton");
