@@ -37,6 +37,8 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float MinDistance = 0.1f;
         private const float MaxDistance = 500f;
         private const float ZoomSmooth = 8f;
+        private const float MinAnimationClipLengthSeconds = 0.0001f;
+        private const float DefaultAnimationPlaybackSpeed = 1f;
 
         private const float AxisSize = 0.65f;
         private const float PivotMarkerRadius = 0.07f;
@@ -123,6 +125,12 @@ namespace ParticleThumbnailAndPreview.Editor
         private ModelPreviewVisualMode _loggedVisualModeFailure = ModelPreviewVisualMode.None;
         private string _lastGridDiagnosticsKey;
         private Vector3 _lightRigDirectionWorld;
+        private AnimationClip _previewAnimationClip;
+        private bool _previewAnimationPlaying;
+        private float _previewAnimationTime;
+        private float _previewAnimationSpeed = DefaultAnimationPlaybackSpeed;
+        private double _lastPreviewAnimationSampleTime = -1d;
+        private string _lastAnimationSampleErrorKey;
 
         private struct SessionStateSnapshot
         {
@@ -156,6 +164,7 @@ namespace ParticleThumbnailAndPreview.Editor
         internal ModelPreviewVisualMode LastNonNoneVisualMode => _lastNonNoneVisualMode;
         internal PreviewModeContext ModeContext => PreviewModeResolver.Resolve(_modeOverride);
         internal bool HasPendingCameraMotion => ComputeHasPendingCameraMotion();
+        internal bool HasPendingAnimationPlayback => _previewAnimationClip != null && _previewAnimationPlaying;
         internal int RendererCount => _renderers.Count;
         internal int TriangleCount => _triangleCount;
         internal int MaterialSlotCount => _materialSlotCount;
@@ -202,22 +211,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 _cameraSkybox = _preview.camera.gameObject.AddComponent<Skybox>();
             _cameraSkybox.enabled = false;
 
-            _previewRoot = UnityEngine.Object.Instantiate(prefab);
-            _previewRoot.name = "ModelPreviewRoot";
-            _previewRoot.hideFlags = HideFlags.HideAndDontSave;
-            PreviewHierarchyUtility.ForceActivateHierarchy(_previewRoot);
-            _previewRoot.transform.position = Vector3.zero;
-            _previewRoot.transform.rotation = prefab.transform.rotation;
-
-            _preview.AddSingleGO(_previewRoot);
-            _previewRoot.GetComponentsInChildren(true, _renderers);
-            _rendererInitialStates.Clear();
-            for (int i = 0; i < _renderers.Count; i++)
-            {
-                Renderer renderer = _renderers[i];
-                _rendererInitialStates.Add(renderer != null && renderer.enabled);
-            }
-            ComputeStats();
+            BuildPreviewRootFromPrefab(prefab);
 
             _modeOverride = NormalizeModeOverride(ParticlePreviewSettings.ModelPreviewMode);
             _gridEnabled = ParticlePreviewSettings.SharedGridDefaultEnabled;
@@ -266,6 +260,12 @@ namespace ParticleThumbnailAndPreview.Editor
             _prefabAssetPath = assetPath;
             s_lastSetupAssetPath = assetPath;
             _lastInteractionUpdateTime = -1d;
+            _previewAnimationClip = null;
+            _previewAnimationPlaying = false;
+            _previewAnimationTime = 0f;
+            _previewAnimationSpeed = DefaultAnimationPlaybackSpeed;
+            _lastPreviewAnimationSampleTime = -1d;
+            _lastAnimationSampleErrorKey = null;
             EnsureOverlayResources();
             PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
             PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
@@ -291,6 +291,12 @@ namespace ParticleThumbnailAndPreview.Editor
             _rimLight = null;
             _lightRigDirectionWorld = Vector3.zero;
             _loggedVisualModeFailure = ModelPreviewVisualMode.None;
+            _previewAnimationClip = null;
+            _previewAnimationPlaying = false;
+            _previewAnimationTime = 0f;
+            _previewAnimationSpeed = DefaultAnimationPlaybackSpeed;
+            _lastPreviewAnimationSampleTime = -1d;
+            _lastAnimationSampleErrorKey = null;
 
             if (_previewRoot != null)
             {
@@ -387,6 +393,30 @@ namespace ParticleThumbnailAndPreview.Editor
             _turntableEnabled = enabled;
             if (enabled)
                 _orbitAngularVelocity = Vector2.zero;
+        }
+
+        internal void SetPreviewAnimationClip(AnimationClip clip)
+        {
+            if (ReferenceEquals(_previewAnimationClip, clip))
+                return;
+
+            bool hadClip = _previewAnimationClip != null;
+            _previewAnimationClip = clip;
+            _previewAnimationPlaying = clip != null;
+            _previewAnimationTime = 0f;
+            _previewAnimationSpeed = DefaultAnimationPlaybackSpeed;
+            _lastPreviewAnimationSampleTime = -1d;
+            _lastAnimationSampleErrorKey = null;
+
+            string clipName = clip != null ? clip.name : "<none>";
+            float clipLength = clip != null ? clip.length : 0f;
+            int curveBindings = clip != null ? AnimationUtility.GetCurveBindings(clip).Length : 0;
+            PreviewDiagnostics.Log(
+                "ModelAnim",
+                $"SetPreviewAnimationClip clip='{clipName}' length={clipLength:F3}s curves={curveBindings} hadClip={hadClip}");
+
+            if (hadClip && clip == null)
+                RebuildPreviewRootFromSourceAsset();
         }
 
         internal void SetVisualMode(ModelPreviewVisualMode mode)
@@ -604,7 +634,8 @@ namespace ParticleThumbnailAndPreview.Editor
             if (effective2D)
                 _targetOrbit.y = 0f;
 
-            return _turntableEnabled || pending;
+            bool animationPlaying = TickPreviewAnimationPlayback(now);
+            return _turntableEnabled || pending || animationPlaying;
         }
 
         internal void Draw(Rect previewRect, GUIStyle background)
@@ -615,6 +646,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _preview.camera.backgroundColor = ParticlePreviewSettings.BackgroundColor;
             UpdateCameraTransform();
             ApplyEnvironmentState();
+            SamplePreviewAnimation();
             _preview.BeginPreview(previewRect, background ?? GUIStyle.none);
             if (DrawGrid())
                 LogGridDiagnosticsState("drawn");
@@ -647,6 +679,117 @@ namespace ParticleThumbnailAndPreview.Editor
 
             if (_lightWidgetEnabled)
                 DrawLightWidget(previewRect);
+        }
+
+        private bool TickPreviewAnimationPlayback(double now)
+        {
+            if (_previewAnimationClip == null || !_previewAnimationPlaying)
+            {
+                _lastPreviewAnimationSampleTime = now;
+                return false;
+            }
+
+            if (_lastPreviewAnimationSampleTime < 0d)
+            {
+                _lastPreviewAnimationSampleTime = now;
+                return true;
+            }
+
+            float delta = Mathf.Clamp((float)(now - _lastPreviewAnimationSampleTime), 0f, MaxDeltaTime);
+            _lastPreviewAnimationSampleTime = now;
+
+            if (delta > 0f)
+            {
+                float clipLength = Mathf.Max(MinAnimationClipLengthSeconds, _previewAnimationClip.length);
+                _previewAnimationTime = Mathf.Repeat(_previewAnimationTime + delta * _previewAnimationSpeed, clipLength);
+            }
+
+            return true;
+        }
+
+        private void SamplePreviewAnimation()
+        {
+            if (_previewAnimationClip == null || _previewRoot == null)
+                return;
+
+            float clipLength = Mathf.Max(MinAnimationClipLengthSeconds, _previewAnimationClip.length);
+            float sampleTime = Mathf.Repeat(_previewAnimationTime, clipLength);
+
+            try
+            {
+                _previewAnimationClip.SampleAnimation(_previewRoot, sampleTime);
+            }
+            catch (Exception exception)
+            {
+                string clipName = _previewAnimationClip != null ? _previewAnimationClip.name : "<null>";
+                string key = clipName + "|" + exception.GetType().Name + "|" + exception.Message;
+                if (!string.Equals(_lastAnimationSampleErrorKey, key, StringComparison.Ordinal))
+                {
+                    _lastAnimationSampleErrorKey = key;
+                    PreviewDiagnostics.Warn(
+                        "ModelAnim",
+                        $"SampleAnimation failed clip='{clipName}' time={sampleTime:F3}s error={exception.GetType().Name}: {exception.Message}");
+                }
+            }
+        }
+
+        private void BuildPreviewRootFromPrefab(GameObject prefab)
+        {
+            if (prefab == null || _preview == null)
+                return;
+
+            _previewRoot = UnityEngine.Object.Instantiate(prefab);
+            _previewRoot.name = "ModelPreviewRoot";
+            _previewRoot.hideFlags = HideFlags.HideAndDontSave;
+            PreviewHierarchyUtility.ForceActivateHierarchy(_previewRoot);
+            _previewRoot.transform.position = Vector3.zero;
+            _previewRoot.transform.rotation = prefab.transform.rotation;
+
+            _preview.AddSingleGO(_previewRoot);
+            _previewRoot.GetComponentsInChildren(true, _renderers);
+            _rendererInitialStates.Clear();
+            for (int i = 0; i < _renderers.Count; i++)
+            {
+                Renderer renderer = _renderers[i];
+                _rendererInitialStates.Add(renderer != null && renderer.enabled);
+            }
+
+            ComputeStats();
+            int skinnedRendererCount = _previewRoot.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length;
+            int meshRendererCount = _previewRoot.GetComponentsInChildren<MeshRenderer>(true).Length;
+            int animatorCount = _previewRoot.GetComponentsInChildren<Animator>(true).Length;
+            int animationCount = _previewRoot.GetComponentsInChildren<Animation>(true).Length;
+            string sourceAssetPath = AssetDatabase.GetAssetPath(prefab);
+            PreviewDiagnostics.Log(
+                "ModelSession",
+                $"BuildPreviewRoot asset='{sourceAssetPath}' root='{_previewRoot.name}' renderers={_renderers.Count} skinned={skinnedRendererCount} mesh={meshRendererCount} animators={animatorCount} animations={animationCount}");
+            if (_renderers.Count == 0)
+            {
+                PreviewDiagnostics.Warn(
+                    "ModelSession",
+                    $"No renderers found on preview root '{_previewRoot.name}'. Model preview will show grid only.");
+            }
+        }
+
+        private void RebuildPreviewRootFromSourceAsset()
+        {
+            if (!IsReady || string.IsNullOrEmpty(_prefabAssetPath))
+                return;
+
+            GameObject prefabSource = AssetDatabase.LoadAssetAtPath<GameObject>(_prefabAssetPath);
+            if (prefabSource == null)
+                return;
+
+            if (_previewRoot != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_previewRoot);
+                _previewRoot = null;
+            }
+
+            _renderers.Clear();
+            _rendererInitialStates.Clear();
+            BuildPreviewRootFromPrefab(prefabSource);
+            FrameCameraToContent(reason: "animation-cleared");
         }
 
         private Rect GetLightWidgetPadRect(Rect previewRect)

@@ -14,7 +14,8 @@ namespace ParticleThumbnailAndPreview.Editor
     internal static class ParticlePreviewHarmonyPatcher
     {
         private const string HarmonyId = "com.particlethumbnailandpreview.particlepreview";
-        private const string ThisPreviewTypeName = "ParticleThumbnailAndPreview.Editor.ParticlePrefabPreviewEditor";
+        private const string PrefabPreviewTypeName = "ParticleThumbnailAndPreview.Editor.ParticlePrefabPreviewEditor";
+        private const string ModelImporterPreviewTypeName = "ParticleThumbnailAndPreview.Editor.ModelImporterPreviewEditor";
         private const string HarmonyTypeName = "HarmonyLib.Harmony";
         private const string HarmonyMethodTypeName = "HarmonyLib.HarmonyMethod";
         private const string HarmonyAssemblyName = "0Harmony";
@@ -370,7 +371,8 @@ namespace ParticleThumbnailAndPreview.Editor
                     if (previewType == null)
                         continue;
 
-                    if (string.Equals(previewType.FullName, ThisPreviewTypeName, StringComparison.Ordinal))
+                    if (string.Equals(previewType.FullName, PrefabPreviewTypeName, StringComparison.Ordinal)
+                        || string.Equals(previewType.FullName, ModelImporterPreviewTypeName, StringComparison.Ordinal))
                         continue;
 
                     if (!IsCustomPreviewForGameObject(previewType))

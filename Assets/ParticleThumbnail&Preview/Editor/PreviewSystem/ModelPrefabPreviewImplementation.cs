@@ -61,6 +61,11 @@ namespace ParticleThumbnailAndPreview.Editor
             return _session.IsReady;
         }
 
+        internal void SetPreviewAnimationClip(AnimationClip clip)
+        {
+            _session.SetPreviewAnimationClip(clip);
+        }
+
         public void Cleanup(bool selectionIsEmpty)
         {
             DisableUpdate();
@@ -93,7 +98,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (inputChanged || cameraChanged)
                 RequestRepaint();
 
-            if (_session.HasPendingCameraMotion)
+            if (_session.HasPendingCameraMotion || _session.HasPendingAnimationPlayback)
                 EnableUpdate();
             else
                 DisableUpdate();

@@ -31,8 +31,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public static bool ShouldSuppressCompetingPreview(UnityObject[] targets)
         {
-            bool anyPreviewEnabled = ParticlePreviewSettings.Active
-                                     || ParticlePreviewSettings.ModelPreviewActive;
+            bool anyPreviewEnabled = ParticlePreviewSettings.AnyPrefabCustomPreviewActive;
             return ShouldSuppressCompetingPreview(targets, anyPreviewEnabled);
         }
 
@@ -104,7 +103,7 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             return kind switch
             {
-                PrefabPreviewTargetKind.Particle => ParticlePreviewSettings.Active,
+                PrefabPreviewTargetKind.Particle => ParticlePreviewSettings.ParticlePrefabPreviewActive,
                 PrefabPreviewTargetKind.Model => ParticlePreviewSettings.ModelPreviewActive,
                 _ => false,
             };

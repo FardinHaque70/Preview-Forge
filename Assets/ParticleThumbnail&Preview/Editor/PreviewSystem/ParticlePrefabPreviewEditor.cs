@@ -72,7 +72,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public override bool HasPreviewGUI()
         {
-            if (!ParticlePreviewSettings.Active)
+            if (!ParticlePreviewSettings.AnyPrefabCustomPreviewActive)
             {
                 CleanupActiveImplementation();
                 LogResolveState("settings-inactive");
@@ -203,7 +203,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (kind == PrefabPreviewTargetKind.Model && !ParticlePreviewSettings.ModelPreviewActive)
                 return null;
 
-            if (kind == PrefabPreviewTargetKind.Particle && !ParticlePreviewSettings.Active)
+            if (kind == PrefabPreviewTargetKind.Particle && !ParticlePreviewSettings.ParticlePrefabPreviewActive)
                 return null;
 
             return implementation;
