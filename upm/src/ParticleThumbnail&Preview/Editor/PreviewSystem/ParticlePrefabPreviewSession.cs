@@ -58,6 +58,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private readonly List<ParticleSystem> _particleSystems = new();
 		private readonly List<Renderer> _renderers = new();
+		private readonly List<bool> _rendererInitialStates = new();
 		private static readonly ParticleSystem.Particle[] ParticleBuffer = new ParticleSystem.Particle[MaxParticleBuffer];
 
 		private PreviewRenderUtility _preview;
@@ -200,6 +201,12 @@ namespace ParticleThumbnailAndPreview.Editor
 				_previewRoot.GetComponentsInChildren(true, _particleSystems);
 				SanitizeCustomSimulationSpaces();
 				_previewRoot.GetComponentsInChildren(true, _renderers);
+				_rendererInitialStates.Clear();
+				for (int i = 0; i < _renderers.Count; i++)
+				{
+					Renderer renderer = _renderers[i];
+					_rendererInitialStates.Add(renderer != null && renderer.enabled);
+				}
 				ParticleRenderCompatibilityUtility.SetRenderersEnabled(_renderers, false);
 				_needsMotion = ParticleMotionDetectionUtility.NeedsMotion(_particleSystems);
 				_motionShape = ParticlePreviewMotionShape.Circle;
@@ -261,6 +268,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			_particleSystems.Clear();
 			_renderers.Clear();
+			_rendererInitialStates.Clear();
 			_prefabInstanceId = 0;
 			_prefabAssetPath = null;
 			_playing = false;
@@ -635,11 +643,11 @@ namespace ParticleThumbnailAndPreview.Editor
 			UpdateCameraTransform();
 			ApplyEnvironmentState();
 
-				_preview.BeginPreview(previewRect, background ?? GUIStyle.none);
-				DrawGrid();
+			_preview.BeginPreview(previewRect, background ?? GUIStyle.none);
+			DrawGrid();
 
 			using (ParticleRenderCompatibilityUtility.PushShaderTime(_playbackTime))
-			using (ParticleRenderCompatibilityUtility.EnableRenderersScoped(_renderers))
+			using (ParticleRenderCompatibilityUtility.EnableRenderersScoped(_renderers, _rendererInitialStates))
 			{
 				ParticleRenderCompatibilityUtility.RenderPreviewWithCameraPath(_preview);
 			}

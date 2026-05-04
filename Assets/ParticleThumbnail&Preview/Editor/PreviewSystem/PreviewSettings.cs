@@ -121,10 +121,10 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const int D_RefreshFps = 45;
 		public const int MinRefreshFps = 15;
 		public const int MaxRefreshFps = 60;
-		public const float D_OrbitSmoothing = 15f;
+		public const float D_OrbitSmoothing = 20f;
 		public const float MinOrbitSmoothing = 1f;
 		public const float MaxOrbitSmoothing = 20f;
-		public const float D_PanSmoothing = 15f;
+		public const float D_PanSmoothing = 20f;
 		public const float MinPanSmoothing = 1f;
 		public const float MaxPanSmoothing = 20f;
 		public const float D_MotionPadding = 0f;
@@ -152,9 +152,9 @@ namespace ParticleThumbnailAndPreview.Editor
 			public const bool D_SharedGridAxisTextDefaultEnabled = true;
 				public const float D_SharedGridHalfSize = 6f;
 				public const float D_SharedGridStep = 0.5f;
-				public const float D_SharedGridAlpha = 0.217f;
-				public const float D_SharedGridFadeStartBoundsScale = 1.1f;
-				public const float D_SharedGridFadeStartBoundsPadding = 0.5f;
+				public const float D_SharedGridAlpha = 0.15f;
+				public const float D_SharedGridFadeStartBoundsScale = 1f;
+				public const float D_SharedGridFadeStartBoundsPadding = 7.16f;
 				public const PreviewGridStyle D_SharedGridStyle = PreviewGridStyle.Stylized;
 				public const float MinSharedGridHalfSize = 0.5f;
 				public const float MaxSharedGridHalfSize = 200f;

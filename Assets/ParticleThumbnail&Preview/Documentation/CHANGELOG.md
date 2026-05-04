@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.10] - 2026-05-04
+
+- Promote current Project Settings preview values to code defaults (`Orbit Smoothing`, `Pan Smoothing`, shared grid alpha, and shared grid fade start scale/padding) so new projects start with the same tuned baseline.
+- Keep mirrored `Assets` and `upm` preview settings/code synchronized for consistent package behavior.
+
 ## [1.1.9] - 2026-05-04
 
 - Add configurable shared-grid fade start controls (`Scale` and `Padding`) to particle preview settings.

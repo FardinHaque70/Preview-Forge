@@ -41,6 +41,7 @@ namespace ParticleThumbnailAndPreview.Editor
             GameObject instance = null;
             PreviewRenderUtility preview = null;
             Renderer[] renderers = null;
+            bool[] rendererInitialStates = null;
 
             try
             {
@@ -68,6 +69,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 preview.AddSingleGO(instance);
 
                 renderers = instance.GetComponentsInChildren<Renderer>(true);
+                rendererInitialStates = CaptureRendererEnabledStates(renderers);
                 ParticleRenderCompatibilityUtility.SetRenderersEnabled(renderers, false);
 
                 bool needsMotion = ParticleMotionDetectionUtility.NeedsMotion(systems);
@@ -135,7 +137,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
                 FrameCamera(preview.camera, preview.lights[0], targetBounds, needsMotion, applyTargetFill: true);
 
-                return RenderCurrentFrame(preview, renderers, thumbnailSize, targetTime);
+                return RenderCurrentFrame(preview, renderers, rendererInitialStates, thumbnailSize, targetTime);
             }
             finally
             {
@@ -762,6 +764,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private static Texture2D RenderCurrentFrame(
             PreviewRenderUtility preview,
             Renderer[] renderers,
+            IReadOnlyList<bool> rendererEnabledStates,
             int thumbnailSize,
             float frameTime)
         {
@@ -770,7 +773,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 SyncWorldPositionShaderOffsets(renderers);
                 preview.camera.backgroundColor = ParticleThumbnailSettings.BackgroundColor;
                 preview.BeginPreview(new Rect(0f, 0f, thumbnailSize, thumbnailSize), GUIStyle.none);
-                using (ParticleRenderCompatibilityUtility.EnableRenderersScoped(renderers))
+                using (ParticleRenderCompatibilityUtility.EnableRenderersScoped(renderers, rendererEnabledStates))
                 {
                     ParticleRenderCompatibilityUtility.RenderPreviewWithCameraPath(preview);
                 }
@@ -803,6 +806,21 @@ namespace ParticleThumbnailAndPreview.Editor
                     RenderTexture.ReleaseTemporary(captureRt);
                 }
             }
+        }
+
+        private static bool[] CaptureRendererEnabledStates(Renderer[] renderers)
+        {
+            if (renderers == null || renderers.Length == 0)
+                return new bool[0];
+
+            var states = new bool[renderers.Length];
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                states[i] = renderer != null && renderer.enabled;
+            }
+
+            return states;
         }
 
         private static void SyncWorldPositionShaderOffsets(Renderer[] renderers)

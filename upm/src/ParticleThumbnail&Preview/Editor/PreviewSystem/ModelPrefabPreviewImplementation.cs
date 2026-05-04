@@ -16,6 +16,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private static readonly string[] TurntableIcons = BuildIconNames("Model_Turntable_Round_White.png", "d_SceneViewTools", "SceneViewTools", "d_RotateTool", "RotateTool");
         private static readonly string[] InfoIcons = BuildIconNames("Model_Info_Round_White.png", "d_SelectionList Icon", "SelectionList Icon", "d_Search Icon", "Search Icon");
         private static readonly string[] LightsIcons = BuildIconNames("Model_Lightbulb_Round_White.png", "d_Light Icon", "Light Icon", "d_SceneViewLighting", "SceneViewLighting");
+        private static readonly string[] ColliderIcons = BuildIconNames("Model_Collider_Round_White.png", "d_BoxCollider Icon", "BoxCollider Icon", "d_EditCollider", "EditCollider");
         private static readonly string[] LightGizmoIcons = BuildIconNames("Model_LightGizmo_Round_White.png", "d_PreMatSphere", "PreMatSphere", "d_SceneViewTools", "SceneViewTools");
         private static readonly string[] GridIcons = BuildIconNames("Model_GridOn_Round_White.png", "d_Grid Icon", "Grid Icon", "d_Grid.Default", "Grid.Default");
         private static readonly string[] SkyboxIcons = BuildIconNames("Model_Panorama_Round_White.png", "d_Cubemap Icon", "Cubemap Icon", "d_PreMatSphere", "PreMatSphere");
@@ -25,14 +26,15 @@ namespace ParticleThumbnailAndPreview.Editor
         private const int TurntableIndex = 0;
         private const int InfoIndex = 1;
         private const int LightsIndex = 2;
-        private const int GridIndex = 3;
-        private const int LightGizmoIndex = 4;
-        private const int SkyboxIndex = 5;
-        private const int VisualModeIndex = 6;
-        private const int ModeIndex = 7;
+        private const int CollidersIndex = 3;
+        private const int GridIndex = 4;
+        private const int LightGizmoIndex = 5;
+        private const int SkyboxIndex = 6;
+        private const int VisualModeIndex = 7;
+        private const int ModeIndex = 8;
 
         private readonly ModelPrefabPreviewSession _session = new();
-        private readonly List<PreviewToolbarItem> _toolbarItems = new(8);
+        private readonly List<PreviewToolbarItem> _toolbarItems = new(9);
         private Action _requestRepaint;
         private bool _updateRegistered;
 
@@ -134,6 +136,11 @@ namespace ParticleThumbnailAndPreview.Editor
 
             _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
             {
+                OnToggleChanged = OnCollidersToggled,
+            });
+
+            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
+            {
                 OnToggleChanged = OnGridToggled,
             });
 
@@ -183,6 +190,13 @@ namespace ParticleThumbnailAndPreview.Editor
             lights.FallbackText = "Lights";
             lights.Tooltip = "Toggle model lights";
             lights.IconNames = LightsIcons;
+
+            PreviewToolbarItem colliders = _toolbarItems[CollidersIndex];
+            colliders.IsActive = _session.ColliderOverlayEnabled;
+            colliders.IsEnabled = true;
+            colliders.FallbackText = "Coll";
+            colliders.Tooltip = "Toggle collider and trigger overlay";
+            colliders.IconNames = ColliderIcons;
 
             PreviewToolbarItem grid = _toolbarItems[GridIndex];
             grid.IsActive = _session.GridEnabled;
@@ -256,6 +270,15 @@ namespace ParticleThumbnailAndPreview.Editor
                 return;
 
             _session.SetGridEnabled(value);
+            RequestRepaint();
+        }
+
+        private void OnCollidersToggled(bool value)
+        {
+            if (value == _session.ColliderOverlayEnabled)
+                return;
+
+            _session.SetColliderOverlayEnabled(value);
             RequestRepaint();
         }
 

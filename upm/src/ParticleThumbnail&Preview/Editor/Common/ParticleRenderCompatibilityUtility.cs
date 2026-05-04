@@ -126,7 +126,12 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal static RendererEnableScope EnableRenderersScoped(IReadOnlyList<Renderer> renderers)
         {
-            return new RendererEnableScope(renderers);
+            return new RendererEnableScope(renderers, null);
+        }
+
+        internal static RendererEnableScope EnableRenderersScoped(IReadOnlyList<Renderer> renderers, IReadOnlyList<bool> enabledMask)
+        {
+            return new RendererEnableScope(renderers, enabledMask);
         }
 
         internal static void SetRenderersEnabled(IReadOnlyList<Renderer> renderers, bool enabled)
@@ -177,7 +182,7 @@ namespace ParticleThumbnailAndPreview.Editor
             private readonly Renderer[] _renderers;
             private readonly bool[] _previousStates;
 
-            internal RendererEnableScope(IReadOnlyList<Renderer> renderers)
+            internal RendererEnableScope(IReadOnlyList<Renderer> renderers, IReadOnlyList<bool> enabledMask)
             {
                 if (renderers == null || renderers.Count == 0)
                 {
@@ -196,7 +201,9 @@ namespace ParticleThumbnailAndPreview.Editor
                         continue;
 
                     _previousStates[i] = renderer.enabled;
-                    renderer.enabled = true;
+                    bool targetEnabled = enabledMask == null || i >= enabledMask.Count || enabledMask[i];
+                    if (renderer.enabled != targetEnabled)
+                        renderer.enabled = targetEnabled;
                 }
             }
 
