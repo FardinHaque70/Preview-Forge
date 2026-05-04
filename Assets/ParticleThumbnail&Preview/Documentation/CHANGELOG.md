@@ -2,6 +2,13 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.13] - 2026-05-04
+
+- Replace in-session collider overlay drawing with a dedicated `ModelColliderOverlayRenderer` for cleaner model preview overlay architecture.
+- Improve thumbnail generation queue handling and cache flow behavior in `ParticleThumbnailService` to reduce redundant work and improve responsiveness.
+- Tighten thumbnail render size limits in `ParticleThumbnailSettings` for better default performance and memory balance.
+- Keep mirrored `Assets` and `upm` implementations synchronized.
+
 ## [1.1.11] - 2026-05-04
 
 - Refine model importer preview toolbar behavior by removing the collider toggle in importer contexts and keeping model prefab contexts unchanged.
