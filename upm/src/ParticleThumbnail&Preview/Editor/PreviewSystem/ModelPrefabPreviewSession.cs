@@ -46,6 +46,11 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float TurntableDegreesPerSecond = 24f;
         private const float AdaptiveGridHalfSizeScale = 1.1f;
         private const float AdaptiveGridHalfSizePadding = 0.5f;
+        private const float GridLodLevelSmoothing = 10f;
+        private const float GridLodMaxLevelsPerSecond = 1.25f;
+        private static readonly float[] GridLodDistances = { 10f, 42f, 110f, 260f };
+        private static readonly float[] GridLodStepMultipliers = { 1f, 2f, 4f, 8f };
+        private static readonly float[] GridLodAlphaMultipliers = { 1f, 0.74f, 0.5f, 0.28f };
         private static readonly int LightWidgetControlHash = "ModelPreviewLightWidget".GetHashCode();
         private const float LightPadPanelSize = 89.6f;
         private const float LightPadPanelPadding = 8f;
@@ -131,6 +136,9 @@ namespace ParticleThumbnailAndPreview.Editor
         private float _previewAnimationSpeed = DefaultAnimationPlaybackSpeed;
         private double _lastPreviewAnimationSampleTime = -1d;
         private string _lastAnimationSampleErrorKey;
+        private float _smoothedGridLodLevel;
+        private bool _hasSmoothedGridLodLevel;
+        private double _lastGridLodLevelSampleTime = -1d;
 
         private struct SessionStateSnapshot
         {
@@ -150,6 +158,35 @@ namespace ParticleThumbnailAndPreview.Editor
             internal ModelPreviewVisualMode VisualMode;
             internal ModelPreviewVisualMode LastNonNoneVisualMode;
             internal double SavedAt;
+        }
+
+        private readonly struct GridLodBlend
+        {
+            internal readonly PreviewGridProfile NearProfile;
+            internal readonly float NearOpacityMultiplier;
+            internal readonly bool HasFarProfile;
+            internal readonly PreviewGridProfile FarProfile;
+            internal readonly float FarOpacityMultiplier;
+            internal readonly PreviewGridProfile AxisProfile;
+            internal readonly float AxisOpacityMultiplier;
+
+            internal GridLodBlend(
+                PreviewGridProfile nearProfile,
+                float nearOpacityMultiplier,
+                bool hasFarProfile,
+                PreviewGridProfile farProfile,
+                float farOpacityMultiplier,
+                PreviewGridProfile axisProfile,
+                float axisOpacityMultiplier)
+            {
+                NearProfile = nearProfile;
+                NearOpacityMultiplier = nearOpacityMultiplier;
+                HasFarProfile = hasFarProfile;
+                FarProfile = farProfile;
+                FarOpacityMultiplier = farOpacityMultiplier;
+                AxisProfile = axisProfile;
+                AxisOpacityMultiplier = axisOpacityMultiplier;
+            }
         }
 
         internal bool IsReady => _preview != null && _previewRoot != null;
@@ -1175,6 +1212,8 @@ namespace ParticleThumbnailAndPreview.Editor
             _orbitAngularVelocity = Vector2.zero;
             _isOrbitDragging = false;
             _lastOrbitInputTime = -1d;
+            _hasSmoothedGridLodLevel = false;
+            _lastGridLodLevelSampleTime = -1d;
 
             PreviewDiagnostics.Log(
                 "ModelSession",
@@ -1543,30 +1582,169 @@ namespace ParticleThumbnailAndPreview.Editor
             PreviewGridSpace space = effective2D
                 ? PreviewGridSpace.Plane2D
                 : PreviewGridSpace.Plane3D;
-            PreviewGridProfile profileOverride = BuildAdaptiveGridProfile(effective2D);
-            var request = new PreviewGridDrawRequest(
+            GridLodBlend lodBlend = BuildAdaptiveGridLodBlend(effective2D);
+            bool drewAny = false;
+
+            var nearRequest = new PreviewGridDrawRequest(
                 _preview,
                 space,
                 _gridEnabled,
                 gridTransformOverride: Matrix4x4.identity,
-                profileOverride: profileOverride);
-            return PreviewGridSystem.Draw(request);
+                profileOverride: lodBlend.NearProfile,
+                opacityMultiplier: lodBlend.NearOpacityMultiplier,
+                drawAxisMarkers: !lodBlend.HasFarProfile);
+            drewAny |= PreviewGridSystem.Draw(nearRequest);
+
+            if (lodBlend.HasFarProfile)
+            {
+                var farRequest = new PreviewGridDrawRequest(
+                    _preview,
+                    space,
+                    _gridEnabled,
+                    gridTransformOverride: Matrix4x4.identity,
+                    profileOverride: lodBlend.FarProfile,
+                    opacityMultiplier: lodBlend.FarOpacityMultiplier,
+                    drawAxisMarkers: false);
+                drewAny |= PreviewGridSystem.Draw(farRequest);
+
+                var axisRequest = new PreviewGridDrawRequest(
+                    _preview,
+                    space,
+                    _gridEnabled,
+                    gridTransformOverride: Matrix4x4.identity,
+                    profileOverride: lodBlend.AxisProfile,
+                    opacityMultiplier: lodBlend.AxisOpacityMultiplier,
+                    drawAxisMarkers: true,
+                    drawGridLines: false);
+                drewAny |= PreviewGridSystem.Draw(axisRequest);
+            }
+
+            return drewAny;
         }
 
-        private PreviewGridProfile BuildAdaptiveGridProfile(bool effective2D)
+        private GridLodBlend BuildAdaptiveGridLodBlend(bool effective2D)
         {
             PreviewGridProfile sharedProfile = PreviewSettings.SharedGridProfile;
-            if (!_hasFramedBounds)
-                return sharedProfile;
+            float adaptiveHalfSize = _hasFramedBounds
+                ? Mathf.Clamp(
+                    ComputeRequiredGridHalfSize(_framedBounds, effective2D),
+                    sharedProfile.HalfSize,
+                    PreviewSettings.MaxSharedGridHalfSize)
+                : sharedProfile.HalfSize;
 
-            float requiredHalfSize = ComputeRequiredGridHalfSize(_framedBounds, effective2D);
-            float clampedHalfSize = Mathf.Clamp(requiredHalfSize, sharedProfile.HalfSize, PreviewSettings.MaxSharedGridHalfSize);
-            return new PreviewGridProfile(
+            int lodCount = Mathf.Min(GridLodDistances.Length, Mathf.Min(GridLodStepMultipliers.Length, GridLodAlphaMultipliers.Length));
+            if (lodCount <= 0)
+            {
+                PreviewGridProfile fallbackProfile = new PreviewGridProfile(
+                    sharedProfile.DefaultEnabled,
+                    adaptiveHalfSize,
+                    sharedProfile.Step,
+                    sharedProfile.Alpha,
+                    sharedProfile.Style);
+                return new GridLodBlend(
+                    fallbackProfile,
+                    1f,
+                    false,
+                    fallbackProfile,
+                    0f,
+                    fallbackProfile,
+                    1f);
+            }
+
+            float lodLevel = Mathf.Clamp(GetSmoothedGridLodLevel(lodCount), 0f, lodCount - 1);
+            int nearIndex = Mathf.Clamp(Mathf.FloorToInt(lodLevel), 0, lodCount - 1);
+            int farIndex = Mathf.Clamp(nearIndex + 1, nearIndex, lodCount - 1);
+            float blend = Mathf.Clamp01(lodLevel - nearIndex);
+            blend = blend * blend * (3f - 2f * blend);
+
+            float nearStep = Mathf.Clamp(sharedProfile.Step * GridLodStepMultipliers[nearIndex], PreviewSettings.MinSharedGridStep, PreviewSettings.MaxSharedGridStep);
+            float farStep = Mathf.Clamp(sharedProfile.Step * GridLodStepMultipliers[farIndex], PreviewSettings.MinSharedGridStep, PreviewSettings.MaxSharedGridStep);
+
+            PreviewGridProfile nearProfile = new PreviewGridProfile(
                 sharedProfile.DefaultEnabled,
-                clampedHalfSize,
-                sharedProfile.Step,
+                adaptiveHalfSize,
+                nearStep,
                 sharedProfile.Alpha,
                 sharedProfile.Style);
+
+            if (nearIndex == farIndex || Mathf.Abs(farStep - nearStep) <= 0.0001f)
+            {
+                return new GridLodBlend(
+                    nearProfile,
+                    GridLodAlphaMultipliers[nearIndex],
+                    false,
+                    nearProfile,
+                    0f,
+                    nearProfile,
+                    GridLodAlphaMultipliers[nearIndex]);
+            }
+
+            PreviewGridProfile farProfile = new PreviewGridProfile(
+                sharedProfile.DefaultEnabled,
+                adaptiveHalfSize,
+                farStep,
+                sharedProfile.Alpha,
+                sharedProfile.Style);
+
+            float nearOpacity = Mathf.Clamp01((1f - blend) * GridLodAlphaMultipliers[nearIndex]);
+            float farOpacity = Mathf.Clamp01(blend * GridLodAlphaMultipliers[farIndex]);
+            bool preferFarAxis = farOpacity > nearOpacity;
+            return new GridLodBlend(
+                nearProfile,
+                nearOpacity,
+                true,
+                farProfile,
+                farOpacity,
+                preferFarAxis ? farProfile : nearProfile,
+                Mathf.Max(nearOpacity, farOpacity));
+        }
+
+        private float GetSmoothedGridLodLevel(int lodCount)
+        {
+            float targetLodLevel = ComputeTargetGridLodLevel(Mathf.Max(0f, _distance), lodCount);
+            double now = EditorApplication.timeSinceStartup;
+            if (!_hasSmoothedGridLodLevel || _lastGridLodLevelSampleTime < 0d)
+            {
+                _smoothedGridLodLevel = targetLodLevel;
+                _hasSmoothedGridLodLevel = true;
+                _lastGridLodLevelSampleTime = now;
+                return _smoothedGridLodLevel;
+            }
+
+            float dt = Mathf.Clamp((float)(now - _lastGridLodLevelSampleTime), 0f, 0.1f);
+            _lastGridLodLevelSampleTime = now;
+            if (dt <= 0f)
+                return _smoothedGridLodLevel;
+
+            float blend = 1f - Mathf.Exp(-GridLodLevelSmoothing * dt);
+            float blendedLevel = Mathf.Lerp(_smoothedGridLodLevel, targetLodLevel, blend);
+            float maxDelta = GridLodMaxLevelsPerSecond * dt;
+            _smoothedGridLodLevel = Mathf.MoveTowards(_smoothedGridLodLevel, blendedLevel, maxDelta);
+            return _smoothedGridLodLevel;
+        }
+
+        private static float ComputeTargetGridLodLevel(float distance, int lodCount)
+        {
+            if (lodCount <= 1)
+                return 0f;
+
+            float clampedDistance = Mathf.Max(0f, distance);
+            if (clampedDistance <= GridLodDistances[0])
+                return 0f;
+
+            for (int i = 0; i < lodCount - 1; i++)
+            {
+                float start = GridLodDistances[i];
+                float end = GridLodDistances[i + 1];
+                if (clampedDistance > end)
+                    continue;
+
+                float range = Mathf.Max(0.0001f, end - start);
+                float t = Mathf.Clamp01((clampedDistance - start) / range);
+                return i + t;
+            }
+
+            return lodCount - 1;
         }
 
         private static float ComputeRequiredGridHalfSize(Bounds bounds, bool effective2D)

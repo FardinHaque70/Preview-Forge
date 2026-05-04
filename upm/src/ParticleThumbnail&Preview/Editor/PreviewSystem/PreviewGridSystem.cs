@@ -34,31 +34,40 @@ namespace ParticleThumbnailAndPreview.Editor
 		}
 	}
 
-	internal readonly struct PreviewGridDrawRequest
-	{
-		internal readonly PreviewRenderUtility Preview;
-		internal readonly PreviewGridSpace Space;
-		internal readonly bool SessionEnabled;
-		internal readonly Matrix4x4? GridTransformOverride;
-		internal readonly bool? EnabledOverride;
-		internal readonly PreviewGridProfile? ProfileOverride;
-
-		internal PreviewGridDrawRequest(
-			PreviewRenderUtility preview,
-			PreviewGridSpace space,
-			bool sessionEnabled,
-			Matrix4x4? gridTransformOverride = null,
-			bool? enabledOverride = null,
-			PreviewGridProfile? profileOverride = null)
+		internal readonly struct PreviewGridDrawRequest
 		{
-			Preview = preview;
-			Space = space;
-			SessionEnabled = sessionEnabled;
-			GridTransformOverride = gridTransformOverride;
-			EnabledOverride = enabledOverride;
-			ProfileOverride = profileOverride;
+			internal readonly PreviewRenderUtility Preview;
+			internal readonly PreviewGridSpace Space;
+			internal readonly bool SessionEnabled;
+			internal readonly Matrix4x4? GridTransformOverride;
+			internal readonly bool? EnabledOverride;
+			internal readonly PreviewGridProfile? ProfileOverride;
+			internal readonly float OpacityMultiplier;
+			internal readonly bool DrawAxisMarkers;
+			internal readonly bool DrawGridLines;
+
+			internal PreviewGridDrawRequest(
+				PreviewRenderUtility preview,
+				PreviewGridSpace space,
+				bool sessionEnabled,
+				Matrix4x4? gridTransformOverride = null,
+				bool? enabledOverride = null,
+				PreviewGridProfile? profileOverride = null,
+				float opacityMultiplier = 1f,
+				bool drawAxisMarkers = true,
+				bool drawGridLines = true)
+			{
+				Preview = preview;
+				Space = space;
+				SessionEnabled = sessionEnabled;
+				GridTransformOverride = gridTransformOverride;
+				EnabledOverride = enabledOverride;
+				ProfileOverride = profileOverride;
+				OpacityMultiplier = opacityMultiplier;
+				DrawAxisMarkers = drawAxisMarkers;
+				DrawGridLines = drawGridLines;
+			}
 		}
-	}
 
 	internal static class PreviewGridSystem
 	{
@@ -85,10 +94,10 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static readonly Queue<AxisMarkerMeshCacheKey> AxisMarkerMeshCacheOrder = new();
 		private static Material s_gridMaterial;
 
-		internal static bool Draw(in PreviewGridDrawRequest request)
-		{
-			if (request.Preview == null)
-				return false;
+			internal static bool Draw(in PreviewGridDrawRequest request)
+			{
+				if (request.Preview == null)
+					return false;
 
 			bool enabled = request.EnabledOverride ?? request.SessionEnabled;
 			if (!enabled)
@@ -101,23 +110,63 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (s_gridMaterial == null)
 				return false;
 
-			Mesh mesh = GetOrCreateMesh(profile, request.Space);
-			if (mesh == null)
-				return false;
+				Mesh mesh = GetOrCreateMesh(profile, request.Space);
+				if (mesh == null)
+					return false;
 
-			Matrix4x4 matrix = request.GridTransformOverride ?? Matrix4x4.identity;
-			request.Preview.DrawMesh(mesh, matrix, s_gridMaterial, 0);
+				float opacityMultiplier = Mathf.Clamp01(request.OpacityMultiplier);
+				if (opacityMultiplier <= 0f)
+					return false;
 
-			if (AxisMarkersEnabled && request.Space == PreviewGridSpace.Plane3D)
-			{
-				bool drawAxisText = PreviewSettings.SharedGridAxisTextDefaultEnabled;
-				Mesh axisMarkerMesh = GetOrCreateAxisMarkerMesh(profile, drawAxisText);
-				if (axisMarkerMesh != null)
-					request.Preview.DrawMesh(axisMarkerMesh, matrix, s_gridMaterial, 0);
+				Matrix4x4 matrix = request.GridTransformOverride ?? Matrix4x4.identity;
+				bool drewAny = false;
+				if (request.DrawGridLines)
+				{
+					ApplyMaterialOpacity(opacityMultiplier);
+					request.Preview.DrawMesh(mesh, matrix, s_gridMaterial, 0);
+					RestoreMaterialOpacity();
+					drewAny = true;
+				}
+
+				if (AxisMarkersEnabled && request.DrawAxisMarkers && request.Space == PreviewGridSpace.Plane3D)
+				{
+					bool drawAxisText = PreviewSettings.SharedGridAxisTextDefaultEnabled;
+					Mesh axisMarkerMesh = GetOrCreateAxisMarkerMesh(profile, drawAxisText);
+					if (axisMarkerMesh != null)
+					{
+						ApplyMaterialOpacity(opacityMultiplier);
+						request.Preview.DrawMesh(axisMarkerMesh, matrix, s_gridMaterial, 0);
+						RestoreMaterialOpacity();
+						drewAny = true;
+					}
+				}
+
+				return drewAny;
 			}
 
-			return true;
-		}
+			private static Color s_previousMaterialColor;
+			private static bool s_hasPreviousMaterialColor;
+
+			private static void ApplyMaterialOpacity(float opacityMultiplier)
+			{
+				if (s_gridMaterial == null || !s_gridMaterial.HasProperty("_Color"))
+					return;
+
+				s_previousMaterialColor = s_gridMaterial.GetColor("_Color");
+				s_hasPreviousMaterialColor = true;
+				Color tinted = s_previousMaterialColor;
+				tinted.a *= opacityMultiplier;
+				s_gridMaterial.SetColor("_Color", tinted);
+			}
+
+			private static void RestoreMaterialOpacity()
+			{
+				if (!s_hasPreviousMaterialColor || s_gridMaterial == null || !s_gridMaterial.HasProperty("_Color"))
+					return;
+
+				s_gridMaterial.SetColor("_Color", s_previousMaterialColor);
+				s_hasPreviousMaterialColor = false;
+			}
 
 		internal static void ClearMeshCache()
 		{
