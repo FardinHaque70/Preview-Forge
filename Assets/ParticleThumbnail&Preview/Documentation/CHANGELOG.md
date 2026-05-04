@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.8] - 2026-05-04
+
+- Add adaptive model preview grid sizing based on framed bounds so large prefabs keep useful grid coverage.
+- Increase maximum shared grid half size from `50` to `200` to support broader model scales without clipping the preview grid.
+- Keep mirrored `Assets` and `upm` preview session/settings changes synchronized.
+
 ## [1.1.7] - 2026-05-03
 
 - Update all package/documentation Git URLs to the canonical repository location `Particle-Thumbnail-And-Preview` to avoid redirect-dependent UPM resolution.
