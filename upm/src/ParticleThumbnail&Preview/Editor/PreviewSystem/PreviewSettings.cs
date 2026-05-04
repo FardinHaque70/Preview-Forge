@@ -151,7 +151,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			public const float D_SharedGridAlpha = 0.217f;
 			public const PreviewGridStyle D_SharedGridStyle = PreviewGridStyle.Stylized;
 			public const float MinSharedGridHalfSize = 0.5f;
-			public const float MaxSharedGridHalfSize = 50f;
+			public const float MaxSharedGridHalfSize = 200f;
 			public const float MinSharedGridStep = 0.05f;
 			public const float MaxSharedGridStep = 5f;
 			public const float MinSharedGridAlpha = 0f;

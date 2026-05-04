@@ -44,6 +44,8 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float PivotMarkerRadius = 0.07f;
         private const int PivotMarkerSegments = 24;
         private const float TurntableDegreesPerSecond = 24f;
+        private const float AdaptiveGridHalfSizeScale = 1.1f;
+        private const float AdaptiveGridHalfSizePadding = 0.5f;
         private static readonly int LightWidgetControlHash = "ModelPreviewLightWidget".GetHashCode();
         private const float LightPadPanelSize = 89.6f;
         private const float LightPadPanelPadding = 8f;
@@ -1537,15 +1539,46 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private bool DrawGrid()
         {
-            PreviewGridSpace space = ModeContext.Effective2D
+            bool effective2D = ModeContext.Effective2D;
+            PreviewGridSpace space = effective2D
                 ? PreviewGridSpace.Plane2D
                 : PreviewGridSpace.Plane3D;
+            PreviewGridProfile profileOverride = BuildAdaptiveGridProfile(effective2D);
             var request = new PreviewGridDrawRequest(
                 _preview,
                 space,
                 _gridEnabled,
-                gridTransformOverride: Matrix4x4.identity);
+                gridTransformOverride: Matrix4x4.identity,
+                profileOverride: profileOverride);
             return PreviewGridSystem.Draw(request);
+        }
+
+        private PreviewGridProfile BuildAdaptiveGridProfile(bool effective2D)
+        {
+            PreviewGridProfile sharedProfile = PreviewSettings.SharedGridProfile;
+            if (!_hasFramedBounds)
+                return sharedProfile;
+
+            float requiredHalfSize = ComputeRequiredGridHalfSize(_framedBounds, effective2D);
+            float clampedHalfSize = Mathf.Clamp(requiredHalfSize, sharedProfile.HalfSize, PreviewSettings.MaxSharedGridHalfSize);
+            return new PreviewGridProfile(
+                sharedProfile.DefaultEnabled,
+                clampedHalfSize,
+                sharedProfile.Step,
+                sharedProfile.Alpha,
+                sharedProfile.Style);
+        }
+
+        private static float ComputeRequiredGridHalfSize(Bounds bounds, bool effective2D)
+        {
+            Vector3 min = bounds.min;
+            Vector3 max = bounds.max;
+            float maxAbsX = Mathf.Max(Mathf.Abs(min.x), Mathf.Abs(max.x));
+            float maxAbsSecondaryAxis = effective2D
+                ? Mathf.Max(Mathf.Abs(min.y), Mathf.Abs(max.y))
+                : Mathf.Max(Mathf.Abs(min.z), Mathf.Abs(max.z));
+            float boundsHalfSpanFromOrigin = Mathf.Max(maxAbsX, maxAbsSecondaryAxis);
+            return boundsHalfSpanFromOrigin * AdaptiveGridHalfSizeScale + AdaptiveGridHalfSizePadding;
         }
 
         private void LogGridDiagnosticsState(string state)
