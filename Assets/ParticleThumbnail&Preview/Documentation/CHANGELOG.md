@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.9] - 2026-05-04
+
+- Add configurable shared-grid fade start controls (`Scale` and `Padding`) to particle preview settings.
+- Route model preview adaptive grid sizing through the new shared-grid fade start settings instead of hardcoded constants.
+- Keep mirrored `Assets`/`upm` preview settings and model preview session logic synchronized.
+
 ## [1.1.8] - 2026-05-04
 
 - Add adaptive model preview grid sizing based on framed bounds so large prefabs keep useful grid coverage.

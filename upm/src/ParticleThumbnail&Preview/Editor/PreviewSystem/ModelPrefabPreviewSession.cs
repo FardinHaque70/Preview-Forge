@@ -44,8 +44,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float PivotMarkerRadius = 0.07f;
         private const int PivotMarkerSegments = 24;
         private const float TurntableDegreesPerSecond = 24f;
-        private const float AdaptiveGridHalfSizeScale = 1.1f;
-        private const float AdaptiveGridHalfSizePadding = 0.5f;
         private const float GridLodLevelSmoothing = 10f;
         private const float GridLodMaxLevelsPerSecond = 1.25f;
         private static readonly float[] GridLodDistances = { 10f, 42f, 110f, 260f };
@@ -1756,7 +1754,9 @@ namespace ParticleThumbnailAndPreview.Editor
                 ? Mathf.Max(Mathf.Abs(min.y), Mathf.Abs(max.y))
                 : Mathf.Max(Mathf.Abs(min.z), Mathf.Abs(max.z));
             float boundsHalfSpanFromOrigin = Mathf.Max(maxAbsX, maxAbsSecondaryAxis);
-            return boundsHalfSpanFromOrigin * AdaptiveGridHalfSizeScale + AdaptiveGridHalfSizePadding;
+            float scale = PreviewSettings.SharedGridFadeStartBoundsScale;
+            float padding = PreviewSettings.SharedGridFadeStartBoundsPadding;
+            return boundsHalfSpanFromOrigin * scale + padding;
         }
 
         private void LogGridDiagnosticsState(string state)

@@ -30,10 +30,12 @@ namespace ParticleThumbnailAndPreview.Editor
 			[SerializeField] internal bool modelDefaultSkyboxEnabled = PreviewSettings.D_ModelDefaultSkyboxEnabled;
 			[SerializeField] internal bool sharedGridDefaultEnabled = PreviewSettings.D_SharedGridDefaultEnabled;
 			[SerializeField] internal bool sharedGridAxisTextDefaultEnabled = PreviewSettings.D_SharedGridAxisTextDefaultEnabled;
-			[SerializeField] internal float sharedGridHalfSize = PreviewSettings.D_SharedGridHalfSize;
-			[SerializeField] internal float sharedGridStep = PreviewSettings.D_SharedGridStep;
-			[SerializeField] internal float sharedGridAlpha = PreviewSettings.D_SharedGridAlpha;
-			[SerializeField] internal PreviewGridStyle sharedGridStyle = PreviewSettings.D_SharedGridStyle;
+				[SerializeField] internal float sharedGridHalfSize = PreviewSettings.D_SharedGridHalfSize;
+				[SerializeField] internal float sharedGridStep = PreviewSettings.D_SharedGridStep;
+				[SerializeField] internal float sharedGridAlpha = PreviewSettings.D_SharedGridAlpha;
+				[SerializeField] internal float sharedGridFadeStartBoundsScale = PreviewSettings.D_SharedGridFadeStartBoundsScale;
+				[SerializeField] internal float sharedGridFadeStartBoundsPadding = PreviewSettings.D_SharedGridFadeStartBoundsPadding;
+				[SerializeField] internal PreviewGridStyle sharedGridStyle = PreviewSettings.D_SharedGridStyle;
 			[SerializeField] internal Cubemap modelSkyboxCubemap = PreviewSettings.D_ModelSkyboxCubemap;
 			[SerializeField] internal Material modelSkyboxMaterial;
 			[SerializeField] internal Cubemap modelReflectionCubemap = PreviewSettings.D_ModelReflectionCubemap;
@@ -85,10 +87,12 @@ namespace ParticleThumbnailAndPreview.Editor
 			modelDefaultSkyboxEnabled = PreviewSettings.D_ModelDefaultSkyboxEnabled;
 			sharedGridDefaultEnabled = PreviewSettings.D_SharedGridDefaultEnabled;
 			sharedGridAxisTextDefaultEnabled = PreviewSettings.D_SharedGridAxisTextDefaultEnabled;
-			sharedGridHalfSize = PreviewSettings.D_SharedGridHalfSize;
-			sharedGridStep = PreviewSettings.D_SharedGridStep;
-			sharedGridAlpha = PreviewSettings.D_SharedGridAlpha;
-			sharedGridStyle = PreviewSettings.D_SharedGridStyle;
+				sharedGridHalfSize = PreviewSettings.D_SharedGridHalfSize;
+				sharedGridStep = PreviewSettings.D_SharedGridStep;
+				sharedGridAlpha = PreviewSettings.D_SharedGridAlpha;
+				sharedGridFadeStartBoundsScale = PreviewSettings.D_SharedGridFadeStartBoundsScale;
+				sharedGridFadeStartBoundsPadding = PreviewSettings.D_SharedGridFadeStartBoundsPadding;
+				sharedGridStyle = PreviewSettings.D_SharedGridStyle;
 				modelSkyboxCubemap = PreviewSettings.D_ModelSkyboxCubemap;
 				modelSkyboxMaterial = PreviewSkyboxAssets.GetOrCreateSkyboxMaterialForCubemap(modelSkyboxCubemap);
 				modelAmbientLightColor = PreviewSettings.D_ModelAmbientLightColor;
@@ -146,16 +150,22 @@ namespace ParticleThumbnailAndPreview.Editor
 			public const bool D_ModelDefaultSkyboxEnabled = true;
 			public const bool D_SharedGridDefaultEnabled = true;
 			public const bool D_SharedGridAxisTextDefaultEnabled = true;
-			public const float D_SharedGridHalfSize = 6f;
-			public const float D_SharedGridStep = 0.5f;
-			public const float D_SharedGridAlpha = 0.217f;
-			public const PreviewGridStyle D_SharedGridStyle = PreviewGridStyle.Stylized;
-			public const float MinSharedGridHalfSize = 0.5f;
-			public const float MaxSharedGridHalfSize = 200f;
-			public const float MinSharedGridStep = 0.05f;
-			public const float MaxSharedGridStep = 5f;
-			public const float MinSharedGridAlpha = 0f;
-			public const float MaxSharedGridAlpha = 1f;
+				public const float D_SharedGridHalfSize = 6f;
+				public const float D_SharedGridStep = 0.5f;
+				public const float D_SharedGridAlpha = 0.217f;
+				public const float D_SharedGridFadeStartBoundsScale = 1.1f;
+				public const float D_SharedGridFadeStartBoundsPadding = 0.5f;
+				public const PreviewGridStyle D_SharedGridStyle = PreviewGridStyle.Stylized;
+				public const float MinSharedGridHalfSize = 0.5f;
+				public const float MaxSharedGridHalfSize = 200f;
+				public const float MinSharedGridStep = 0.05f;
+				public const float MaxSharedGridStep = 5f;
+				public const float MinSharedGridAlpha = 0f;
+				public const float MaxSharedGridAlpha = 1f;
+				public const float MinSharedGridFadeStartBoundsScale = 1f;
+				public const float MaxSharedGridFadeStartBoundsScale = 3f;
+				public const float MinSharedGridFadeStartBoundsPadding = 0f;
+				public const float MaxSharedGridFadeStartBoundsPadding = 50f;
 			public const Cubemap D_ModelSkyboxCubemap = null;
 			public const Cubemap D_ModelReflectionCubemap = null;
 			public static readonly Color D_ModelAmbientLightColor = new Color(0.6132076f, 0.6045301f, 0.6045301f, 1f);
@@ -219,12 +229,14 @@ namespace ParticleThumbnailAndPreview.Editor
 			public static bool ModelDefaultSkyboxEnabled => Storage.modelDefaultSkyboxEnabled;
 			public static bool SharedGridDefaultEnabled => Storage.sharedGridDefaultEnabled;
 			public static bool SharedGridAxisTextDefaultEnabled => Storage.sharedGridAxisTextDefaultEnabled;
-			public static float SharedGridHalfSize => Mathf.Clamp(Storage.sharedGridHalfSize, MinSharedGridHalfSize, MaxSharedGridHalfSize);
-			public static float SharedGridStep => Mathf.Clamp(Storage.sharedGridStep, MinSharedGridStep, MaxSharedGridStep);
-			public static float SharedGridAlpha => Mathf.Clamp(Storage.sharedGridAlpha, MinSharedGridAlpha, MaxSharedGridAlpha);
-			public static PreviewGridStyle SharedGridStyle => Enum.IsDefined(typeof(PreviewGridStyle), Storage.sharedGridStyle)
-				? Storage.sharedGridStyle
-				: D_SharedGridStyle;
+				public static float SharedGridHalfSize => Mathf.Clamp(Storage.sharedGridHalfSize, MinSharedGridHalfSize, MaxSharedGridHalfSize);
+				public static float SharedGridStep => Mathf.Clamp(Storage.sharedGridStep, MinSharedGridStep, MaxSharedGridStep);
+				public static float SharedGridAlpha => Mathf.Clamp(Storage.sharedGridAlpha, MinSharedGridAlpha, MaxSharedGridAlpha);
+				public static float SharedGridFadeStartBoundsScale => Mathf.Clamp(Storage.sharedGridFadeStartBoundsScale, MinSharedGridFadeStartBoundsScale, MaxSharedGridFadeStartBoundsScale);
+				public static float SharedGridFadeStartBoundsPadding => Mathf.Clamp(Storage.sharedGridFadeStartBoundsPadding, MinSharedGridFadeStartBoundsPadding, MaxSharedGridFadeStartBoundsPadding);
+				public static PreviewGridStyle SharedGridStyle => Enum.IsDefined(typeof(PreviewGridStyle), Storage.sharedGridStyle)
+					? Storage.sharedGridStyle
+					: D_SharedGridStyle;
 			public static PreviewGridProfile SharedGridProfile => new PreviewGridProfile(
 				SharedGridDefaultEnabled,
 				SharedGridHalfSize,
@@ -646,13 +658,23 @@ namespace ParticleThumbnailAndPreview.Editor
 					storage.sharedGridStep,
 					PreviewSettings.MinSharedGridStep,
 					PreviewSettings.MaxSharedGridStep);
-				storage.sharedGridAlpha = EditorGUILayout.Slider(
-					new GUIContent("Alpha", "Overall transparency for grid lines."),
-					storage.sharedGridAlpha,
-					PreviewSettings.MinSharedGridAlpha,
-					PreviewSettings.MaxSharedGridAlpha);
-			});
-		}
+					storage.sharedGridAlpha = EditorGUILayout.Slider(
+						new GUIContent("Alpha", "Overall transparency for grid lines."),
+						storage.sharedGridAlpha,
+						PreviewSettings.MinSharedGridAlpha,
+						PreviewSettings.MaxSharedGridAlpha);
+					storage.sharedGridFadeStartBoundsScale = EditorGUILayout.Slider(
+						new GUIContent("Fade Start Bounds Scale", "Multiplier applied to bounds radius before grid fade starts. Values above 1 start fade outside bounds."),
+						storage.sharedGridFadeStartBoundsScale,
+						PreviewSettings.MinSharedGridFadeStartBoundsScale,
+						PreviewSettings.MaxSharedGridFadeStartBoundsScale);
+					storage.sharedGridFadeStartBoundsPadding = EditorGUILayout.Slider(
+						new GUIContent("Fade Start Bounds Padding", "Extra world-space padding added after scaled bounds before fade starts."),
+						storage.sharedGridFadeStartBoundsPadding,
+						PreviewSettings.MinSharedGridFadeStartBoundsPadding,
+						PreviewSettings.MaxSharedGridFadeStartBoundsPadding);
+				});
+			}
 		#endregion
 
 		#region Shared UI Helpers
