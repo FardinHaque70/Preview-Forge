@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.11] - 2026-05-04
+
+- Refine model importer preview toolbar behavior by removing the collider toggle in importer contexts and keeping model prefab contexts unchanged.
+- Improve model preview toolbar wiring to use configuration-driven control indexing for safer toggle composition and reuse.
+- Include mirrored preview pipeline updates across model/particle preview sessions, thumbnail rendering, and compatibility utilities in both `Assets` and `upm`.
+
 ## [1.1.10] - 2026-05-04
 
 - Promote current Project Settings preview values to code defaults (`Orbit Smoothing`, `Pan Smoothing`, shared grid alpha, and shared grid fade start scale/padding) so new projects start with the same tuned baseline.
