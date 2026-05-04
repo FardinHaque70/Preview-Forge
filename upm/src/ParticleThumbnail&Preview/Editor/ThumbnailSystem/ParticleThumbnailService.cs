@@ -16,13 +16,23 @@ namespace ParticleThumbnailAndPreview.Editor
 			public bool IsParticlePrefab;
 		}
 
+		private struct DeferredPersistentLoadRequest
+		{
+			public ParticleThumbnailRequest Request;
+			public string RequestDependencyToken;
+			public string CacheKey;
+		}
+
 		private static readonly Dictionary<ParticleThumbnailRequest, ParticleThumbnailRecord> Cache = new();
 		private static readonly LinkedList<ParticleThumbnailRequest> CacheLru = new();
 		private static readonly Dictionary<ParticleThumbnailRequest, LinkedListNode<ParticleThumbnailRequest>> CacheLruNodes = new();
 
 		private static readonly Queue<ParticleThumbnailRequest> RenderQueue = new();
+		private static readonly Queue<ParticleThumbnailRequest> PriorityRenderQueue = new();
 		private static readonly HashSet<ParticleThumbnailRequest> Queued = new();
+		private static readonly HashSet<ParticleThumbnailRequest> PriorityQueued = new();
 		private static readonly Dictionary<ParticleThumbnailRequest, string> FailedDependencyByRequest = new();
+		private static readonly Dictionary<ParticleThumbnailRequest, int> RequestLastSeenFrame = new();
 		private static readonly HashSet<string> SelectedAssetGuids = new(StringComparer.OrdinalIgnoreCase);
 		private static readonly HashSet<ParticleThumbnailRequest> GenerateAllPendingRequests = new();
 
@@ -30,6 +40,9 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static readonly HashSet<string> KnownNonPrefabGuids = new(StringComparer.OrdinalIgnoreCase);
 		private static readonly Queue<string> PendingSupportLookupQueue = new();
 		private static readonly HashSet<string> PendingSupportLookupSet = new(StringComparer.OrdinalIgnoreCase);
+		private static readonly Queue<DeferredPersistentLoadRequest> PendingPersistentLoadQueue = new();
+		private static readonly HashSet<ParticleThumbnailRequest> PendingPersistentLoadSet = new();
+		private static readonly HashSet<string> KnownPersistentCacheMisses = new(StringComparer.Ordinal);
 		private static string SingleSelectedAssetGuid = string.Empty;
 		private static int GenerateAllTotalCount;
 		private static int GenerateAllCompletedCount;
@@ -53,6 +66,9 @@ namespace ParticleThumbnailAndPreview.Editor
 		private const double GenerateAllScanBudgetMs = 6.0;
 		private const int SupportLookupMaxPerUpdate = 24;
 		private const double SupportLookupBudgetMs = 2.0;
+		private const int PersistentLoadMaxPerUpdate = 4;
+		private const double PersistentLoadBudgetMs = 2.0;
+		private const int StaleRequestFrameAge = 90;
 		private const int FastModeMaxRendersPerUpdate = 64;
 		private const double FastModeRenderBudgetMs = 200.0;
 		private const double FastModeScanBudgetMs = 40.0;
@@ -129,7 +145,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				PersistentEntryCount = persistentCount,
 				GeneratingCount = GenerateAllPendingRequests.Count,
 				FailedCount = FailedDependencyByRequest.Count,
-				QueueDepth = RenderQueue.Count,
+				QueueDepth = PriorityRenderQueue.Count + RenderQueue.Count,
 				DiskCacheBytes = diskBytes,
 			};
 
@@ -172,6 +188,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				SupportCache.Remove(guid);
 				KnownNonPrefabGuids.Remove(guid);
 				PendingSupportLookupSet.Remove(guid);
+				RemoveKnownPersistentMissesForGuid(guid);
 				if (ParticleThumbnailSettings.EnablePersistentCache)
 					ParticleThumbnailPersistentCache.InvalidateGuid(guid);
 			}
@@ -191,13 +208,19 @@ namespace ParticleThumbnailAndPreview.Editor
 			Cache.Clear();
 			CacheLru.Clear();
 			CacheLruNodes.Clear();
+			PriorityRenderQueue.Clear();
 			RenderQueue.Clear();
+			PriorityQueued.Clear();
 			Queued.Clear();
+			RequestLastSeenFrame.Clear();
 			FailedDependencyByRequest.Clear();
 			SupportCache.Clear();
 			KnownNonPrefabGuids.Clear();
 			PendingSupportLookupQueue.Clear();
 			PendingSupportLookupSet.Clear();
+			PendingPersistentLoadQueue.Clear();
+			PendingPersistentLoadSet.Clear();
+			KnownPersistentCacheMisses.Clear();
 			ResetGenerateAllProgress();
 			SafeClearProgressWindow();
 			RefreshRuntimeHooks(refreshSelectionCacheWhenEnabled: true);
@@ -373,7 +396,8 @@ namespace ParticleThumbnailAndPreview.Editor
 				? ParticleThumbnailProjectWindowUi.GetOutlineRect(selectionRect, surface)
 				: default;
 			ParticleThumbnailRequest request = new ParticleThumbnailRequest(guid, assetPath, surface);
-			if (TryGetValidRecord(request, dependencyToken, out ParticleThumbnailRecord record))
+			MarkRequestSeen(request);
+			if (TryGetValidRecord(request, dependencyToken, out ParticleThumbnailRecord record, allowDeferredPersistentLoad: true))
 			{
 				DrawRecord(contentRect, record.Texture);
 				if (shouldDrawSelectionOutline)
@@ -386,7 +410,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				DrawSelectionOutline(outlineRect);
 
 			if (!IsKnownFailed(request, dependencyToken))
-				Enqueue(request);
+				Enqueue(request, prioritize: true);
 		}
 
 		private static void OnEditorUpdate()
@@ -410,6 +434,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				ProcessGenerateAllScan();
 
 			ProcessPendingSupportLookups();
+			ProcessPendingPersistentLoads();
 			ResolveDanglingGenerateAllRequests();
 
 			if (ParticleThumbnailSettings.Enabled || GenerateAllPendingRequests.Count > 0)
@@ -425,7 +450,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (GenerateAllScanInProgress || GenerateAllIsPreparing)
 				return;
 
-			if (GenerateAllPendingRequests.Count == 0 || RenderQueue.Count > 0)
+			if (GenerateAllPendingRequests.Count == 0 || PriorityRenderQueue.Count > 0 || RenderQueue.Count > 0 || PendingPersistentLoadQueue.Count > 0)
 				return;
 
 			List<ParticleThumbnailRequest> dangling = new List<ParticleThumbnailRequest>(GenerateAllPendingRequests.Count);
@@ -499,12 +524,12 @@ namespace ParticleThumbnailAndPreview.Editor
 					for (int s = 0; s < GenerationSurfaces.Length; s++)
 					{
 						ParticleThumbnailRequest request = new ParticleThumbnailRequest(guid, assetPath, GenerationSurfaces[s]);
-						if (TryGetValidRecord(request, dependencyToken, out _))
+						if (TryGetValidRecord(request, dependencyToken, out _, allowDeferredPersistentLoad: false))
 							continue;
 
 						TrackGenerateAllRequest(request);
 						if (!Queued.Contains(request))
-							Enqueue(request);
+							Enqueue(request, prioritize: false);
 					}
 				}
 
@@ -571,9 +596,52 @@ namespace ParticleThumbnailAndPreview.Editor
 				EditorApplication.RepaintProjectWindow();
 		}
 
+		private static void ProcessPendingPersistentLoads()
+		{
+			if (!ParticleThumbnailSettings.EnablePersistentCache)
+			{
+				PendingPersistentLoadQueue.Clear();
+				PendingPersistentLoadSet.Clear();
+				return;
+			}
+
+			if (PendingPersistentLoadQueue.Count == 0)
+				return;
+
+			double start = EditorApplication.timeSinceStartup;
+			int processed = 0;
+			bool anyLoaded = false;
+
+			while (PendingPersistentLoadQueue.Count > 0 && processed < PersistentLoadMaxPerUpdate)
+			{
+				double elapsedMs = (EditorApplication.timeSinceStartup - start) * 1000.0;
+				if (elapsedMs > PersistentLoadBudgetMs)
+					break;
+
+				DeferredPersistentLoadRequest deferred = PendingPersistentLoadQueue.Dequeue();
+				PendingPersistentLoadSet.Remove(deferred.Request);
+				processed++;
+
+				if (KnownPersistentCacheMisses.Contains(deferred.CacheKey))
+					continue;
+
+				if (!ParticleThumbnailPersistentCache.TryLoadTexture(deferred.Request, deferred.RequestDependencyToken, out Texture2D cachedTexture))
+				{
+					KnownPersistentCacheMisses.Add(deferred.CacheKey);
+					continue;
+				}
+
+				StoreCacheRecord(deferred.Request, deferred.RequestDependencyToken, cachedTexture, persistToDisk: false);
+				anyLoaded = true;
+			}
+
+			if (anyLoaded)
+				EditorApplication.RepaintProjectWindow();
+		}
+
 		private static void ProcessQueue()
 		{
-			if (RenderQueue.Count == 0)
+			if (PriorityRenderQueue.Count == 0 && RenderQueue.Count == 0)
 				return;
 
 			int maxRenders = GenerateAllUseUnthrottledProcessing ? FastModeMaxRendersPerUpdate : ParticleThumbnailSettings.MaxRendersPerUpdate;
@@ -583,20 +651,30 @@ namespace ParticleThumbnailAndPreview.Editor
 			bool anyProgressUpdated = false;
 			int rendered = 0;
 
-			while (RenderQueue.Count > 0 && rendered < maxRenders)
+			while ((PriorityRenderQueue.Count > 0 || RenderQueue.Count > 0) && rendered < maxRenders)
 			{
 				double elapsedMs = (EditorApplication.timeSinceStartup - start) * 1000.0;
 				if (elapsedMs > budgetMs)
 					break;
 
-				ParticleThumbnailRequest request = RenderQueue.Dequeue();
+				if (!TryDequeueRequest(out ParticleThumbnailRequest request))
+					continue;
+
+				if (ShouldDropStaleRequest(request))
+				{
+					Queued.Remove(request);
+					PriorityQueued.Remove(request);
+					continue;
+				}
+
 				Queued.Remove(request);
-					bool trackedByGenerateAll = GenerateAllPendingRequests.Contains(request);
-					if (trackedByGenerateAll)
-					{
-						GenerateAllCurrentAssetPath = request.AssetPath ?? string.Empty;
-						UpdateGenerateAllProgressWindow();
-					}
+				PriorityQueued.Remove(request);
+				bool trackedByGenerateAll = GenerateAllPendingRequests.Contains(request);
+				if (trackedByGenerateAll)
+				{
+					GenerateAllCurrentAssetPath = request.AssetPath ?? string.Empty;
+					UpdateGenerateAllProgressWindow();
+				}
 
 				if (string.IsNullOrEmpty(request.AssetPath))
 				{
@@ -606,7 +684,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				}
 
 				string dependencyToken = GetDependencyToken(request.AssetPath);
-				if (TryGetValidRecord(request, dependencyToken, out _))
+				if (TryGetValidRecord(request, dependencyToken, out _, allowDeferredPersistentLoad: false))
 				{
 					if (trackedByGenerateAll)
 						anyProgressUpdated |= CompleteGenerateAllRequest(request, success: true);
@@ -770,7 +848,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			}
 		}
 
-		private static bool TryGetValidRecord(ParticleThumbnailRequest request, string dependencyToken, out ParticleThumbnailRecord record)
+		private static bool TryGetValidRecord(ParticleThumbnailRequest request, string dependencyToken, out ParticleThumbnailRecord record, bool allowDeferredPersistentLoad)
 		{
 			if (Cache.TryGetValue(request, out record))
 			{
@@ -786,10 +864,25 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (!ParticleThumbnailSettings.EnablePersistentCache)
 				return false;
 
-			if (!ParticleThumbnailPersistentCache.TryLoadTexture(request, dependencyToken, out Texture2D cachedTexture))
+			string settingsToken = ParticleThumbnailSettings.GetPersistentSettingsToken();
+			string cacheKey = ParticleThumbnailPersistentCache.BuildCacheKey(request, dependencyToken, settingsToken);
+			if (KnownPersistentCacheMisses.Contains(cacheKey))
 				return false;
 
+			if (allowDeferredPersistentLoad)
+			{
+				EnqueuePersistentLoad(request, dependencyToken, cacheKey);
+				return false;
+			}
+
+			if (!ParticleThumbnailPersistentCache.TryLoadTexture(request, dependencyToken, out Texture2D cachedTexture))
+			{
+				KnownPersistentCacheMisses.Add(cacheKey);
+				return false;
+			}
+
 			StoreCacheRecord(request, dependencyToken, cachedTexture, persistToDisk: false);
+			KnownPersistentCacheMisses.Remove(cacheKey);
 			record = Cache[request];
 			return true;
 		}
@@ -851,17 +944,51 @@ namespace ParticleThumbnailAndPreview.Editor
 			{
 				ParticleThumbnailRequest request = new ParticleThumbnailRequest(guid, assetPath, GenerationSurfaces[s]);
 				if (!Queued.Contains(request))
-					Enqueue(request);
+					Enqueue(request, prioritize: false);
 			}
 		}
 
-		private static void Enqueue(ParticleThumbnailRequest request)
+		private static void Enqueue(ParticleThumbnailRequest request, bool prioritize)
 		{
 			if (Queued.Contains(request))
+			{
+				if (prioritize && !PriorityQueued.Contains(request))
+				{
+					PriorityQueued.Add(request);
+					PriorityRenderQueue.Enqueue(request);
+					RefreshRuntimeHooks();
+				}
+
 				return;
+			}
 
 			Queued.Add(request);
-			RenderQueue.Enqueue(request);
+			if (prioritize)
+			{
+				PriorityQueued.Add(request);
+				PriorityRenderQueue.Enqueue(request);
+			}
+			else
+			{
+				RenderQueue.Enqueue(request);
+			}
+
+			RefreshRuntimeHooks();
+		}
+
+		private static void EnqueuePersistentLoad(ParticleThumbnailRequest request, string dependencyToken, string cacheKey)
+		{
+			if (!PendingPersistentLoadSet.Add(request))
+				return;
+
+			DeferredPersistentLoadRequest deferred = new DeferredPersistentLoadRequest
+			{
+				Request = request,
+				RequestDependencyToken = dependencyToken,
+				CacheKey = cacheKey,
+			};
+
+			PendingPersistentLoadQueue.Enqueue(deferred);
 			RefreshRuntimeHooks();
 		}
 
@@ -887,10 +1014,13 @@ namespace ParticleThumbnailAndPreview.Editor
 			};
 
 			Cache[request] = record;
+			RequestLastSeenFrame.Remove(request);
 			TouchLru(request);
 			EnforceCacheLimit();
 
 			FailedDependencyByRequest.Remove(request);
+			string settingsToken = ParticleThumbnailSettings.GetPersistentSettingsToken();
+			KnownPersistentCacheMisses.Remove(ParticleThumbnailPersistentCache.BuildCacheKey(request, dependencyToken, settingsToken));
 
 			if (persistToDisk)
 				ParticleThumbnailPersistentCache.SaveTexture(request, dependencyToken, texture);
@@ -937,6 +1067,8 @@ namespace ParticleThumbnailAndPreview.Editor
 				CacheLru.Remove(node);
 				CacheLruNodes.Remove(request);
 			}
+
+			RequestLastSeenFrame.Remove(request);
 		}
 
 		private static void RemoveFailedEntries(string assetPath, string guid)
@@ -954,8 +1086,28 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static void RemoveQueuedEntries(string assetPath, string guid)
 		{
-			if (RenderQueue.Count == 0)
+			if (PriorityRenderQueue.Count == 0 && RenderQueue.Count == 0 && PendingPersistentLoadQueue.Count == 0)
 				return;
+
+			Queue<ParticleThumbnailRequest> retainedPriority = new Queue<ParticleThumbnailRequest>(PriorityRenderQueue.Count);
+			while (PriorityRenderQueue.Count > 0)
+			{
+				ParticleThumbnailRequest request = PriorityRenderQueue.Dequeue();
+				bool remove = request.AssetPath == assetPath || (!string.IsNullOrEmpty(guid) && request.Guid == guid);
+				if (remove)
+				{
+					Queued.Remove(request);
+					PriorityQueued.Remove(request);
+					RequestLastSeenFrame.Remove(request);
+					CompleteGenerateAllRequest(request, success: false);
+					continue;
+				}
+
+				retainedPriority.Enqueue(request);
+			}
+
+			while (retainedPriority.Count > 0)
+				PriorityRenderQueue.Enqueue(retainedPriority.Dequeue());
 
 			Queue<ParticleThumbnailRequest> retained = new Queue<ParticleThumbnailRequest>(RenderQueue.Count);
 			while (RenderQueue.Count > 0)
@@ -965,6 +1117,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				if (remove)
 				{
 					Queued.Remove(request);
+					RequestLastSeenFrame.Remove(request);
 					CompleteGenerateAllRequest(request, success: false);
 					continue;
 				}
@@ -974,6 +1127,28 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			while (retained.Count > 0)
 				RenderQueue.Enqueue(retained.Dequeue());
+
+			if (PendingPersistentLoadQueue.Count == 0)
+				return;
+
+			Queue<DeferredPersistentLoadRequest> retainedLoads = new Queue<DeferredPersistentLoadRequest>(PendingPersistentLoadQueue.Count);
+			while (PendingPersistentLoadQueue.Count > 0)
+			{
+				DeferredPersistentLoadRequest deferred = PendingPersistentLoadQueue.Dequeue();
+				ParticleThumbnailRequest request = deferred.Request;
+				bool remove = request.AssetPath == assetPath || (!string.IsNullOrEmpty(guid) && request.Guid == guid);
+				if (remove)
+				{
+					PendingPersistentLoadSet.Remove(request);
+					RequestLastSeenFrame.Remove(request);
+					continue;
+				}
+
+				retainedLoads.Enqueue(deferred);
+			}
+
+			while (retainedLoads.Count > 0)
+				PendingPersistentLoadQueue.Enqueue(retainedLoads.Dequeue());
 		}
 
 		private static void HandleSettingsChanged()
@@ -1004,6 +1179,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (GenerateAllCompletedCount >= GenerateAllTotalCount)
 				GenerateAllCurrentAssetPath = string.Empty;
 
+			RequestLastSeenFrame.Remove(request);
 			return true;
 		}
 
@@ -1026,6 +1202,74 @@ namespace ParticleThumbnailAndPreview.Editor
 			GenerateAllRunActive = false;
 			GenerateAllStartTime = 0.0;
 			GenerateAllWarmupFramePending = false;
+		}
+
+		private static void MarkRequestSeen(ParticleThumbnailRequest request)
+		{
+			RequestLastSeenFrame[request] = Time.frameCount;
+		}
+
+		private static bool TryDequeueRequest(out ParticleThumbnailRequest request)
+		{
+			while (PriorityRenderQueue.Count > 0)
+			{
+				request = PriorityRenderQueue.Dequeue();
+				if (!Queued.Contains(request))
+					continue;
+
+				return true;
+			}
+
+			while (RenderQueue.Count > 0)
+			{
+				request = RenderQueue.Dequeue();
+				if (!Queued.Contains(request))
+					continue;
+
+				return true;
+			}
+
+			request = default;
+			return false;
+		}
+
+		private static bool ShouldDropStaleRequest(ParticleThumbnailRequest request)
+		{
+			if (GenerateAllPendingRequests.Contains(request))
+				return false;
+
+			if (!RequestLastSeenFrame.TryGetValue(request, out int lastSeenFrame))
+				return false;
+
+			int frameAge = Time.frameCount - lastSeenFrame;
+			if (frameAge <= StaleRequestFrameAge)
+				return false;
+
+			RequestLastSeenFrame.Remove(request);
+			return true;
+		}
+
+		private static void RemoveKnownPersistentMissesForGuid(string guid)
+		{
+			if (string.IsNullOrEmpty(guid) || KnownPersistentCacheMisses.Count == 0)
+				return;
+
+			string prefix = guid + "_";
+			List<string> removeKeys = null;
+			foreach (string cacheKey in KnownPersistentCacheMisses)
+			{
+				if (!cacheKey.StartsWith(prefix, StringComparison.Ordinal))
+					continue;
+
+				removeKeys ??= new List<string>();
+				removeKeys.Add(cacheKey);
+			}
+
+			if (removeKeys == null)
+				return;
+
+			for (int i = 0; i < removeKeys.Count; i++)
+				KnownPersistentCacheMisses.Remove(removeKeys[i]);
 		}
 
 		private static void UpdateGenerateAllProgressWindow()
@@ -1163,7 +1407,10 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (PendingSupportLookupQueue.Count > 0)
 				return true;
 
-			return RenderQueue.Count > 0;
+			if (PendingPersistentLoadQueue.Count > 0)
+				return true;
+
+			return PriorityRenderQueue.Count > 0 || RenderQueue.Count > 0;
 		}
 
 		private static void RefreshRuntimeHooks(bool refreshSelectionCacheWhenEnabled = false)

@@ -109,8 +109,8 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static bool DrawInProjectGrid => Storage.drawInProjectGrid;
 		public static bool DrawInProjectList => Storage.drawInProjectList;
 
-		public static int GridRenderSize => Mathf.Clamp(Storage.gridRenderSize, 32, 512);
-		public static int ListRenderSize => Mathf.Clamp(Storage.listRenderSize, 16, 128);
+		public static int GridRenderSize => Mathf.Clamp(Storage.gridRenderSize, 32, 128);
+		public static int ListRenderSize => Mathf.Clamp(Storage.listRenderSize, 16, 64);
 
 		public static int GetRenderSize(ParticleThumbnailSurface surface)
 		{
@@ -288,12 +288,12 @@ namespace ParticleThumbnailAndPreview.Editor
 					new GUIContent("Grid Size (pixel)", "Render resolution for grid-view thumbnails. Higher values improve clarity but increase memory and disk cost."),
 					storage.gridRenderSize,
 					32,
-					512);
+					128);
 				storage.listRenderSize = EditorGUILayout.IntSlider(
 					new GUIContent("List Size (pixel)", "Render resolution for list-view thumbnails. Higher values improve clarity but use more memory."),
 					storage.listRenderSize,
 					16,
-					128);
+					64);
 			});
 		}
 

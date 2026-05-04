@@ -68,16 +68,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private static Mesh s_boundsWireCubeMesh;
         private static Mesh s_pivotCrossMesh;
         private static Mesh s_axesMesh;
-        private static Mesh s_unitSphereWireMesh;
-        private static Mesh s_unitCapsuleWireMesh;
-        private static Mesh s_unitCubeSolidMesh;
-        private static Mesh s_unitSphereSolidMesh;
-        private static Mesh s_unitCapsuleSolidMesh;
         private static Material s_solidLineMaterial;
-        private static Material s_colliderSolidColliderMaterial;
-        private static Material s_colliderSolidTriggerMaterial;
-        private static Material s_colliderWireColliderMaterial;
-        private static Material s_colliderWireTriggerMaterial;
         private static Material s_normalsMaterial;
         private static Material s_uvCheckerMaterial;
         private static Material s_vertexColorMaterial;
@@ -89,11 +80,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private static bool s_overlayResourceCleanupRegistered;
         private static readonly Type TmpTextMeshProType = Type.GetType("TMPro.TextMeshPro, Unity.TextMeshPro");
         private static readonly Type TmpTextMeshProUiType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
-        // ── Colors ───────────────────────────────────────────────────────────────
-        private static readonly Color SolidColor = new Color(0.2f, 1f, 0.2f, 0.25f);
-        private static readonly Color SolidTriggerColor = new Color(1f, 0.8f, 0.2f, 0.25f);
-        private static readonly Color WireColor = new Color(0.2f, 1f, 0.2f, 0.8f);
-        private static readonly Color WireTriggerColor = new Color(1f, 0.8f, 0.2f, 0.8f);
         private static readonly PreviewCameraInteractionConfig CameraInteractionConfig = new(
             PitchMin,
             PitchMax,
@@ -108,6 +94,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private readonly List<Renderer> _renderers = new();
         private readonly List<bool> _rendererInitialStates = new();
         private readonly List<Collider> _colliders = new();
+        private readonly List<Collider2D> _colliders2D = new();
 
         private PreviewRenderUtility _preview;
         private GameObject _previewRoot;
@@ -336,6 +323,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _renderers.Clear();
             _rendererInitialStates.Clear();
             _colliders.Clear();
+            _colliders2D.Clear();
             _prefabInstanceId = 0;
             _prefabAssetPath = null;
             _lastInteractionUpdateTime = -1d;
@@ -715,7 +703,8 @@ namespace ParticleThumbnailAndPreview.Editor
                 LogGridDiagnosticsState("drawn");
             else
                 LogGridDiagnosticsState(_gridEnabled ? "skip-grid-draw-failed" : "skip-grid-disabled");
-            DrawColliderOverlay();
+            if (_colliderOverlayEnabled)
+                ModelColliderOverlayRenderer.Draw(_preview, _colliders, _colliders2D);
 
             bool restoreMaterials = false;
             if (TryApplyVisualModeMaterial(out Material visualModeMaterial))
@@ -812,6 +801,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _preview.AddSingleGO(_previewRoot);
             _previewRoot.GetComponentsInChildren(true, _renderers);
             _previewRoot.GetComponentsInChildren(true, _colliders);
+            _previewRoot.GetComponentsInChildren(true, _colliders2D);
             _rendererInitialStates.Clear();
             for (int i = 0; i < _renderers.Count; i++)
             {
@@ -1176,203 +1166,6 @@ namespace ParticleThumbnailAndPreview.Editor
             Quaternion localRotation = _previewRoot != null ? _previewRoot.transform.rotation : Quaternion.identity;
             Matrix4x4 matrix = Matrix4x4.TRS(_pivot, localRotation, Vector3.one);
             _preview.DrawMesh(s_axesMesh, matrix, s_solidLineMaterial, 0);
-        }
-
-        private void DrawColliderOverlay()
-        {
-            if (!_colliderOverlayEnabled
-                || _colliders.Count == 0
-                || s_colliderSolidColliderMaterial == null
-                || s_colliderSolidTriggerMaterial == null
-                || s_colliderWireColliderMaterial == null
-                || s_colliderWireTriggerMaterial == null)
-                return;
-
-            for (int i = 0; i < _colliders.Count; i++)
-            {
-                Collider collider = _colliders[i];
-                if (collider == null || !collider.enabled || !collider.gameObject.activeInHierarchy)
-                    continue;
-
-                DrawSingleColliderSolid(collider);
-                DrawSingleColliderWire(collider);
-            }
-        }
-
-        private void DrawSingleColliderSolid(Collider collider)
-        {
-            if (!TryBuildColliderSolidDraw(collider, out Mesh mesh, out Matrix4x4 matrix))
-                return;
-
-            Material material = collider.isTrigger ? s_colliderSolidTriggerMaterial : s_colliderSolidColliderMaterial;
-            _preview.DrawMesh(mesh, matrix, material, 0);
-        }
-
-        private void DrawSingleColliderWire(Collider collider)
-        {
-            if (!TryBuildColliderWireDraw(collider, out Mesh mesh, out Matrix4x4 matrix))
-                return;
-
-            Material material = collider.isTrigger ? s_colliderWireTriggerMaterial : s_colliderWireColliderMaterial;
-            _preview.DrawMesh(mesh, matrix, material, 0);
-        }
-
-        private static bool TryBuildColliderSolidDraw(Collider collider, out Mesh mesh, out Matrix4x4 matrix)
-        {
-            mesh = null;
-            matrix = Matrix4x4.identity;
-
-            if (collider == null)
-                return false;
-
-            if (collider is BoxCollider box)
-            {
-                mesh = s_unitCubeSolidMesh;
-                if (mesh == null)
-                    return false;
-
-                Vector3 scale = Vector3.Scale(box.size, AbsScale(box.transform.lossyScale));
-                matrix = Matrix4x4.TRS(box.transform.TransformPoint(box.center), box.transform.rotation, scale);
-                return true;
-            }
-
-            if (collider is SphereCollider sphere)
-            {
-                mesh = s_unitSphereSolidMesh;
-                if (mesh == null)
-                    return false;
-
-                float radius = ComputeSphereWorldRadius(sphere);
-                matrix = Matrix4x4.TRS(
-                    sphere.transform.TransformPoint(sphere.center),
-                    sphere.transform.rotation,
-                    Vector3.one * (radius * 2f));
-                return true;
-            }
-
-            if (collider is CapsuleCollider capsule)
-            {
-                mesh = s_unitCapsuleSolidMesh;
-                if (mesh == null)
-                    return false;
-                return TryBuildCapsuleMatrix(capsule, out matrix);
-            }
-
-            if (collider is MeshCollider meshCollider && meshCollider.sharedMesh != null)
-            {
-                mesh = meshCollider.sharedMesh;
-                matrix = meshCollider.transform.localToWorldMatrix;
-                return true;
-            }
-
-            return false;
-        }
-
-        private static bool TryBuildColliderWireDraw(Collider collider, out Mesh mesh, out Matrix4x4 matrix)
-        {
-            mesh = null;
-            matrix = Matrix4x4.identity;
-
-            if (collider == null)
-                return false;
-
-            if (collider is BoxCollider box)
-            {
-                mesh = s_boundsWireCubeMesh;
-                if (mesh == null)
-                    return false;
-
-                Vector3 scale = Vector3.Scale(box.size, AbsScale(box.transform.lossyScale));
-                matrix = Matrix4x4.TRS(box.transform.TransformPoint(box.center), box.transform.rotation, scale);
-                return true;
-            }
-
-            if (collider is SphereCollider sphere)
-            {
-                mesh = s_unitSphereWireMesh;
-                if (mesh == null)
-                    return false;
-
-                float radius = ComputeSphereWorldRadius(sphere);
-                matrix = Matrix4x4.TRS(
-                    sphere.transform.TransformPoint(sphere.center),
-                    sphere.transform.rotation,
-                    Vector3.one * (radius * 2f));
-                return true;
-            }
-
-            if (collider is CapsuleCollider capsule)
-            {
-                mesh = s_unitCapsuleWireMesh;
-                if (mesh == null)
-                    return false;
-                return TryBuildCapsuleMatrix(capsule, out matrix);
-            }
-
-            if (collider is MeshCollider meshCollider && meshCollider.sharedMesh != null)
-            {
-                mesh = s_boundsWireCubeMesh;
-                if (mesh == null)
-                    return false;
-
-                Bounds bounds = meshCollider.sharedMesh.bounds;
-                matrix = Matrix4x4.TRS(
-                    meshCollider.transform.TransformPoint(bounds.center),
-                    meshCollider.transform.rotation,
-                    Vector3.Scale(bounds.size, AbsScale(meshCollider.transform.lossyScale)));
-                return true;
-            }
-
-            return false;
-        }
-
-        private static bool TryBuildCapsuleMatrix(CapsuleCollider capsule, out Matrix4x4 matrix)
-        {
-            matrix = Matrix4x4.identity;
-            if (capsule == null)
-                return false;
-
-            Vector3 absScale = AbsScale(capsule.transform.lossyScale);
-            int direction = Mathf.Clamp(capsule.direction, 0, 2);
-            float radiusScale = direction switch
-            {
-                0 => Mathf.Max(absScale.y, absScale.z),
-                1 => Mathf.Max(absScale.x, absScale.z),
-                _ => Mathf.Max(absScale.x, absScale.y),
-            };
-            float heightScale = direction switch
-            {
-                0 => absScale.x,
-                1 => absScale.y,
-                _ => absScale.z,
-            };
-
-            float radius = Mathf.Max(0f, capsule.radius * radiusScale);
-            float height = Mathf.Max(capsule.height * heightScale, radius * 2f);
-            Vector3 size = new Vector3(radius * 2f, height * 0.5f, radius * 2f);
-            Quaternion axisRotation = direction switch
-            {
-                0 => Quaternion.Euler(0f, 0f, 90f),
-                2 => Quaternion.Euler(90f, 0f, 0f),
-                _ => Quaternion.identity,
-            };
-
-            matrix = Matrix4x4.TRS(
-                capsule.transform.TransformPoint(capsule.center),
-                capsule.transform.rotation * axisRotation,
-                size);
-            return true;
-        }
-
-        private static float ComputeSphereWorldRadius(SphereCollider sphere)
-        {
-            Vector3 scale = AbsScale(sphere.transform.lossyScale);
-            return sphere.radius * Mathf.Max(scale.x, Mathf.Max(scale.y, scale.z));
-        }
-
-        private static Vector3 AbsScale(Vector3 scale)
-        {
-            return new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
         }
 
         private void ComputeStats()
@@ -1784,11 +1577,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 s_solidLineMaterial.renderQueue = 2999;
             }
 
-            s_colliderSolidColliderMaterial ??= CreateColliderOverlayMaterial(2998, SolidColor);
-            s_colliderSolidTriggerMaterial ??= CreateColliderOverlayMaterial(2998, SolidTriggerColor);
-            s_colliderWireColliderMaterial ??= CreateColliderOverlayMaterial(3000, WireColor);
-            s_colliderWireTriggerMaterial ??= CreateColliderOverlayMaterial(3000, WireTriggerColor);
-
             if (s_boundsWireCubeMesh == null)
             {
                 s_boundsWireCubeMesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
@@ -1807,21 +1595,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 BuildAxesMesh(s_axesMesh);
             }
 
-            if (s_unitSphereWireMesh == null)
-            {
-                s_unitSphereWireMesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-                BuildUnitSphereWireMesh(s_unitSphereWireMesh);
-            }
-
-            if (s_unitCapsuleWireMesh == null)
-            {
-                s_unitCapsuleWireMesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-                BuildUnitCapsuleWireMesh(s_unitCapsuleWireMesh);
-            }
-
-            s_unitCubeSolidMesh ??= CreatePrimitiveMesh(PrimitiveType.Cube);
-            s_unitSphereSolidMesh ??= CreatePrimitiveMesh(PrimitiveType.Sphere);
-            s_unitCapsuleSolidMesh ??= CreatePrimitiveMesh(PrimitiveType.Capsule);
         }
 
         private static void EnsureOverlayResourceCleanupCallbacks()
@@ -1844,19 +1617,9 @@ namespace ParticleThumbnailAndPreview.Editor
             }
 
             DestroyOwnedObject(ref s_solidLineMaterial);
-            DestroyOwnedObject(ref s_colliderSolidColliderMaterial);
-            DestroyOwnedObject(ref s_colliderSolidTriggerMaterial);
-            DestroyOwnedObject(ref s_colliderWireColliderMaterial);
-            DestroyOwnedObject(ref s_colliderWireTriggerMaterial);
-
             DestroyOwnedObject(ref s_boundsWireCubeMesh);
             DestroyOwnedObject(ref s_pivotCrossMesh);
             DestroyOwnedObject(ref s_axesMesh);
-            DestroyOwnedObject(ref s_unitSphereWireMesh);
-            DestroyOwnedObject(ref s_unitCapsuleWireMesh);
-            DestroyOwnedObject(ref s_unitCubeSolidMesh);
-            DestroyOwnedObject(ref s_unitSphereSolidMesh);
-            DestroyOwnedObject(ref s_unitCapsuleSolidMesh);
         }
 
         private bool DrawGrid()
@@ -2157,145 +1920,6 @@ namespace ParticleThumbnailAndPreview.Editor
             AddEdge(vertices, colors, Vector3.zero, Vector3.forward * AxisSize, new Color(0.35f, 0.7f, 1f, 0.95f));
 
             SetLineMeshData(mesh, vertices, colors);
-        }
-
-        private static void BuildUnitSphereWireMesh(Mesh mesh)
-        {
-            const int segments = 32;
-            const float radius = 0.5f;
-            var vertices = new List<Vector3>(segments * 6);
-            var colors = new List<Color>(segments * 6);
-            Color c = Color.white;
-
-            static void AddEdge(List<Vector3> verts, List<Color> cols, Vector3 a, Vector3 b, Color col)
-            {
-                verts.Add(a);
-                cols.Add(col);
-                verts.Add(b);
-                cols.Add(col);
-            }
-
-            for (int i = 0; i < segments; i++)
-            {
-                float t0 = i / (float)segments * Mathf.PI * 2f;
-                float t1 = (i + 1f) / segments * Mathf.PI * 2f;
-
-                AddEdge(
-                    vertices,
-                    colors,
-                    new Vector3(Mathf.Cos(t0) * radius, Mathf.Sin(t0) * radius, 0f),
-                    new Vector3(Mathf.Cos(t1) * radius, Mathf.Sin(t1) * radius, 0f),
-                    c);
-                AddEdge(
-                    vertices,
-                    colors,
-                    new Vector3(Mathf.Cos(t0) * radius, 0f, Mathf.Sin(t0) * radius),
-                    new Vector3(Mathf.Cos(t1) * radius, 0f, Mathf.Sin(t1) * radius),
-                    c);
-                AddEdge(
-                    vertices,
-                    colors,
-                    new Vector3(0f, Mathf.Cos(t0) * radius, Mathf.Sin(t0) * radius),
-                    new Vector3(0f, Mathf.Cos(t1) * radius, Mathf.Sin(t1) * radius),
-                    c);
-            }
-
-            SetLineMeshData(mesh, vertices, colors);
-        }
-
-        private static void BuildUnitCapsuleWireMesh(Mesh mesh)
-        {
-            const int segments = 32;
-            const float radius = 0.5f;
-            const float capCenterY = 0.5f;
-            var vertices = new List<Vector3>(segments * 12);
-            var colors = new List<Color>(segments * 12);
-            Color c = Color.white;
-
-            static void AddEdge(List<Vector3> verts, List<Color> cols, Vector3 a, Vector3 b, Color col)
-            {
-                verts.Add(a);
-                cols.Add(col);
-                verts.Add(b);
-                cols.Add(col);
-            }
-
-            for (int i = 0; i < segments; i++)
-            {
-                float t0 = i / (float)segments * Mathf.PI * 2f;
-                float t1 = (i + 1f) / segments * Mathf.PI * 2f;
-
-                AddEdge(
-                    vertices,
-                    colors,
-                    new Vector3(Mathf.Cos(t0) * radius, capCenterY, Mathf.Sin(t0) * radius),
-                    new Vector3(Mathf.Cos(t1) * radius, capCenterY, Mathf.Sin(t1) * radius),
-                    c);
-                AddEdge(
-                    vertices,
-                    colors,
-                    new Vector3(Mathf.Cos(t0) * radius, -capCenterY, Mathf.Sin(t0) * radius),
-                    new Vector3(Mathf.Cos(t1) * radius, -capCenterY, Mathf.Sin(t1) * radius),
-                    c);
-            }
-
-            AddEdge(vertices, colors, new Vector3(radius, capCenterY, 0f), new Vector3(radius, -capCenterY, 0f), c);
-            AddEdge(vertices, colors, new Vector3(-radius, capCenterY, 0f), new Vector3(-radius, -capCenterY, 0f), c);
-            AddEdge(vertices, colors, new Vector3(0f, capCenterY, radius), new Vector3(0f, -capCenterY, radius), c);
-            AddEdge(vertices, colors, new Vector3(0f, capCenterY, -radius), new Vector3(0f, -capCenterY, -radius), c);
-
-            const int halfSegments = 16;
-            for (int i = 0; i < halfSegments; i++)
-            {
-                float t0 = i / (float)halfSegments * Mathf.PI;
-                float t1 = (i + 1f) / halfSegments * Mathf.PI;
-                float x0 = Mathf.Cos(t0) * radius;
-                float y0 = Mathf.Sin(t0) * radius;
-                float x1 = Mathf.Cos(t1) * radius;
-                float y1 = Mathf.Sin(t1) * radius;
-
-                AddEdge(vertices, colors, new Vector3(x0, capCenterY + y0, 0f), new Vector3(x1, capCenterY + y1, 0f), c);
-                AddEdge(vertices, colors, new Vector3(x0, -capCenterY - y0, 0f), new Vector3(x1, -capCenterY - y1, 0f), c);
-                AddEdge(vertices, colors, new Vector3(0f, capCenterY + y0, x0), new Vector3(0f, capCenterY + y1, x1), c);
-                AddEdge(vertices, colors, new Vector3(0f, -capCenterY - y0, x0), new Vector3(0f, -capCenterY - y1, x1), c);
-            }
-
-            SetLineMeshData(mesh, vertices, colors);
-        }
-
-        private static Mesh CreatePrimitiveMesh(PrimitiveType primitiveType)
-        {
-            GameObject primitive = GameObject.CreatePrimitive(primitiveType);
-            try
-            {
-                MeshFilter filter = primitive.GetComponent<MeshFilter>();
-                if (filter == null || filter.sharedMesh == null)
-                    return null;
-
-                Mesh mesh = UnityEngine.Object.Instantiate(filter.sharedMesh);
-                mesh.hideFlags = HideFlags.HideAndDontSave;
-                return mesh;
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(primitive);
-            }
-        }
-
-        private static Material CreateColliderOverlayMaterial(int renderQueue, Color color)
-        {
-            var material = new Material(Shader.Find("Hidden/Internal-Colored"))
-            {
-                hideFlags = HideFlags.HideAndDontSave,
-                renderQueue = renderQueue,
-            };
-            material.SetInt("_ZWrite", 0);
-            material.SetInt("_Cull", 0);
-            material.SetInt("_ZTest", (int)CompareFunction.LessEqual);
-            material.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
-            material.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-            material.SetColor("_Color", color);
-            return material;
         }
 
         private static void DestroyOwnedObject<T>(ref T value) where T : UnityEngine.Object
