@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.15] - 2026-05-05
+
+- Guard prefab custom preview resolution against multi-selection states by early-cleaning active preview implementations when `Selection.count != 1`.
+- Keep mirrored `Assets` and `upm` `PrefabPreviewEditor` behavior synchronized.
+
 ## [1.1.14] - 2026-05-05
 
 - Remove forced hierarchy activation during model preview root instantiation to preserve prefab active-state intent inside preview sessions.

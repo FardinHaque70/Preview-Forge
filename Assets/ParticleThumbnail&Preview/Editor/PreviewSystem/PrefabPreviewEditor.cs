@@ -79,6 +79,13 @@ namespace ParticleThumbnailAndPreview.Editor
                 return false;
             }
 
+            if (Selection.count != 1)
+            {
+                CleanupActiveImplementation();
+                LogResolveState($"multi-selection selection={Selection.count}");
+                return false;
+            }
+
             if (!TryResolveSupportedPrefabTarget(out GameObject prefab, out PrefabPreviewTargetKind kind))
             {
                 CleanupActiveImplementation();
