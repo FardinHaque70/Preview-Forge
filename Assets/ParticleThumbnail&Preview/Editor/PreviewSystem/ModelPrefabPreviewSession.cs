@@ -794,7 +794,6 @@ namespace ParticleThumbnailAndPreview.Editor
             _previewRoot = UnityEngine.Object.Instantiate(prefab);
             _previewRoot.name = "ModelPreviewRoot";
             _previewRoot.hideFlags = HideFlags.HideAndDontSave;
-            PreviewHierarchyUtility.ForceActivateHierarchy(_previewRoot);
             _previewRoot.transform.position = Vector3.zero;
             _previewRoot.transform.rotation = prefab.transform.rotation;
 

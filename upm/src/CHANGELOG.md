@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.14] - 2026-05-05
+
+- Remove forced hierarchy activation during model preview root instantiation to preserve prefab active-state intent inside preview sessions.
+- Keep mirrored `Assets` and `upm` preview session logic synchronized.
+
 ## [1.1.13] - 2026-05-04
 
 - Replace in-session collider overlay drawing with a dedicated `ModelColliderOverlayRenderer` for cleaner model preview overlay architecture.
