@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.16] - 2026-05-05
+
+- Expand multi-selection guarding in both prefab and model importer preview editors by checking `Selection.count` and editor `targets` count before resolving custom preview ownership.
+- Improve preview resolve diagnostics by logging both selection and target counts when multi-selection fallback is applied.
+- Update project-level preview/thumbnail settings in this repository to start disabled by default (`ParticlePreviewSettings.active/modelPreviewActive/modelImporterPreviewActive` and `ParticleThumbnailSettings.enabled`).
+
 ## [1.1.15] - 2026-05-05
 
 - Guard prefab custom preview resolution against multi-selection states by early-cleaning active preview implementations when `Selection.count != 1`.

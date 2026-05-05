@@ -79,10 +79,12 @@ namespace ParticleThumbnailAndPreview.Editor
                 return false;
             }
 
-            if (Selection.count != 1)
+            bool hasMultiSelection = Selection.count > 1;
+            bool hasMultiTargets = m_Targets != null && m_Targets.Length > 1;
+            if (hasMultiSelection || hasMultiTargets)
             {
                 CleanupActiveImplementation();
-                LogResolveState($"multi-selection selection={Selection.count}");
+                LogResolveState($"multi-selection selection={Selection.count} targets={m_Targets?.Length ?? 0}");
                 return false;
             }
 

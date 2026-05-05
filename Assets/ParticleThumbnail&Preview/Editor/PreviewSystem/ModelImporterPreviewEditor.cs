@@ -92,6 +92,15 @@ namespace ParticleThumbnailAndPreview.Editor
                 return false;
             }
 
+            bool hasMultiSelection = Selection.count > 1;
+            bool hasMultiTargets = m_Targets != null && m_Targets.Length > 1;
+            if (hasMultiSelection || hasMultiTargets)
+            {
+                CleanupPreview(clearSessionCache: false);
+                LogResolveState($"multi-selection selection={Selection.count} targets={m_Targets?.Length ?? 0}");
+                return false;
+            }
+
             if (IsDirectPreviewTargetExplicitlyUnsupported())
             {
                 CleanupPreview(clearSessionCache: false);
