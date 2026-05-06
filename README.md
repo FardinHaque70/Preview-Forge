@@ -41,11 +41,11 @@ This package focuses on three core workflows:
 Particle prefabs are easier to browse when the Project window shows real thumbnails and a built-in custom preview workflow, so you can inspect effects directly from the Project window and Inspector.
 
 <p align="center">
-  <img src=".github/readme-media/particle-thumbnail-preview-showcase.gif" alt="Particle thumbnails and custom preview showcase" width="100%" />
+  <img src=".github/readme-media/particle-thumbnail-preview-showcase.gif" alt="Particle thumbnails and custom preview showcase" width="80%" />
 </p>
 
 <p align="center">
-  <img src=".github/readme-media/better-particle-preview-controls.gif" alt="Particle preview controls in the Unity Inspector" width="100%" />
+  <img src=".github/readme-media/better-particle-preview-controls.gif" alt="Particle preview controls in the Unity Inspector" width="80%" />
 </p>
 
 ### 2. Better Prefab Preview
