@@ -79,12 +79,6 @@ Prefabs with 3D models, along with 3D asset files such as FBX and Blend, get a m
 - Custom preview window automatically opens for the selected particle prefab
 - Includes particle timeline scrubbing and motion path support for systems that need motion
 
-### Safety and Integration
-
-- Editor-only assemblies with no runtime build dependency
-- The custom preview window is integrated through a scoped Harmony patcher
-- Scoped preview integration designed to coexist with other editor tools like Odin Inspector
-- Centralized settings under `Project Settings > Particle Thumbnail & Preview`
 
 ## Compatibility
 
@@ -132,9 +126,7 @@ Restarting the Unity Editor once after first install is recommended so the previ
 
 ## Notes
 
-- This is an editor-only package and does not target runtime or player features.
-- Git UPM installs use `upm/src` as the package root.
-- Asset Store imports use `Assets/ParticleThumbnail&Preview` as the package root.
+- This is an editor-only package.
 - The preview integration uses a scoped Harmony patcher designed to coexist with other editor tools like Odin Inspector.
 
 ## Known Limitations
