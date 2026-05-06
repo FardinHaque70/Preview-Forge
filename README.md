@@ -20,7 +20,7 @@ This package focuses on three core workflows:
 
 - `Particle Thumbnail`  
   Static rendered Project window thumbnails for particle prefabs, so effects are easier to identify at a glance.
-- `Prefab Preview`  
+- `Prefab and 3D Asset Preview`  
   A richer Inspector preview for prefabs and 3D assets with better lighting, view modes, and smoother camera control.
 - `Particle Preview`  
   A playback-focused preview workflow for particle prefabs with scrubbing and motion-aware inspection.

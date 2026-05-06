@@ -38,7 +38,7 @@ MonoBehaviour:
   sharedGridFadeStartBoundsPadding: 7.16
   sharedGridStyle: 0
   modelSkyboxCubemap: {fileID: 8900000, guid: 83fb20c8d36eb4afe9b376da509dc0d6, type: 3}
-  modelSkyboxMaterial: {fileID: 2100000, guid: d72d5b2b42b5346f3b62a917be65443a, type: 2}
+  modelSkyboxMaterial: {fileID: 0}
   modelReflectionCubemap: {fileID: 0}
   modelAmbientLightColor: {r: 0.6132076, g: 0.6045301, b: 0.6045301, a: 1}
   modelSunLightEnabled: 1

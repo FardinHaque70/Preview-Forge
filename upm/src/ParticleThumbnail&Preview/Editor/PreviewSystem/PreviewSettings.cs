@@ -335,6 +335,49 @@ namespace ParticleThumbnailAndPreview.Editor
 			"Mesh Icon",
 		};
 
+		#region Serialized Property Names
+		private const string ActivePropertyName = "active";
+		private const string RefreshFpsPropertyName = "refreshFps";
+		private const string OrbitSmoothingPropertyName = "orbitSmoothing";
+		private const string PanSmoothingPropertyName = "panSmoothing";
+		private const string BackgroundColorPropertyName = "backgroundColor";
+		private const string ToolbarColorPresetPropertyName = "toolbarColorPreset";
+		private const string ToolbarHeightPropertyName = "toolbarHeight";
+		private const string ModelPreviewActivePropertyName = "modelPreviewActive";
+		private const string ModelImporterPreviewActivePropertyName = "modelImporterPreviewActive";
+		private const string ModelPreviewModePropertyName = "modelPreviewMode";
+		private const string ModelDefaultTurntableEnabledPropertyName = "modelDefaultTurntableEnabled";
+		private const string ModelDefaultInfoEnabledPropertyName = "modelDefaultInfoEnabled";
+		private const string ModelDefaultLightRotationGizmosEnabledPropertyName = "modelDefaultLightRotationGizmosEnabled";
+		private const string ModelDefaultSkyboxEnabledPropertyName = "modelDefaultSkyboxEnabled";
+		private const string SharedGridDefaultEnabledPropertyName = "sharedGridDefaultEnabled";
+		private const string SharedGridAxisTextDefaultEnabledPropertyName = "sharedGridAxisTextDefaultEnabled";
+		private const string SharedGridStylePropertyName = "sharedGridStyle";
+		private const string SharedGridHalfSizePropertyName = "sharedGridHalfSize";
+		private const string SharedGridStepPropertyName = "sharedGridStep";
+		private const string SharedGridAlphaPropertyName = "sharedGridAlpha";
+		private const string SharedGridFadeStartBoundsScalePropertyName = "sharedGridFadeStartBoundsScale";
+		private const string SharedGridFadeStartBoundsPaddingPropertyName = "sharedGridFadeStartBoundsPadding";
+		private const string ModelSkyboxMaterialPropertyName = "modelSkyboxMaterial";
+		private const string ModelAmbientLightColorPropertyName = "modelAmbientLightColor";
+		private const string ModelSunLightEnabledPropertyName = "modelSunLightEnabled";
+		private const string ModelSunLightColorPropertyName = "modelSunLightColor";
+		private const string ModelSunLightIntensityPropertyName = "modelSunLightIntensity";
+		private const string ModelSunLightShadowStrengthPropertyName = "modelSunLightShadowStrength";
+		private const string ModelSunLightRotationPropertyName = "modelSunLightRotation";
+		private const string ModelKeyLightEnabledPropertyName = "modelKeyLightEnabled";
+		private const string ModelKeyLightIntensityPropertyName = "modelKeyLightIntensity";
+		private const string ModelKeyLightRotationPropertyName = "modelKeyLightRotation";
+		private const string ModelFillLightEnabledPropertyName = "modelFillLightEnabled";
+		private const string ModelFillLightIntensityPropertyName = "modelFillLightIntensity";
+		private const string ModelFillLightRotationPropertyName = "modelFillLightRotation";
+		private const string ModelRimLightEnabledPropertyName = "modelRimLightEnabled";
+		private const string ModelRimLightIntensityPropertyName = "modelRimLightIntensity";
+		private const string ModelRimLightRotationPropertyName = "modelRimLightRotation";
+		private const string ModelRimLightColorPropertyName = "modelRimLightColor";
+		private const string EnableDiagnosticsPropertyName = "enableDiagnostics";
+		#endregion
+
 		[SettingsProvider]
 		public static SettingsProvider CreateProvider()
 		{
@@ -362,12 +405,12 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static void DrawGui()
 		{
 			PreviewSettingsStorage storage = PreviewSettingsStorage.instance;
+			SerializedObject serializedObject = ProjectSettingsUndoUtility.CreateSerializedObject(storage, () => SaveAndNotify(storage));
 
-			EditorGUI.BeginChangeCheck();
 			SettingsScroll = EditorGUILayout.BeginScrollView(SettingsScroll, false, false);
 			DrawMainTabs();
 			EditorGUILayout.Space(6f);
-			DrawSelectedTab(storage);
+			DrawSelectedTab(serializedObject);
 			// DrawSectionCard("Motion Assist", () =>
 			// {
 			// 	storage.motionPadding = EditorGUILayout.Slider(
@@ -390,12 +433,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			EditorGUILayout.EndScrollView();
 			EditorGUILayout.Space(8f);
 			DrawBottomActionsPanel(storage);
-
-			if (EditorGUI.EndChangeCheck())
-			{
-				storage.SaveStorage();
-				PreviewSettings.NotifyChanged();
-			}
+			ProjectSettingsUndoUtility.ApplyModifiedProperties(serializedObject);
 		}
 		#endregion
 
@@ -410,44 +448,44 @@ namespace ParticleThumbnailAndPreview.Editor
 			}
 		}
 
-		private static void DrawSelectedTab(PreviewSettingsStorage storage)
+		private static void DrawSelectedTab(SerializedObject serializedObject)
 		{
 			switch (SelectedTab)
 			{
 				case SettingsTab.Common:
-					DrawCommonTab(storage);
+					DrawCommonTab(serializedObject);
 					break;
 				case SettingsTab.Lighting:
-					DrawLightingTab(storage);
+					DrawLightingTab(serializedObject);
 					break;
 				case SettingsTab.DefaultEnabledState:
-					DrawDefaultEnabledStateTab(storage);
+					DrawDefaultEnabledStateTab(serializedObject);
 					break;
 				case SettingsTab.Grid:
-					DrawGridTab(storage);
+					DrawGridTab(serializedObject);
 					break;
 				default:
-					DrawCommonTab(storage);
+					DrawCommonTab(serializedObject);
 					break;
 			}
 		}
 
-		private static void DrawCommonTab(PreviewSettingsStorage storage)
+		private static void DrawCommonTab(SerializedObject serializedObject)
 		{
 			DrawSectionCard("Custom Preview Systems", () =>
 			{
-				storage.active = DrawIconToggleLeft(
-					storage.active,
+				DrawIconToggleLeft(
+					serializedObject.FindProperty(ActivePropertyName),
 					"Draw Particle Prefab Custom Preview",
 					"Enable custom preview rendering for particle prefabs.",
 					ParticlePreviewSystemIcons);
-				storage.modelPreviewActive = DrawIconToggleLeft(
-					storage.modelPreviewActive,
+				DrawIconToggleLeft(
+					serializedObject.FindProperty(ModelPreviewActivePropertyName),
 					"Draw Normal Prefab Custom Preview",
 					"Enable custom preview rendering for non-particle prefabs that use mesh/skinned renderers.",
 					PrefabPreviewSystemIcons);
-				storage.modelImporterPreviewActive = DrawIconToggleLeft(
-					storage.modelImporterPreviewActive,
+				DrawIconToggleLeft(
+					serializedObject.FindProperty(ModelImporterPreviewActivePropertyName),
 					"Draw 3D File (FBX/BLEND) Asset Custom Preview",
 					"Enable custom preview rendering for imported 3D model assets when the Model tab is active.",
 					ModelImporterPreviewSystemIcons);
@@ -455,214 +493,114 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			DrawSectionCard("Playback", () =>
 			{
-				storage.refreshFps = EditorGUILayout.IntSlider(
-					new GUIContent("Preview FPS", "Preview update rate while the preview is visible."),
-					storage.refreshFps,
-					PreviewSettings.MinRefreshFps,
-					PreviewSettings.MaxRefreshFps);
+				DrawIntSlider(serializedObject.FindProperty(RefreshFpsPropertyName), "Preview FPS", "Preview update rate while the preview is visible.", PreviewSettings.MinRefreshFps, PreviewSettings.MaxRefreshFps);
 			});
 
 			DrawSectionCard("Color", () =>
 			{
-				storage.backgroundColor = EditorGUILayout.ColorField(
-					new GUIContent("Background Color", "Background color behind custom prefab preview rendering."),
-					storage.backgroundColor);
-				if (!Enum.IsDefined(typeof(PreviewToolbarColorPreset), storage.toolbarColorPreset))
-					storage.toolbarColorPreset = PreviewSettings.D_ToolbarColorPreset;
-				storage.toolbarColorPreset = (PreviewToolbarColorPreset) EditorGUILayout.EnumPopup(
-					new GUIContent("Toolbar Color Preset", "Temporary active-toolbar color preset while we evaluate final branding."),
-					storage.toolbarColorPreset);
-				float toolbarHeight = storage.toolbarHeight <= 0f
-					? PreviewSettings.D_ToolbarHeight
-					: storage.toolbarHeight;
-				storage.toolbarHeight = EditorGUILayout.Slider(
-					new GUIContent("Toolbar Height", "Shared height for particle and model preview toolbars. Button and scrubber sizes scale automatically."),
-					toolbarHeight,
-					PreviewSettings.MinToolbarHeight,
-					PreviewSettings.MaxToolbarHeight);
+				DrawColorField(serializedObject.FindProperty(BackgroundColorPropertyName), "Background Color", "Background color behind custom prefab preview rendering.");
+				SerializedProperty toolbarColorPresetProperty = serializedObject.FindProperty(ToolbarColorPresetPropertyName);
+				if (!Enum.IsDefined(typeof(PreviewToolbarColorPreset), toolbarColorPresetProperty.intValue))
+					toolbarColorPresetProperty.intValue = (int) PreviewSettings.D_ToolbarColorPreset;
+				DrawEnumPopup(toolbarColorPresetProperty, typeof(PreviewToolbarColorPreset), "Toolbar Color Preset", "Temporary active-toolbar color preset while we evaluate final branding.");
+				DrawFloatSliderWithFallback(serializedObject.FindProperty(ToolbarHeightPropertyName), "Toolbar Height", "Shared height for particle and model preview toolbars. Button and scrubber sizes scale automatically.", PreviewSettings.MinToolbarHeight, PreviewSettings.MaxToolbarHeight, PreviewSettings.D_ToolbarHeight);
 			});
 
 			DrawSectionCard("Interaction", () =>
 			{
-				float orbitSmoothing = storage.orbitSmoothing <= 0f
-					? PreviewSettings.D_OrbitSmoothing
-					: storage.orbitSmoothing;
-				float panSmoothing = storage.panSmoothing <= 0f
-					? PreviewSettings.D_PanSmoothing
-					: storage.panSmoothing;
-				storage.orbitSmoothing = EditorGUILayout.Slider(
-					new GUIContent("Orbit Smoothing", "Smoothing strength for orbit rotation input. Higher values feel softer."),
-					orbitSmoothing,
-					PreviewSettings.MinOrbitSmoothing,
-					PreviewSettings.MaxOrbitSmoothing);
-				storage.panSmoothing = EditorGUILayout.Slider(
-					new GUIContent("Pan Smoothing", "Smoothing strength for panning input. Higher values feel softer."),
-					panSmoothing,
-					PreviewSettings.MinPanSmoothing,
-					PreviewSettings.MaxPanSmoothing);
+				DrawFloatSliderWithFallback(serializedObject.FindProperty(OrbitSmoothingPropertyName), "Orbit Smoothing", "Smoothing strength for orbit rotation input. Higher values feel softer.", PreviewSettings.MinOrbitSmoothing, PreviewSettings.MaxOrbitSmoothing, PreviewSettings.D_OrbitSmoothing);
+				DrawFloatSliderWithFallback(serializedObject.FindProperty(PanSmoothingPropertyName), "Pan Smoothing", "Smoothing strength for panning input. Higher values feel softer.", PreviewSettings.MinPanSmoothing, PreviewSettings.MaxPanSmoothing, PreviewSettings.D_PanSmoothing);
 			});
 		}
 
-		private static void DrawLightingTab(PreviewSettingsStorage storage)
+		private static void DrawLightingTab(SerializedObject serializedObject)
 		{
 			DrawSectionCard("Environment", () =>
 			{
-				storage.modelSkyboxMaterial = (Material) EditorGUILayout.ObjectField(
+				SerializedProperty modelSkyboxMaterialProperty = serializedObject.FindProperty(ModelSkyboxMaterialPropertyName);
+				Material displayedMaterial = modelSkyboxMaterialProperty.objectReferenceValue as Material;
+				if (displayedMaterial == null)
+					displayedMaterial = PreviewSkyboxAssets.TryLoadDefaultSkyboxMaterial();
+
+				UnityEngine.Object selectedMaterial = EditorGUILayout.ObjectField(
 					new GUIContent("Skybox Material", "Material used by model preview skybox."),
-					storage.modelSkyboxMaterial != null ? storage.modelSkyboxMaterial : PreviewSkyboxAssets.TryLoadDefaultSkyboxMaterial(),
+					displayedMaterial,
 					typeof(Material),
 					false);
-				storage.modelAmbientLightColor = EditorGUILayout.ColorField(
-					new GUIContent("Ambient (HDR)", "Shared ambient lighting color used by model and particle preview when lights are enabled."),
-					storage.modelAmbientLightColor,
-					true,
-					true,
-					true);
+				if (selectedMaterial != modelSkyboxMaterialProperty.objectReferenceValue)
+					modelSkyboxMaterialProperty.objectReferenceValue = selectedMaterial;
+
+				DrawHdrColorField(serializedObject.FindProperty(ModelAmbientLightColorPropertyName), "Ambient (HDR)", "Shared ambient lighting color used by model and particle preview when lights are enabled.");
 			});
 
 			DrawSectionCard("Directional Light", () =>
 			{
-				storage.modelSunLightEnabled = EditorGUILayout.Toggle(
-					new GUIContent("Enabled", "Enable sunlight in model preview."),
-					storage.modelSunLightEnabled);
-				storage.modelSunLightColor = EditorGUILayout.ColorField(
-					new GUIContent("Color", "Color of the sunlight directional light."),
-					storage.modelSunLightColor);
-				storage.modelSunLightIntensity = EditorGUILayout.Slider(
-					new GUIContent("Intensity", "Intensity of the sunlight directional light."),
-					storage.modelSunLightIntensity,
-					PreviewSettings.MinModelLightIntensity,
-					PreviewSettings.MaxModelLightIntensity);
-				storage.modelSunLightShadowStrength = EditorGUILayout.Slider(
-					new GUIContent("Shadow Strength", "How dark sunlight shadows appear."),
-					storage.modelSunLightShadowStrength,
-					PreviewSettings.MinModelShadowStrength,
-					PreviewSettings.MaxModelShadowStrength);
-				storage.modelSunLightRotation = EditorGUILayout.Vector2Field(
-					new GUIContent("Rotation", "Sunlight rotation as Yaw/Pitch in degrees."),
-					storage.modelSunLightRotation);
+				DrawToggle(serializedObject.FindProperty(ModelSunLightEnabledPropertyName), "Enabled", "Enable sunlight in model preview.");
+				DrawColorField(serializedObject.FindProperty(ModelSunLightColorPropertyName), "Color", "Color of the sunlight directional light.");
+				DrawFloatSlider(serializedObject.FindProperty(ModelSunLightIntensityPropertyName), "Intensity", "Intensity of the sunlight directional light.", PreviewSettings.MinModelLightIntensity, PreviewSettings.MaxModelLightIntensity);
+				DrawFloatSlider(serializedObject.FindProperty(ModelSunLightShadowStrengthPropertyName), "Shadow Strength", "How dark sunlight shadows appear.", PreviewSettings.MinModelShadowStrength, PreviewSettings.MaxModelShadowStrength);
+				DrawVector2Field(serializedObject.FindProperty(ModelSunLightRotationPropertyName), "Rotation", "Sunlight rotation as Yaw/Pitch in degrees.");
 			});
 
 			DrawSectionCard("Key Light", () =>
 			{
-				storage.modelKeyLightEnabled = EditorGUILayout.Toggle(
-					new GUIContent("Enabled", "Enable key light in model preview."),
-					storage.modelKeyLightEnabled);
-				storage.modelKeyLightIntensity = EditorGUILayout.Slider(
-					new GUIContent("Intensity", "Key directional light intensity."),
-					storage.modelKeyLightIntensity,
-					PreviewSettings.MinModelLightIntensity,
-					PreviewSettings.MaxModelLightIntensity);
-				storage.modelKeyLightRotation = EditorGUILayout.Vector2Field(
-					new GUIContent("Rotation", "Key light rotation as Yaw/Pitch in degrees."),
-					storage.modelKeyLightRotation);
+				DrawToggle(serializedObject.FindProperty(ModelKeyLightEnabledPropertyName), "Enabled", "Enable key light in model preview.");
+				DrawFloatSlider(serializedObject.FindProperty(ModelKeyLightIntensityPropertyName), "Intensity", "Key directional light intensity.", PreviewSettings.MinModelLightIntensity, PreviewSettings.MaxModelLightIntensity);
+				DrawVector2Field(serializedObject.FindProperty(ModelKeyLightRotationPropertyName), "Rotation", "Key light rotation as Yaw/Pitch in degrees.");
 			});
 
 			DrawSectionCard("Fill Light", () =>
 			{
-				storage.modelFillLightEnabled = EditorGUILayout.Toggle(
-					new GUIContent("Enabled", "Enable fill light in model preview."),
-					storage.modelFillLightEnabled);
-				storage.modelFillLightIntensity = EditorGUILayout.Slider(
-					new GUIContent("Intensity", "Fill directional light intensity."),
-					storage.modelFillLightIntensity,
-					PreviewSettings.MinModelLightIntensity,
-					PreviewSettings.MaxModelLightIntensity);
-				storage.modelFillLightRotation = EditorGUILayout.Vector2Field(
-					new GUIContent("Rotation", "Fill light rotation as Yaw/Pitch in degrees."),
-					storage.modelFillLightRotation);
+				DrawToggle(serializedObject.FindProperty(ModelFillLightEnabledPropertyName), "Enabled", "Enable fill light in model preview.");
+				DrawFloatSlider(serializedObject.FindProperty(ModelFillLightIntensityPropertyName), "Intensity", "Fill directional light intensity.", PreviewSettings.MinModelLightIntensity, PreviewSettings.MaxModelLightIntensity);
+				DrawVector2Field(serializedObject.FindProperty(ModelFillLightRotationPropertyName), "Rotation", "Fill light rotation as Yaw/Pitch in degrees.");
 			});
 
 			DrawSectionCard("Rim Light", () =>
 			{
-				storage.modelRimLightEnabled = EditorGUILayout.Toggle(
-					new GUIContent("Enabled", "Enable the optional rim light in model preview."),
-					storage.modelRimLightEnabled);
-				storage.modelRimLightIntensity = EditorGUILayout.Slider(
-					new GUIContent("Intensity", "Rim directional light intensity."),
-					storage.modelRimLightIntensity,
-					PreviewSettings.MinModelLightIntensity,
-					PreviewSettings.MaxModelLightIntensity);
-				storage.modelRimLightRotation = EditorGUILayout.Vector2Field(
-					new GUIContent("Rotation", "Rim light rotation as Yaw/Pitch in degrees."),
-					storage.modelRimLightRotation);
-				storage.modelRimLightColor = EditorGUILayout.ColorField(
-					new GUIContent("Color", "Rim light color."),
-					storage.modelRimLightColor);
+				DrawToggle(serializedObject.FindProperty(ModelRimLightEnabledPropertyName), "Enabled", "Enable the optional rim light in model preview.");
+				DrawFloatSlider(serializedObject.FindProperty(ModelRimLightIntensityPropertyName), "Intensity", "Rim directional light intensity.", PreviewSettings.MinModelLightIntensity, PreviewSettings.MaxModelLightIntensity);
+				DrawVector2Field(serializedObject.FindProperty(ModelRimLightRotationPropertyName), "Rotation", "Rim light rotation as Yaw/Pitch in degrees.");
+				DrawColorField(serializedObject.FindProperty(ModelRimLightColorPropertyName), "Color", "Rim light color.");
 			});
 		}
 
-		private static void DrawDefaultEnabledStateTab(PreviewSettingsStorage storage)
+		private static void DrawDefaultEnabledStateTab(SerializedObject serializedObject)
 		{
 			DrawSectionCard("Mode", () =>
 			{
-				storage.modelPreviewMode = (PreviewModeOverride) EditorGUILayout.EnumPopup(
-					new GUIContent("Mode Override", "Auto resolves to project default (2D or 3D) when a model preview session starts. 2D/3D force a mode."),
-					storage.modelPreviewMode);
+				DrawEnumPopup(serializedObject.FindProperty(ModelPreviewModePropertyName), typeof(PreviewModeOverride), "Mode Override", "Auto resolves to project default (2D or 3D) when a model preview session starts. 2D/3D force a mode.");
 			});
 
 			DrawSectionCard("Default enabled state", () =>
 			{
-				storage.modelDefaultTurntableEnabled = EditorGUILayout.Toggle(
-					new GUIContent("Turntable", "Default state for the Turntable toggle."),
-					storage.modelDefaultTurntableEnabled);
-				storage.modelDefaultInfoEnabled = EditorGUILayout.Toggle(
-					new GUIContent("Stat Info", "Default state for the Stat Info toggle."),
-					storage.modelDefaultInfoEnabled);
-				storage.modelDefaultLightRotationGizmosEnabled = EditorGUILayout.Toggle(
-					new GUIContent("Light Rotation Gizmos", "Default state for the Light Rotation Gizmos toggle."),
-					storage.modelDefaultLightRotationGizmosEnabled);
-				storage.modelDefaultSkyboxEnabled = EditorGUILayout.Toggle(
-					new GUIContent("Skybox", "Default state for the Skybox toggle."),
-					storage.modelDefaultSkyboxEnabled);
+				DrawToggle(serializedObject.FindProperty(ModelDefaultTurntableEnabledPropertyName), "Turntable", "Default state for the Turntable toggle.");
+				DrawToggle(serializedObject.FindProperty(ModelDefaultInfoEnabledPropertyName), "Stat Info", "Default state for the Stat Info toggle.");
+				DrawToggle(serializedObject.FindProperty(ModelDefaultLightRotationGizmosEnabledPropertyName), "Light Rotation Gizmos", "Default state for the Light Rotation Gizmos toggle.");
+				DrawToggle(serializedObject.FindProperty(ModelDefaultSkyboxEnabledPropertyName), "Skybox", "Default state for the Skybox toggle.");
 			});
 
 			DrawSectionCard("Debug", () =>
 			{
-				storage.enableDiagnostics = EditorGUILayout.Toggle(
-					new GUIContent("Enable Diagnostics", "Write preview lifecycle diagnostics to the Unity Console."),
-					storage.enableDiagnostics);
+				DrawToggle(serializedObject.FindProperty(EnableDiagnosticsPropertyName), "Enable Diagnostics", "Write preview lifecycle diagnostics to the Unity Console.");
 			});
 		}
 
-		private static void DrawGridTab(PreviewSettingsStorage storage)
+		private static void DrawGridTab(SerializedObject serializedObject)
 		{
 			DrawSectionCard("Shared Grid", () =>
 			{
-				storage.sharedGridDefaultEnabled = EditorGUILayout.Toggle(
-					new GUIContent("Enabled By Default", "Initial grid toggle state for both model and particle preview sessions."),
-					storage.sharedGridDefaultEnabled);
-				storage.sharedGridAxisTextDefaultEnabled = EditorGUILayout.Toggle(
-					new GUIContent("Axis Text Enabled By Default", "Default visibility for +X/-X/+Z/-Z grid axis text in 3D preview."),
-					storage.sharedGridAxisTextDefaultEnabled);
-				storage.sharedGridStyle = (PreviewGridStyle) EditorGUILayout.EnumPopup(
-					new GUIContent("Style", "Visual style used for both model and particle preview grids."),
-					storage.sharedGridStyle);
-				storage.sharedGridHalfSize = EditorGUILayout.Slider(
-					new GUIContent("Half Size", "World-space half extent of the preview grid."),
-					storage.sharedGridHalfSize,
-					PreviewSettings.MinSharedGridHalfSize,
-					PreviewSettings.MaxSharedGridHalfSize);
-				storage.sharedGridStep = EditorGUILayout.Slider(
-					new GUIContent("Step", "Distance between adjacent grid lines."),
-					storage.sharedGridStep,
-					PreviewSettings.MinSharedGridStep,
-					PreviewSettings.MaxSharedGridStep);
-					storage.sharedGridAlpha = EditorGUILayout.Slider(
-						new GUIContent("Alpha", "Overall transparency for grid lines."),
-						storage.sharedGridAlpha,
-						PreviewSettings.MinSharedGridAlpha,
-						PreviewSettings.MaxSharedGridAlpha);
-					storage.sharedGridFadeStartBoundsScale = EditorGUILayout.Slider(
-						new GUIContent("Fade Start Bounds Scale", "Multiplier applied to bounds radius before grid fade starts. Values above 1 start fade outside bounds."),
-						storage.sharedGridFadeStartBoundsScale,
-						PreviewSettings.MinSharedGridFadeStartBoundsScale,
-						PreviewSettings.MaxSharedGridFadeStartBoundsScale);
-					storage.sharedGridFadeStartBoundsPadding = EditorGUILayout.Slider(
-						new GUIContent("Fade Start Bounds Padding", "Extra world-space padding added after scaled bounds before fade starts."),
-						storage.sharedGridFadeStartBoundsPadding,
-						PreviewSettings.MinSharedGridFadeStartBoundsPadding,
-						PreviewSettings.MaxSharedGridFadeStartBoundsPadding);
+				DrawToggle(serializedObject.FindProperty(SharedGridDefaultEnabledPropertyName), "Enabled By Default", "Initial grid toggle state for both model and particle preview sessions.");
+				DrawToggle(serializedObject.FindProperty(SharedGridAxisTextDefaultEnabledPropertyName), "Axis Text Enabled By Default", "Default visibility for +X/-X/+Z/-Z grid axis text in 3D preview.");
+				SerializedProperty sharedGridStyleProperty = serializedObject.FindProperty(SharedGridStylePropertyName);
+				if (!Enum.IsDefined(typeof(PreviewGridStyle), sharedGridStyleProperty.intValue))
+					sharedGridStyleProperty.intValue = (int) PreviewSettings.D_SharedGridStyle;
+				DrawEnumPopup(sharedGridStyleProperty, typeof(PreviewGridStyle), "Style", "Visual style used for both model and particle preview grids.");
+				DrawFloatSlider(serializedObject.FindProperty(SharedGridHalfSizePropertyName), "Half Size", "World-space half extent of the preview grid.", PreviewSettings.MinSharedGridHalfSize, PreviewSettings.MaxSharedGridHalfSize);
+				DrawFloatSlider(serializedObject.FindProperty(SharedGridStepPropertyName), "Step", "Distance between adjacent grid lines.", PreviewSettings.MinSharedGridStep, PreviewSettings.MaxSharedGridStep);
+				DrawFloatSlider(serializedObject.FindProperty(SharedGridAlphaPropertyName), "Alpha", "Overall transparency for grid lines.", PreviewSettings.MinSharedGridAlpha, PreviewSettings.MaxSharedGridAlpha);
+				DrawFloatSlider(serializedObject.FindProperty(SharedGridFadeStartBoundsScalePropertyName), "Fade Start Bounds Scale", "Multiplier applied to bounds radius before grid fade starts. Values above 1 start fade outside bounds.", PreviewSettings.MinSharedGridFadeStartBoundsScale, PreviewSettings.MaxSharedGridFadeStartBoundsScale);
+				DrawFloatSlider(serializedObject.FindProperty(SharedGridFadeStartBoundsPaddingPropertyName), "Fade Start Bounds Padding", "Extra world-space padding added after scaled bounds before fade starts.", PreviewSettings.MinSharedGridFadeStartBoundsPadding, PreviewSettings.MaxSharedGridFadeStartBoundsPadding);
 				});
 			}
 		#endregion
@@ -682,9 +620,11 @@ namespace ParticleThumbnailAndPreview.Editor
 						    "Reset",
 						    "Cancel"))
 					{
-						storage.ResetToDefaults();
-						storage.SaveStorage();
-						PreviewSettings.NotifyChanged();
+						ProjectSettingsUndoUtility.ResetToDefaultsWithUndo(
+							storage,
+							"Reset Prefab Preview Settings",
+							storage.ResetToDefaults,
+							() => SaveAndNotify(storage));
 						GUI.FocusControl(null);
 						GUIUtility.ExitGUI();
 					}
@@ -720,7 +660,72 @@ namespace ParticleThumbnailAndPreview.Editor
 			EditorGUILayout.Space(4f);
 		}
 
-		private static bool DrawIconToggleLeft(bool currentValue, string label, string tooltip, params string[] iconNames)
+		private static void SaveAndNotify(PreviewSettingsStorage storage)
+		{
+			storage.SaveStorage();
+			PreviewSettings.NotifyChanged();
+		}
+
+		private static void DrawToggle(SerializedProperty property, string label, string tooltip)
+		{
+			bool newValue = EditorGUILayout.Toggle(new GUIContent(label, tooltip), property.boolValue);
+			if (newValue != property.boolValue)
+				property.boolValue = newValue;
+		}
+
+		private static void DrawColorField(SerializedProperty property, string label, string tooltip)
+		{
+			Color newValue = EditorGUILayout.ColorField(new GUIContent(label, tooltip), property.colorValue);
+			if (newValue != property.colorValue)
+				property.colorValue = newValue;
+		}
+
+		private static void DrawHdrColorField(SerializedProperty property, string label, string tooltip)
+		{
+			Color newValue = EditorGUILayout.ColorField(new GUIContent(label, tooltip), property.colorValue, true, true, true);
+			if (newValue != property.colorValue)
+				property.colorValue = newValue;
+		}
+
+		private static void DrawIntSlider(SerializedProperty property, string label, string tooltip, int minValue, int maxValue)
+		{
+			int newValue = EditorGUILayout.IntSlider(new GUIContent(label, tooltip), property.intValue, minValue, maxValue);
+			if (newValue != property.intValue)
+				property.intValue = newValue;
+		}
+
+		private static void DrawFloatSlider(SerializedProperty property, string label, string tooltip, float minValue, float maxValue)
+		{
+			float newValue = EditorGUILayout.Slider(new GUIContent(label, tooltip), property.floatValue, minValue, maxValue);
+			if (!Mathf.Approximately(newValue, property.floatValue))
+				property.floatValue = newValue;
+		}
+
+		private static void DrawFloatSliderWithFallback(SerializedProperty property, string label, string tooltip, float minValue, float maxValue, float defaultValue)
+		{
+			float currentValue = property.floatValue <= 0f ? defaultValue : property.floatValue;
+			float newValue = EditorGUILayout.Slider(new GUIContent(label, tooltip), currentValue, minValue, maxValue);
+			if (!Mathf.Approximately(newValue, property.floatValue))
+				property.floatValue = newValue;
+		}
+
+		private static void DrawEnumPopup(SerializedProperty property, Type enumType, string label, string tooltip)
+		{
+			Enum currentValue = (Enum) Enum.ToObject(enumType, property.intValue);
+			Enum newValue = EditorGUILayout.EnumPopup(new GUIContent(label, tooltip), currentValue);
+			int newIntValue = Convert.ToInt32(newValue);
+			if (newIntValue != property.intValue)
+				property.intValue = newIntValue;
+		}
+
+		private static void DrawVector2Field(SerializedProperty property, string label, string tooltip)
+		{
+			Vector2 newValue = EditorGUILayout.Vector2Field(new GUIContent(label, tooltip), property.vector2Value);
+			if (newValue != property.vector2Value)
+				property.vector2Value = newValue;
+		}
+
+		private static void DrawIconToggleLeft(SerializedProperty property, string label, string tooltip, params string[] iconNames)
 		{
 			GUIContent iconContent = PreviewToolbarControls.GetIconContent(string.Empty, tooltip, iconNames);
 			Texture icon = iconContent != null ? iconContent.image : null;
@@ -733,9 +738,10 @@ namespace ParticleThumbnailAndPreview.Editor
 				? previousIconSize * 0.9f
 				: new Vector2(14.4f, 14.4f);
 			EditorGUIUtility.SetIconSize(reducedIconSize);
-			bool newValue = EditorGUILayout.ToggleLeft(content, currentValue);
+			bool newValue = EditorGUILayout.ToggleLeft(content, property.boolValue);
 			EditorGUIUtility.SetIconSize(previousIconSize);
-			return newValue;
+			if (newValue != property.boolValue)
+				property.boolValue = newValue;
 		}
 		#endregion
 	}

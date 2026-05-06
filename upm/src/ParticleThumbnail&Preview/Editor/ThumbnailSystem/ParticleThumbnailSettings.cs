@@ -185,6 +185,27 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static SettingsTab SelectedTab = SettingsTab.Display;
 		private static GUIStyle CenteredSectionHeaderStyle;
 
+		#region Serialized Property Names
+		private const string EnabledPropertyName = "enabled";
+		private const string DrawInProjectGridPropertyName = "drawInProjectGrid";
+		private const string DrawInProjectListPropertyName = "drawInProjectList";
+		private const string GridRenderSizePropertyName = "gridRenderSize";
+		private const string ListRenderSizePropertyName = "listRenderSize";
+		private const string BackgroundColorPropertyName = "backgroundColor";
+		private const string CameraFovPropertyName = "cameraFov";
+		private const string CameraYawPropertyName = "cameraYaw";
+		private const string CameraPitchPropertyName = "cameraPitch";
+		private const string BoundsPaddingPropertyName = "boundsPadding";
+		private const string ScanMaxSecondsPropertyName = "scanMaxSeconds";
+		private const string MotionPaddingPropertyName = "motionPadding";
+		private const string MotionRadiusPropertyName = "motionRadius";
+		private const string MotionSpeedPropertyName = "motionSpeed";
+		private const string MaxRendersPerUpdatePropertyName = "maxRendersPerUpdate";
+		private const string RenderBudgetMsPropertyName = "renderBudgetMs";
+		private const string MemoryCacheMaxEntriesPropertyName = "memoryCacheMaxEntries";
+		private const string EnablePersistentCachePropertyName = "enablePersistentCache";
+		#endregion
+
 		[SettingsProvider]
 		public static SettingsProvider CreateProvider()
 		{
@@ -205,30 +226,29 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static void DrawGui()
 		{
 			ParticleThumbnailSettingsStorage storage = ParticleThumbnailSettingsStorage.instance;
+			SerializedObject serializedObject = ProjectSettingsUndoUtility.CreateSerializedObject(storage, () => SaveAndNotify(storage));
 
-			EditorGUI.BeginChangeCheck();
-			DrawEnabledToggle(storage);
+			DrawEnabledToggle(serializedObject);
 			SettingsScroll = EditorGUILayout.BeginScrollView(SettingsScroll, false, false);
 			DrawMainTabs();
 			EditorGUILayout.Space(6f);
-			DrawSelectedTab(storage);
+			DrawSelectedTab(serializedObject);
 			EditorGUILayout.EndScrollView();
 			EditorGUILayout.Space(8f);
 			DrawBottomActionsPanel(storage);
 			DrawCacheRuntimeInfo();
-
-			if (EditorGUI.EndChangeCheck())
-			{
-				storage.SaveStorage();
-				ParticleThumbnailSettings.NotifyChanged();
-			}
+			ProjectSettingsUndoUtility.ApplyModifiedProperties(serializedObject);
 		}
 
-		private static void DrawEnabledToggle(ParticleThumbnailSettingsStorage storage)
+		private static void DrawEnabledToggle(SerializedObject serializedObject)
 		{
 			using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
 			{
-				storage.enabled = EditorGUILayout.Toggle(storage.enabled, GUILayout.Width(18f));
+				SerializedProperty enabledProperty = serializedObject.FindProperty(EnabledPropertyName);
+				bool enabled = EditorGUILayout.Toggle(enabledProperty.boolValue, GUILayout.Width(18f));
+				if (enabled != enabledProperty.boolValue)
+					enabledProperty.boolValue = enabled;
+
 				EditorGUILayout.LabelField(
 					new GUIContent("Enable Particle Thumbnails", "Turn custom particle prefab thumbnails on or off for this project."),
 					EditorStyles.boldLabel);
@@ -245,146 +265,86 @@ namespace ParticleThumbnailAndPreview.Editor
 			}
 		}
 
-		private static void DrawSelectedTab(ParticleThumbnailSettingsStorage storage)
+		private static void DrawSelectedTab(SerializedObject serializedObject)
 		{
 			switch (SelectedTab)
 			{
 				case SettingsTab.Display:
-					DrawDisplayTab(storage);
+					DrawDisplayTab(serializedObject);
 					break;
 				case SettingsTab.Rendering:
-					DrawRenderingTab(storage);
+					DrawRenderingTab(serializedObject);
 					break;
 				case SettingsTab.Simulation:
-					DrawSimulationTab(storage);
+					DrawSimulationTab(serializedObject);
 					break;
 				case SettingsTab.Performance:
-					DrawPerformanceTab(storage);
+					DrawPerformanceTab(serializedObject);
 					break;
 			}
 		}
 
-		private static void DrawDisplayTab(ParticleThumbnailSettingsStorage storage)
+		private static void DrawDisplayTab(SerializedObject serializedObject)
 		{
 			DrawSectionCard("Draw Modes", () =>
 			{
-				storage.drawInProjectGrid = EditorGUILayout.Toggle(
-					new GUIContent("Draw In Grid", "Render custom particle thumbnails in Project window grid view."),
-					storage.drawInProjectGrid);
-				storage.drawInProjectList = EditorGUILayout.Toggle(
-					new GUIContent("Draw In List", "Render custom particle thumbnails in Project window list view."),
-					storage.drawInProjectList);
+				DrawToggle(serializedObject.FindProperty(DrawInProjectGridPropertyName), "Draw In Grid", "Render custom particle thumbnails in Project window grid view.");
+				DrawToggle(serializedObject.FindProperty(DrawInProjectListPropertyName), "Draw In List", "Render custom particle thumbnails in Project window list view.");
 			});
 
 			DrawSectionCard("Background color ", () =>
 			{
-				storage.backgroundColor = EditorGUILayout.ColorField(
-					new GUIContent("Background Color", "Background color used behind rendered particle thumbnails."),
-					storage.backgroundColor);
+				DrawColorField(serializedObject.FindProperty(BackgroundColorPropertyName), "Background Color", "Background color used behind rendered particle thumbnails.");
 			});
 			DrawSectionCard("Thumbnail Size", () =>
 			{
-				storage.gridRenderSize = EditorGUILayout.IntSlider(
-					new GUIContent("Grid Size (pixel)", "Render resolution for grid-view thumbnails. Higher values improve clarity but increase memory and disk cost."),
-					storage.gridRenderSize,
-					32,
-					128);
-				storage.listRenderSize = EditorGUILayout.IntSlider(
-					new GUIContent("List Size (pixel)", "Render resolution for list-view thumbnails. Higher values improve clarity but use more memory."),
-					storage.listRenderSize,
-					16,
-					64);
+				DrawIntSlider(serializedObject.FindProperty(GridRenderSizePropertyName), "Grid Size (pixel)", "Render resolution for grid-view thumbnails. Higher values improve clarity but increase memory and disk cost.", 32, 128);
+				DrawIntSlider(serializedObject.FindProperty(ListRenderSizePropertyName), "List Size (pixel)", "Render resolution for list-view thumbnails. Higher values improve clarity but use more memory.", 16, 64);
 			});
 		}
 
-		private static void DrawRenderingTab(ParticleThumbnailSettingsStorage storage)
+		private static void DrawRenderingTab(SerializedObject serializedObject)
 		{
 			DrawSectionCard("Camera", () =>
 			{
-				storage.cameraFov = EditorGUILayout.Slider(
-					new GUIContent("Camera FOV", "Field of view used when framing particle thumbnails."),
-					storage.cameraFov,
-					10f,
-					90f);
-				storage.cameraYaw = EditorGUILayout.Slider(
-					new GUIContent("Camera Yaw", "Horizontal viewing angle for thumbnail camera."),
-					storage.cameraYaw,
-					-180f,
-					180f);
-				storage.cameraPitch = EditorGUILayout.Slider(
-					new GUIContent("Camera Pitch", "Vertical viewing angle for thumbnail camera."),
-					storage.cameraPitch,
-					-89f,
-					89f);
+				DrawFloatSlider(serializedObject.FindProperty(CameraFovPropertyName), "Camera FOV", "Field of view used when framing particle thumbnails.", 10f, 90f);
+				DrawFloatSlider(serializedObject.FindProperty(CameraYawPropertyName), "Camera Yaw", "Horizontal viewing angle for thumbnail camera.", -180f, 180f);
+				DrawFloatSlider(serializedObject.FindProperty(CameraPitchPropertyName), "Camera Pitch", "Vertical viewing angle for thumbnail camera.", -89f, 89f);
 			});
 
 			DrawSectionCard("Framing", () =>
 			{
-				storage.boundsPadding = EditorGUILayout.Slider(
-					new GUIContent("Bounds Padding", "Extra safety padding around detected particle bounds before framing."),
-					storage.boundsPadding,
-					0f,
-					1f);
+				DrawFloatSlider(serializedObject.FindProperty(BoundsPaddingPropertyName), "Bounds Padding", "Extra safety padding around detected particle bounds before framing.", 0f, 1f);
 			});
 		}
 
-		private static void DrawSimulationTab(ParticleThumbnailSettingsStorage storage)
+		private static void DrawSimulationTab(SerializedObject serializedObject)
 		{
 			DrawSectionCard("Scan Window", () =>
 			{
-				storage.scanMaxSeconds = EditorGUILayout.Slider(
-					new GUIContent("Scan Max Seconds", "Maximum simulation duration scanned to find the capture window."),
-					storage.scanMaxSeconds,
-					0.5f,
-					10f);
+				DrawFloatSlider(serializedObject.FindProperty(ScanMaxSecondsPropertyName), "Scan Max Seconds", "Maximum simulation duration scanned to find the capture window.", 0.5f, 10f);
 			});
 
 			DrawSectionCard("Motion Assist (For moving particle)", () =>
 			{
-				storage.motionPadding = EditorGUILayout.Slider(
-					new GUIContent("Motion Padding", "Additional framing margin when motion simulation is required."),
-					storage.motionPadding,
-					0f,
-					3f);
-				storage.motionRadius = EditorGUILayout.Slider(
-					new GUIContent("Motion Radius", "Radius of deterministic motion path used for world-space moving effects."),
-					storage.motionRadius,
-					0.1f,
-					50f);
-				storage.motionSpeed = EditorGUILayout.Slider(
-					new GUIContent("Motion Speed", "Speed of deterministic motion path used during thumbnail simulation."),
-					storage.motionSpeed,
-					0.1f,
-					200f);
+				DrawFloatSlider(serializedObject.FindProperty(MotionPaddingPropertyName), "Motion Padding", "Additional framing margin when motion simulation is required.", 0f, 3f);
+				DrawFloatSlider(serializedObject.FindProperty(MotionRadiusPropertyName), "Motion Radius", "Radius of deterministic motion path used for world-space moving effects.", 0.1f, 50f);
+				DrawFloatSlider(serializedObject.FindProperty(MotionSpeedPropertyName), "Motion Speed", "Speed of deterministic motion path used during thumbnail simulation.", 0.1f, 200f);
 			});
 		}
 
-		private static void DrawPerformanceTab(ParticleThumbnailSettingsStorage storage)
+		private static void DrawPerformanceTab(SerializedObject serializedObject)
 		{
 			DrawSectionCard("Generation Budget", () =>
 			{
-				storage.maxRendersPerUpdate = EditorGUILayout.IntSlider(
-					new GUIContent("Max Renders / Update", "Maximum thumbnails generated per editor update tick."),
-					storage.maxRendersPerUpdate,
-					1,
-					16);
-				storage.renderBudgetMs = EditorGUILayout.Slider(
-					new GUIContent("Render Budget (ms)", "Time budget per editor update for thumbnail rendering to avoid stalls."),
-					storage.renderBudgetMs,
-					1f,
-					100f);
+				DrawIntSlider(serializedObject.FindProperty(MaxRendersPerUpdatePropertyName), "Max Renders / Update", "Maximum thumbnails generated per editor update tick.", 1, 16);
+				DrawFloatSlider(serializedObject.FindProperty(RenderBudgetMsPropertyName), "Render Budget (ms)", "Time budget per editor update for thumbnail rendering to avoid stalls.", 1f, 100f);
 			});
 
 			DrawSectionCard("Cache Limits", () =>
 			{
-				storage.memoryCacheMaxEntries = EditorGUILayout.IntSlider(
-					new GUIContent("Memory Cache Entries", "Maximum number of thumbnails kept in in-memory cache."),
-					storage.memoryCacheMaxEntries,
-					10,
-					1000);
-				storage.enablePersistentCache = EditorGUILayout.Toggle(
-					new GUIContent("Enable Persistent Cache", "Store thumbnail PNGs in Library cache so they survive editor restart."),
-					storage.enablePersistentCache);
+				DrawIntSlider(serializedObject.FindProperty(MemoryCacheMaxEntriesPropertyName), "Memory Cache Entries", "Maximum number of thumbnails kept in in-memory cache.", 10, 1000);
+				DrawToggle(serializedObject.FindProperty(EnablePersistentCachePropertyName), "Enable Persistent Cache", "Store thumbnail PNGs in Library cache so they survive editor restart.");
 			});
 		}
 
@@ -401,9 +361,11 @@ namespace ParticleThumbnailAndPreview.Editor
 						    "Reset",
 						    "Cancel"))
 					{
-						storage.ResetToDefaults();
-						storage.SaveStorage();
-						ParticleThumbnailSettings.NotifyChanged();
+						ProjectSettingsUndoUtility.ResetToDefaultsWithUndo(
+							storage,
+							"Reset Particle Thumbnail Settings",
+							storage.ResetToDefaults,
+							() => SaveAndNotify(storage));
 						ParticleThumbnailService.ClearMemoryCache();
 						GUIUtility.ExitGUI();
 					}
@@ -466,6 +428,40 @@ namespace ParticleThumbnailAndPreview.Editor
 			Rect lineRect = new Rect(rect.x, rect.yMax + 1f, rect.width, 1f);
 			EditorGUI.DrawRect(lineRect, new Color(0.30f, 0.30f, 0.30f, 1f));
 			EditorGUILayout.Space(4f);
+		}
+
+		private static void SaveAndNotify(ParticleThumbnailSettingsStorage storage)
+		{
+			storage.SaveStorage();
+			ParticleThumbnailSettings.NotifyChanged();
+		}
+
+		private static void DrawToggle(SerializedProperty property, string label, string tooltip)
+		{
+			bool newValue = EditorGUILayout.Toggle(new GUIContent(label, tooltip), property.boolValue);
+			if (newValue != property.boolValue)
+				property.boolValue = newValue;
+		}
+
+		private static void DrawColorField(SerializedProperty property, string label, string tooltip)
+		{
+			Color newValue = EditorGUILayout.ColorField(new GUIContent(label, tooltip), property.colorValue);
+			if (newValue != property.colorValue)
+				property.colorValue = newValue;
+		}
+
+		private static void DrawIntSlider(SerializedProperty property, string label, string tooltip, int minValue, int maxValue)
+		{
+			int newValue = EditorGUILayout.IntSlider(new GUIContent(label, tooltip), property.intValue, minValue, maxValue);
+			if (newValue != property.intValue)
+				property.intValue = newValue;
+		}
+
+		private static void DrawFloatSlider(SerializedProperty property, string label, string tooltip, float minValue, float maxValue)
+		{
+			float newValue = EditorGUILayout.Slider(new GUIContent(label, tooltip), property.floatValue, minValue, maxValue);
+			if (!Mathf.Approximately(newValue, property.floatValue))
+				property.floatValue = newValue;
 		}
 	}
 }
