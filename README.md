@@ -12,7 +12,7 @@ Editor-only Unity tools for clearer particle thumbnails and a more useful prefab
 
 </div>
 
-> [!TIP]
+> [!Hello!]
 > I want this tool to stay accessible to everyone, so the **free GitHub version** and the **paid Unity Asset Store version** include the exact same toolset.
 > The Asset Store version is completely optional. If you'd like to support my work and ongoing development, you can pick it up on the [Unity Asset Store](https://assetstore.unity.com/preview/370342/1307444).
 
