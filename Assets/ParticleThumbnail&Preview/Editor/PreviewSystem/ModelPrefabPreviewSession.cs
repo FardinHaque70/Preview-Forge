@@ -338,9 +338,6 @@ namespace ParticleThumbnailAndPreview.Editor
             EnsureOverlayResources();
             PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
             PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
-            PreviewDiagnostics.Log(
-                "ModelSkybox",
-                $"Setup state asset='{assetPath}' modeOverride={_modeOverride} effective2D={ModeContext.Effective2D} urp2D={ModeContext.IsUrp2DRenderer} skyboxSupported={SkyboxSupported} skyboxEnabled={_skyboxEnabled} settingsMode={PreviewSettings.ModelPreviewMode} settingsSkyboxDefault={PreviewSettings.ModelDefaultSkyboxEnabled}");
             PreviewDiagnostics.Log("ModelSession", $"Setup complete id={instanceId} asset='{assetPath}'");
         }
 
@@ -728,12 +725,6 @@ namespace ParticleThumbnailAndPreview.Editor
             ApplyEnvironmentState();
             SamplePreviewAnimation();
             _preview.BeginPreview(previewRect, background ?? GUIStyle.none);
-            bool useSrpSkyboxPrepass = ShouldUseSrpSkyboxPrepass();
-            PreviewDiagnostics.Log(
-                "ModelSkybox",
-                $"Draw path asset='{_prefabAssetPath}' clearFlags={_preview.camera.clearFlags} cameraSkyboxEnabled={(_cameraSkybox != null && _cameraSkybox.enabled)} srpSkyboxPrepass={useSrpSkyboxPrepass} visualMode={_visualMode}");
-            if (useSrpSkyboxPrepass)
-                RenderSrpSkyboxPrepass();
             if (DrawGrid())
                 LogGridDiagnosticsState("drawn");
             else
@@ -754,9 +745,6 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 using (PreviewRenderCompatibilityUtility.EnableRenderersScoped(_renderers, _rendererInitialStates))
                 {
-                    if (useSrpSkyboxPrepass)
-                        PrepareCameraForGeometryPass();
-
                     PreviewRenderCompatibilityUtility.RenderPreviewWithCameraPath(_preview);
                 }
             }
@@ -775,56 +763,6 @@ namespace ParticleThumbnailAndPreview.Editor
 
             if (_lightWidgetEnabled && LightingControlsSupported)
                 DrawLightWidget(previewRect);
-        }
-
-        private bool ShouldUseSrpSkyboxPrepass()
-        {
-            if (_preview == null || _preview.camera == null || _cameraSkybox == null)
-                return false;
-
-            if (!_cameraSkybox.enabled || _preview.camera.clearFlags != CameraClearFlags.Skybox)
-                return false;
-
-            PreviewRenderPipelineKind pipelineKind = PreviewRenderCompatibilityUtility.DetectCurrentPipelineKind();
-            return pipelineKind != PreviewRenderPipelineKind.BuiltIn;
-        }
-
-        private void RenderSrpSkyboxPrepass()
-        {
-            bool[] previousStates = new bool[_renderers.Count];
-            for (int i = 0; i < _renderers.Count; i++)
-            {
-                Renderer renderer = _renderers[i];
-                if (renderer == null)
-                    continue;
-
-                previousStates[i] = renderer.enabled;
-                renderer.enabled = false;
-            }
-
-            try
-            {
-                PreviewRenderCompatibilityUtility.RenderPreviewWithCompatibility(_preview);
-            }
-            finally
-            {
-                for (int i = 0; i < _renderers.Count; i++)
-                {
-                    Renderer renderer = _renderers[i];
-                    if (renderer != null)
-                        renderer.enabled = previousStates[i];
-                }
-            }
-        }
-
-        private void PrepareCameraForGeometryPass()
-        {
-            _preview.camera.clearFlags = CameraClearFlags.Nothing;
-            if (_cameraSkybox != null)
-                _cameraSkybox.enabled = false;
-            PreviewDiagnostics.Log(
-                "ModelSkybox",
-                $"Prepare geometry pass asset='{_prefabAssetPath}' clearFlags={_preview.camera.clearFlags} cameraSkyboxEnabled={(_cameraSkybox != null && _cameraSkybox.enabled)}");
         }
 
         private bool TickPreviewAnimationPlayback(double now)
@@ -1140,9 +1078,6 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 Material skyboxMaterial = PreviewSettings.ModelSkyboxMaterial;
                 bool canUseSkybox = skyboxEnabled && skyboxMaterial != null;
-                PreviewDiagnostics.Log(
-                    "ModelSkybox",
-                    $"Apply env asset='{_prefabAssetPath}' modeOverride={_modeOverride} effective2D={effective2D} urp2D={ModeContext.IsUrp2DRenderer} lightingEnabled={lightingEnabled} skyboxToggle={_skyboxEnabled} skyboxSupported={SkyboxSupported} materialNull={(skyboxMaterial == null)} canUseSkybox={canUseSkybox}");
                 _cameraSkybox.enabled = canUseSkybox;
                 if (canUseSkybox)
                 {
