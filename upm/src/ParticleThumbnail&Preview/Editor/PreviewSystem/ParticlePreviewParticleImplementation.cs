@@ -8,37 +8,24 @@ namespace ParticleThumbnailAndPreview.Editor
 {
     internal sealed class ParticlePreviewParticleImplementation : IPrefabPreviewImplementation
     {
-        private static readonly string[] PlayIcons = BuildIconNames("Particle_PlayArrow_Round_White.png", "d_PlayButton", "PlayButton");
-        private static readonly string[] PauseIcons = BuildIconNames("Particle_Pause_Round_White.png", "d_PauseButton", "PauseButton");
-        private static readonly string[] RestartIcons = BuildIconNames("Particle_Replay_Round_White.png", "d_Refresh", "Refresh");
-        private static readonly string[] InfoIcons = BuildIconNames("Particle_Info_Round_White.png", "d_Search Icon", "Search Icon");
-        private static readonly string[] LightsIcons = BuildIconNames("Model_Lightbulb_Round_White.png", "d_SceneViewLighting", "SceneViewLighting");
-        private static readonly string[] GridIcons = BuildIconNames("Particle_GridOn_Round_White.png", "d_Grid.BoxTool", "Grid.BoxTool");
+        private static readonly string[] PlayIcons = PreviewToolbarIconUtility.BuildIconNames("Particle_PlayArrow_Round_White.png", "d_PlayButton", "PlayButton");
+        private static readonly string[] PauseIcons = PreviewToolbarIconUtility.BuildIconNames("Particle_Pause_Round_White.png", "d_PauseButton", "PauseButton");
+        private static readonly string[] RestartIcons = PreviewToolbarIconUtility.BuildIconNames("Particle_Replay_Round_White.png", "d_Refresh", "Refresh");
+        private static readonly string[] LightsIcons = PreviewToolbarIconUtility.BuildIconNames("Model_Lightbulb_Round_White.png", "d_SceneViewLighting", "SceneViewLighting");
+        private static readonly string[] GridIcons = PreviewToolbarIconUtility.BuildIconNames("Particle_GridOn_Round_White.png", "d_Grid.BoxTool", "Grid.BoxTool");
 
         private const int PlayIndex = 0;
         private const int RestartIndex = 1;
         private const int ScrubberIndex = 3;
-        private const int InfoIndex = 5;
-        private const int LightsIndex = 6;
-        private const int GridIndex = 7;
+        private const int LightsIndex = 5;
+        private const int GridIndex = 6;
 
         private ParticlePrefabPreviewSession _session;
-        private readonly List<PreviewToolbarItem> _toolbarItems = new(8);
+        private readonly List<PreviewToolbarItem> _toolbarItems = new(7);
         private bool _playbackUpdateRegistered;
         private Action _requestRepaint;
-        private static bool s_infoOverlayEnabled = true;
 
         public PrefabPreviewTargetKind Kind => PrefabPreviewTargetKind.Particle;
-
-        private static string[] BuildIconNames(string fileName, params string[] fallbacks)
-        {
-            string[] assetPaths = PreviewInstallLayout.BuildAssetPaths("Editor/Common/PreviewAssets/ToolbarIcons/" + fileName);
-            var values = new List<string>(assetPaths.Length + (fallbacks?.Length ?? 0));
-            values.AddRange(assetPaths);
-            if (fallbacks != null && fallbacks.Length > 0)
-                values.AddRange(fallbacks);
-            return values.ToArray();
-        }
 
         public void SetRepaintCallback(Action repaintCallback)
         {
@@ -89,7 +76,7 @@ namespace ParticleThumbnailAndPreview.Editor
             bool inputChanged = _session.HandleInput(previewRect, Event.current);
             bool cameraChanged = _session.TickInteraction();
             _session.Draw(previewRect, background);
-            if (s_infoOverlayEnabled)
+            if (PreviewSettings.ShowStatsEnabled)
                 DrawInfoPanel(previewRect);
 
             if (inputChanged || cameraChanged)
@@ -144,11 +131,6 @@ namespace ParticleThumbnailAndPreview.Editor
 
             _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle, PreviewToolbarItemGroup.Right)
             {
-                OnToggleChanged = OnInfoToggled,
-            });
-
-            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle, PreviewToolbarItemGroup.Right)
-            {
                 OnToggleChanged = OnLightsToggled,
             });
 
@@ -177,18 +159,13 @@ namespace ParticleThumbnailAndPreview.Editor
             PreviewToolbarItem scrubber = _toolbarItems[ScrubberIndex];
             scrubber.MinWidth = 40f;
 
-            PreviewToolbarItem info = _toolbarItems[InfoIndex];
-            info.IsActive = s_infoOverlayEnabled;
-            info.IsEnabled = true;
-            info.FallbackText = "Info";
-            info.Tooltip = "Toggle preview info";
-            info.IconNames = InfoIcons;
-
             PreviewToolbarItem lights = _toolbarItems[LightsIndex];
-            lights.IsActive = _session.LightsEnabled;
-            lights.IsEnabled = true;
+            lights.IsActive = _session.LightingSupported && _session.LightsEnabled;
+            lights.IsEnabled = _session.LightingSupported;
             lights.FallbackText = "Lights";
-            lights.Tooltip = "Toggle shared preview lights";
+            lights.Tooltip = _session.LightingSupported
+                ? "Toggle shared preview lights"
+                : "Lighting is unavailable when the active renderer is URP 2D.";
             lights.IconNames = LightsIcons;
 
             PreviewToolbarItem grid = _toolbarItems[GridIndex];
@@ -237,17 +214,11 @@ namespace ParticleThumbnailAndPreview.Editor
             }
         }
 
-        private void OnInfoToggled(bool value)
-        {
-            if (value == s_infoOverlayEnabled)
-                return;
-
-            s_infoOverlayEnabled = value;
-            RequestPreviewRepaint();
-        }
-
         private void OnLightsToggled(bool value)
         {
+            if (!_session.LightingSupported)
+                return;
+
             if (value == _session.LightsEnabled)
                 return;
 

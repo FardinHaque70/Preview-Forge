@@ -23,10 +23,12 @@ MonoBehaviour:
   toolbarColorPreset: 5
   toolbarHeight: 35
   modelPreviewActive: 1
+  spritePrefabPreviewActive: 1
   modelImporterPreviewActive: 1
   modelPreviewMode: 0
   modelDefaultTurntableEnabled: 1
-  modelDefaultInfoEnabled: 1
+  showStatsEnabled: 1
+  sharedBoundsRulerDefaultEnabled: 0
   modelDefaultLightRotationGizmosEnabled: 1
   modelDefaultSkyboxEnabled: 1
   sharedGridDefaultEnabled: 1
@@ -37,15 +39,15 @@ MonoBehaviour:
   sharedGridFadeStartBoundsScale: 1
   sharedGridFadeStartBoundsPadding: 7.16
   sharedGridStyle: 0
-  modelSkyboxCubemap: {fileID: 8900000, guid: 83fb20c8d36eb4afe9b376da509dc0d6, type: 3}
-  modelSkyboxMaterial: {fileID: 0}
+  modelSkyboxCubemap: {fileID: 0}
+  modelSkyboxMaterial: {fileID: 2100000, guid: d72d5b2b42b5346f3b62a917be65443a, type: 2}
   modelReflectionCubemap: {fileID: 0}
   modelAmbientLightColor: {r: 0.6132076, g: 0.6045301, b: 0.6045301, a: 1}
   modelSunLightEnabled: 1
   modelSunLightColor: {r: 1, g: 0.9604328, b: 0.8915094, a: 1}
   modelSunLightIntensity: 1
   modelSunLightShadowStrength: 1
-  modelSunLightRotation: {x: 10.8, y: 66.8}
+  modelSunLightRotation: {x: -29.7, y: 133.9}
   modelKeyLightEnabled: 1
   modelKeyLightIntensity: 0.8
   modelKeyLightRotation: {x: 35, y: 35}

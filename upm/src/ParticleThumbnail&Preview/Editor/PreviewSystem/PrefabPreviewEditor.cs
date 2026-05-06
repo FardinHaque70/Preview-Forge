@@ -201,6 +201,10 @@ namespace ParticleThumbnailAndPreview.Editor
             var model = new ModelPrefabPreviewImplementation();
             model.SetRepaintCallback(RequestPreviewRepaint);
             _implementations[model.Kind] = model;
+
+            var sprite = new SpritePrefabPreviewImplementation();
+            sprite.SetRepaintCallback(RequestPreviewRepaint);
+            _implementations[sprite.Kind] = sprite;
         }
 
         private IPrefabPreviewImplementation ResolveImplementation(PrefabPreviewTargetKind kind)
@@ -210,6 +214,9 @@ namespace ParticleThumbnailAndPreview.Editor
                 return null;
 
             if (kind == PrefabPreviewTargetKind.Model && !PreviewSettings.ModelPreviewActive)
+                return null;
+
+            if (kind == PrefabPreviewTargetKind.Sprite && !PreviewSettings.SpritePrefabPreviewActive)
                 return null;
 
             if (kind == PrefabPreviewTargetKind.Particle && !PreviewSettings.ParticlePrefabPreviewActive)
@@ -295,12 +302,19 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private void CleanupActiveImplementation()
         {
+            CleanupActiveImplementation(clearSessionCache: false);
+        }
+
+        private void CleanupActiveImplementation(bool clearSessionCache)
+        {
             if (_activeImplementation == null)
                 return;
 
-            bool selectionIsEmpty = IsSelectionEmpty();
+            bool selectionIsEmpty = clearSessionCache || IsSelectionEmpty();
             _activeImplementation.Cleanup(selectionIsEmpty);
-            PreviewDiagnostics.Log("Host", $"#{_hostId} cleanup-active kind={_activeKind} selectionEmpty={selectionIsEmpty} asset='{_activePrefabAssetPath}'");
+            PreviewDiagnostics.Log(
+                "Host",
+                $"#{_hostId} cleanup-active kind={_activeKind} selectionEmpty={selectionIsEmpty} clearSessionCache={clearSessionCache} asset='{_activePrefabAssetPath}'");
             _activeImplementation = null;
             _activeKind = PrefabPreviewTargetKind.Unsupported;
             _activePrefabAssetPath = null;
@@ -418,7 +432,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private void OnSettingsChanged()
         {
+            CleanupActiveImplementation(clearSessionCache: true);
             MarkTargetSupportCacheDirty();
+            RequestPreviewRepaint();
         }
 
         private void MarkTargetSupportCacheDirty()

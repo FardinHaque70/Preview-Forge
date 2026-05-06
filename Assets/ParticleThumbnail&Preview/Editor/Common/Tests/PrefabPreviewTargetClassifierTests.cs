@@ -53,6 +53,57 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
         }
 
         [Test]
+        public void Classify_SpritePrefab_ReturnsSprite()
+        {
+            GameObject root = new GameObject("SpriteRoot");
+            GameObject child = new GameObject("SpriteChild");
+            child.transform.SetParent(root.transform, false);
+            child.AddComponent<SpriteRenderer>();
+            string prefabPath = $"{TempTestRoot}/SpriteRoot.prefab";
+
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+            Object.DestroyImmediate(root);
+
+            PrefabPreviewTargetKind kind = PrefabPreviewTargetClassifier.Classify(prefab);
+            Assert.AreEqual(PrefabPreviewTargetKind.Sprite, kind);
+        }
+
+        [Test]
+        public void Classify_SpriteAndParticlePrefab_ReturnsSprite()
+        {
+            GameObject root = new GameObject("SpriteParticleRoot");
+            root.AddComponent<ParticleSystem>();
+            GameObject child = new GameObject("SpriteChild");
+            child.transform.SetParent(root.transform, false);
+            child.AddComponent<SpriteRenderer>();
+            string prefabPath = $"{TempTestRoot}/SpriteParticleRoot.prefab";
+
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+            Object.DestroyImmediate(root);
+
+            PrefabPreviewTargetKind kind = PrefabPreviewTargetClassifier.Classify(prefab);
+            Assert.AreEqual(PrefabPreviewTargetKind.Sprite, kind);
+        }
+
+        [Test]
+        public void Classify_MeshAndSpritePrefab_ReturnsModel()
+        {
+            GameObject root = new GameObject("MeshSpriteRoot");
+            GameObject meshChild = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            meshChild.transform.SetParent(root.transform, false);
+            GameObject spriteChild = new GameObject("SpriteChild");
+            spriteChild.transform.SetParent(root.transform, false);
+            spriteChild.AddComponent<SpriteRenderer>();
+            string prefabPath = $"{TempTestRoot}/MeshSpriteRoot.prefab";
+
+            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+            Object.DestroyImmediate(root);
+
+            PrefabPreviewTargetKind kind = PrefabPreviewTargetClassifier.Classify(prefab);
+            Assert.AreEqual(PrefabPreviewTargetKind.Model, kind);
+        }
+
+        [Test]
         public void Classify_NullOrMultiTargetArray_ReturnsUnsupported()
         {
             Assert.AreEqual(PrefabPreviewTargetKind.Unsupported, PrefabPreviewTargetClassifier.Classify((Object[])null));

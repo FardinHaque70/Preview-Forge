@@ -136,6 +136,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		internal bool NeedsMotion => _needsMotion;
 		internal bool GridEnabled => _gridEnabled;
 		internal bool LightsEnabled => _lightsEnabled;
+		internal bool LightingSupported => ComputeLightingSupportedForTests(PreviewRenderCompatibilityUtility.DetectCurrentPipelineKind());
 		internal ParticlePreviewMotionShape MotionShape => _motionShape;
 		internal float MotionSpeed => _motionSpeed;
 		internal float MotionSize => _motionSize;
@@ -207,7 +208,7 @@ namespace ParticleThumbnailAndPreview.Editor
 					Renderer renderer = _renderers[i];
 					_rendererInitialStates.Add(renderer != null && renderer.enabled);
 				}
-				ParticleRenderCompatibilityUtility.SetRenderersEnabled(_renderers, false);
+				PreviewRenderCompatibilityUtility.SetRenderersEnabled(_renderers, false);
 				_needsMotion = ParticleMotionDetectionUtility.NeedsMotion(_particleSystems);
 				_motionShape = ParticlePreviewMotionShape.Circle;
 				_motionSpeed = PreviewSettings.MotionSpeed;
@@ -252,6 +253,8 @@ namespace ParticleThumbnailAndPreview.Editor
 					_playing = PreviewSettings.Autoplay;
 					_lightsEnabled = false;
 				}
+
+				_lightsEnabled = LightingSupported && _lightsEnabled;
 
 				_lastUpdateTime = -1d;
 				_playbackAccumulatorSeconds = 0d;
@@ -380,7 +383,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		internal void SetLightsEnabled(bool enabled)
 		{
-			_lightsEnabled = enabled;
+			_lightsEnabled = LightingSupported && enabled;
 		}
 
 		internal void SetMotionShape(ParticlePreviewMotionShape shape)
@@ -646,10 +649,10 @@ namespace ParticleThumbnailAndPreview.Editor
 			_preview.BeginPreview(previewRect, background ?? GUIStyle.none);
 			DrawGrid();
 
-			using (ParticleRenderCompatibilityUtility.PushShaderTime(_playbackTime))
-			using (ParticleRenderCompatibilityUtility.EnableRenderersScoped(_renderers, _rendererInitialStates))
+			using (PreviewRenderCompatibilityUtility.PushShaderTime(_playbackTime))
+			using (PreviewRenderCompatibilityUtility.EnableRenderersScoped(_renderers, _rendererInitialStates))
 			{
-				ParticleRenderCompatibilityUtility.RenderPreviewWithCameraPath(_preview);
+				PreviewRenderCompatibilityUtility.RenderPreviewWithCameraPath(_preview);
 			}
 
 			Texture previewTexture = _preview.EndPreview();
@@ -680,11 +683,16 @@ namespace ParticleThumbnailAndPreview.Editor
 				_sunLight,
 				_rimLight,
 				in lightingProfile,
-				_lightsEnabled,
+				_lightsEnabled && LightingSupported,
 				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelSunLightRotation),
 				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelKeyLightRotation),
 				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelFillLightRotation),
 				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelRimLightRotation));
+		}
+
+		internal static bool ComputeLightingSupportedForTests(PreviewRenderPipelineKind pipelineKind)
+		{
+			return pipelineKind != PreviewRenderPipelineKind.Urp2D;
 		}
 
 		#endregion

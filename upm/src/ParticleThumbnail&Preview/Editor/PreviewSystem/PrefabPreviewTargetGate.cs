@@ -105,6 +105,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 PrefabPreviewTargetKind.Particle => PreviewSettings.ParticlePrefabPreviewActive,
                 PrefabPreviewTargetKind.Model => PreviewSettings.ModelPreviewActive,
+                PrefabPreviewTargetKind.Sprite => PreviewSettings.SpritePrefabPreviewActive,
                 _ => false,
             };
         }

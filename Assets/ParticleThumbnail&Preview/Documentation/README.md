@@ -92,7 +92,7 @@ For this repository, authoring stays in `Assets/ParticleThumbnail&Preview`. Run 
 ## Extending Safely
 
 - Keep extension code in editor-only assemblies (`includePlatforms: Editor`).
-- Reuse `ParticleRenderCompatibilityUtility` and `PreviewModeResolver` for SRP/version-safe decisions.
+- Reuse `PreviewRenderCompatibilityUtility` and `PreviewModeResolver` for SRP/version-safe decisions.
 - Prefer lightweight, event-driven hooks over persistent editor update polling.
 - When adding preview integrations, keep conflict logs actionable and one-time to avoid console spam.
 

@@ -15,14 +15,14 @@ namespace ParticleThumbnailAndPreview.Editor
     internal readonly struct PreviewModeContext
     {
         public readonly PreviewModeOverride Override;
-        public readonly ParticleRenderPipelineKind PipelineKind;
+        public readonly PreviewRenderPipelineKind PipelineKind;
         public readonly bool IsEditorDefaultBehavior2D;
         public readonly bool IsUrp2DRenderer;
         public readonly bool Effective2D;
 
         public PreviewModeContext(
             PreviewModeOverride modeOverride,
-            ParticleRenderPipelineKind pipelineKind,
+            PreviewRenderPipelineKind pipelineKind,
             bool isEditorDefaultBehavior2D,
             bool isUrp2DRenderer,
             bool effective2D)
@@ -51,7 +51,7 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             bool editorMode2D = IsEditorDefaultBehavior2D();
             bool urp2D = IsUrp2DRendererActive();
-            ParticleRenderPipelineKind kind = ParticleRenderCompatibilityUtility.DetectCurrentPipelineKind();
+            PreviewRenderPipelineKind kind = PreviewRenderCompatibilityUtility.DetectCurrentPipelineKind();
 
             bool effective2D = ResolveEffective2DForTests(modeOverride, urp2D, editorMode2D);
 
