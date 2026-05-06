@@ -58,10 +58,10 @@ Particle prefabs can be previewed directly in the preview window, so you do not 
 
 <table>
   <tr>
-    <td align="center">
+    <td align="center" width="42%">
       <img src=".github/readme-media/better-particle-preview-controls.gif" alt="Particle preview controls in the Unity Inspector" width="100%" />
     </td>
-    <td align="center">
+    <td align="center" width="58%">
       <img src=".github/readme-media/particle-thumbnail-preview-showcase.gif" alt="Particle thumbnail and preview showcase" width="100%" />
     </td>
   </tr>
