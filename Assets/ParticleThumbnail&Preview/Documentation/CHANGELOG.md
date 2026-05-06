@@ -2,6 +2,13 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.17] - 2026-05-06
+
+- Support clean single-root installs for both Asset Store and Git UPM distributions by resolving bundled preview assets from either `Assets/ParticleThumbnail&Preview` or `Packages/com.fardinhaque.particle-thumbnail-preview`.
+- Remove install-time dependency on creating `Assets/ParticleThumbnail&Preview` for preview skybox resources and keep packaged default assets preauthored.
+- Prevent preview settings reads from auto-writing project settings while keeping explicit Project Settings edits and resets persisted normally.
+- Document the dual-channel distribution workflow and add install-layout coverage tests.
+
 ## [1.1.16] - 2026-05-05
 
 - Expand multi-selection guarding in both prefab and model importer preview editors by checking `Selection.count` and editor `targets` count before resolving custom preview ownership.
