@@ -25,15 +25,6 @@ This package focuses on three core workflows:
 - `Particle Preview`  
   A playback-focused preview workflow for particle prefabs with scrubbing and motion-aware inspection.
 
-## Table of Contents
-
-- [See It In Action](#see-it-in-action)
-- [Feature Overview](#feature-overview)
-- [Compatibility](#compatibility)
-- [Installation](#installation)
-- [Notes](#notes)
-- [Known Limitations](#known-limitations)
-
 ## See It In Action
 
 ### 1. Particle Thumbnails and Custom Preview
