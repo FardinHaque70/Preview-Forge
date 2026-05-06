@@ -70,7 +70,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
                 renderers = instance.GetComponentsInChildren<Renderer>(true);
                 rendererInitialStates = CaptureRendererEnabledStates(renderers);
-                ParticleRenderCompatibilityUtility.SetRenderersEnabled(renderers, false);
+                PreviewRenderCompatibilityUtility.SetRenderersEnabled(renderers, false);
 
                 bool needsMotion = ParticleMotionDetectionUtility.NeedsMotion(systems);
 
@@ -768,14 +768,14 @@ namespace ParticleThumbnailAndPreview.Editor
             int thumbnailSize,
             float frameTime)
         {
-            using (ParticleRenderCompatibilityUtility.PushShaderTime(frameTime))
+            using (PreviewRenderCompatibilityUtility.PushShaderTime(frameTime))
             {
                 SyncWorldPositionShaderOffsets(renderers);
                 preview.camera.backgroundColor = ParticleThumbnailSettings.BackgroundColor;
                 preview.BeginPreview(new Rect(0f, 0f, thumbnailSize, thumbnailSize), GUIStyle.none);
-                using (ParticleRenderCompatibilityUtility.EnableRenderersScoped(renderers, rendererEnabledStates))
+                using (PreviewRenderCompatibilityUtility.EnableRenderersScoped(renderers, rendererEnabledStates))
                 {
-                    ParticleRenderCompatibilityUtility.RenderPreviewWithCameraPath(preview);
+                    PreviewRenderCompatibilityUtility.RenderPreviewWithCameraPath(preview);
                 }
 
                 Texture result = preview.EndPreview();

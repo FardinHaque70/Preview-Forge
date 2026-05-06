@@ -8,29 +8,25 @@ namespace ParticleThumbnailAndPreview.Editor
 {
     internal sealed class ModelPrefabPreviewImplementation : IPrefabPreviewImplementation
     {
-        private static readonly string[] TurntableIcons = BuildIconNames("Model_Turntable_Round_White.png", "d_SceneViewTools", "SceneViewTools", "d_RotateTool", "RotateTool");
-        private static readonly string[] InfoIcons = BuildIconNames("Model_Info_Round_White.png", "d_SelectionList Icon", "SelectionList Icon", "d_Search Icon", "Search Icon");
-        private static readonly string[] LightsIcons = BuildIconNames("Model_Lightbulb_Round_White.png", "d_Light Icon", "Light Icon", "d_SceneViewLighting", "SceneViewLighting");
-        private static readonly string[] ColliderIcons = BuildIconNames("Model_Collider_Round_White.png", "d_BoxCollider Icon", "BoxCollider Icon", "d_EditCollider", "EditCollider");
-        private static readonly string[] LightGizmoIcons = BuildIconNames("Model_LightGizmo_Round_White.png", "d_PreMatSphere", "PreMatSphere", "d_SceneViewTools", "SceneViewTools");
-        private static readonly string[] GridIcons = BuildIconNames("Model_GridOn_Round_White.png", "d_Grid Icon", "Grid Icon", "d_Grid.Default", "Grid.Default");
-        private static readonly string[] SkyboxIcons = BuildIconNames("Model_Panorama_Round_White.png", "d_Cubemap Icon", "Cubemap Icon", "d_PreMatSphere", "PreMatSphere");
-        private static readonly string[] VisualDefaultIcons = BuildIconNames("Model_Texture_Round_White.png", "d_Texture Icon", "Texture Icon");
-        private static readonly string[] VisualMatcapIcons = BuildIconNames("Model_Matcap_Round_White.png", "d_PreMatSphere", "PreMatSphere", "d_Material Icon", "Material Icon");
+        private static readonly string[] LightsIcons = PreviewToolbarIconUtility.BuildIconNames("Model_Lightbulb_Round_White.png", "d_Light Icon", "Light Icon", "d_SceneViewLighting", "SceneViewLighting");
+        private static readonly string[] ColliderIcons = PreviewToolbarIconUtility.BuildIconNames("Model_Collider_BoxOutline_Round_White.png", "d_BoxCollider Icon", "BoxCollider Icon", "d_EditCollider", "EditCollider");
+        private static readonly string[] BoundsIcons = PreviewToolbarIconUtility.BuildIconNames("Model_Bounds_Round_White.png", "d_ScaleTool", "ScaleTool");
+        private static readonly string[] GridIcons = PreviewToolbarIconUtility.BuildIconNames("Model_GridOn_Round_White.png", "d_Grid Icon", "Grid Icon", "d_Grid.Default", "Grid.Default");
+        private static readonly string[] SkyboxIcons = PreviewToolbarIconUtility.BuildIconNames("Model_Panorama_Round_White.png", "d_Cubemap Icon", "Cubemap Icon", "d_PreMatSphere", "PreMatSphere");
+        private static readonly string[] VisualDefaultIcons = PreviewToolbarIconUtility.BuildIconNames("Model_Texture_Round_White.png", "d_Texture Icon", "Texture Icon");
+        private static readonly string[] VisualMatcapIcons = PreviewToolbarIconUtility.BuildIconNames("Model_Matcap_Round_White.png", "d_PreMatSphere", "PreMatSphere", "d_Material Icon", "Material Icon");
 
         private readonly ModelPrefabPreviewSession _session = new();
         private readonly List<PreviewToolbarItem> _toolbarItems;
         private readonly bool _showColliderToggle;
         private readonly bool _force3DWhenAutoMode;
-        private readonly int _turntableIndex;
-        private readonly int _infoIndex;
-        private readonly int _lightsIndex;
-        private readonly int _collidersIndex;
-        private readonly int _gridIndex;
-        private readonly int _lightGizmoIndex;
-        private readonly int _skyboxIndex;
-        private readonly int _visualModeIndex;
-        private readonly int _modeIndex;
+        private readonly PreviewToolbarCommonFeatureBinding _colliderFeature;
+        private readonly PreviewToolbarCommonFeatureBinding _boundsFeature;
+        private readonly PreviewToolbarCommonFeatureBinding _gridFeature;
+        private readonly PreviewToolbarCommonFeatureBinding _modeFeature;
+        private PreviewToolbarItem _lightsItem;
+        private PreviewToolbarItem _skyboxItem;
+        private PreviewToolbarItem _visualModeItem;
         private Action _requestRepaint;
         private bool _updateRegistered;
 
@@ -40,28 +36,11 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             _showColliderToggle = showColliderToggle;
             _force3DWhenAutoMode = force3DWhenAutoMode;
-
-            int index = 0;
-            _turntableIndex = index++;
-            _infoIndex = index++;
-            _lightsIndex = index++;
-            _collidersIndex = _showColliderToggle ? index++ : -1;
-            _gridIndex = index++;
-            _lightGizmoIndex = index++;
-            _skyboxIndex = index++;
-            _visualModeIndex = index++;
-            _modeIndex = index++;
-            _toolbarItems = new List<PreviewToolbarItem>(index);
-        }
-
-        private static string[] BuildIconNames(string fileName, params string[] fallbacks)
-        {
-            string[] assetPaths = PreviewInstallLayout.BuildAssetPaths("Editor/Common/PreviewAssets/ToolbarIcons/" + fileName);
-            var values = new List<string>(assetPaths.Length + (fallbacks?.Length ?? 0));
-            values.AddRange(assetPaths);
-            if (fallbacks != null && fallbacks.Length > 0)
-                values.AddRange(fallbacks);
-            return values.ToArray();
+            _toolbarItems = new List<PreviewToolbarItem>(_showColliderToggle ? 8 : 7);
+            _colliderFeature = PreviewToolbarCommonFeatures.CreateColliderToggle(_session, RequestRepaint, ColliderIcons);
+            _boundsFeature = PreviewToolbarCommonFeatures.CreateBoundsToggle(_session, RequestRepaint, BoundsIcons);
+            _gridFeature = PreviewToolbarCommonFeatures.CreateGridToggle(_session, RequestRepaint, GridIcons);
+            _modeFeature = PreviewToolbarCommonFeatures.CreateModeButton(_session, RequestRepaint);
         }
 
         public void SetRepaintCallback(Action repaintCallback)
@@ -106,7 +85,7 @@ namespace ParticleThumbnailAndPreview.Editor
             bool cameraChanged = _session.TickInteraction();
             _session.Draw(previewRect, background);
 
-            if (_session.InfoEnabled)
+            if (PreviewSettings.ShowStatsEnabled)
                 DrawInfoPanel(previewRect);
 
             if (inputChanged || cameraChanged)
@@ -133,113 +112,63 @@ namespace ParticleThumbnailAndPreview.Editor
             if (_toolbarItems.Count > 0)
                 return;
 
-            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Button)
-            {
-                OnClick = OnTurntableClicked,
-            });
-
-            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
-            {
-                OnToggleChanged = OnInfoToggled,
-            });
-
-            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
+            _lightsItem = new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
             {
                 OnToggleChanged = OnLightsToggled,
-            });
+            };
+            _toolbarItems.Add(_lightsItem);
 
             if (_showColliderToggle)
-            {
-                _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
-                {
-                    OnToggleChanged = OnCollidersToggled,
-                });
-            }
+                _toolbarItems.Add(_colliderFeature.Item);
 
-            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
-            {
-                OnToggleChanged = OnGridToggled,
-            });
+            _toolbarItems.Add(_boundsFeature.Item);
 
-            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
-            {
-                OnToggleChanged = OnLightGizmoToggled,
-            });
+            _toolbarItems.Add(_gridFeature.Item);
 
-            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
+            _skyboxItem = new PreviewToolbarItem(PreviewToolbarItemKind.Toggle)
             {
                 OnToggleChanged = OnSkyboxToggled,
-            });
+            };
+            _toolbarItems.Add(_skyboxItem);
 
-            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.SplitButton)
+            _visualModeItem = new PreviewToolbarItem(PreviewToolbarItemKind.SplitButton)
             {
                 OnSplitPrimaryClick = OnVisualModePrimaryClicked,
                 OnSplitSecondaryClick = OnVisualModeSecondaryClicked,
-            });
-
-            _toolbarItems.Add(new PreviewToolbarItem(PreviewToolbarItemKind.Button)
-            {
-                OnClick = OnModeButtonClicked,
-            });
+            };
+            _toolbarItems.Add(_modeFeature.Item);
+            _toolbarItems.Add(_visualModeItem);
         }
 
         private void UpdateToolbarItemState()
         {
             bool environmentLocked = _session.ModeContext.Effective2D;
 
-            PreviewToolbarItem turntable = _toolbarItems[_turntableIndex];
-            turntable.IsActive = _session.TurntableEnabled && !environmentLocked;
-            turntable.IsEnabled = !environmentLocked;
-            turntable.FallbackText = "Auto";
-            turntable.Tooltip = "Toggle turntable auto-rotation";
-            turntable.IconNames = TurntableIcons;
-
-            PreviewToolbarItem info = _toolbarItems[_infoIndex];
-            info.IsActive = _session.InfoEnabled;
-            info.IsEnabled = true;
-            info.FallbackText = "Info";
-            info.Tooltip = "Toggle preview info";
-            info.IconNames = InfoIcons;
-
-            PreviewToolbarItem lights = _toolbarItems[_lightsIndex];
-            lights.IsActive = _session.LightsEnabled;
-            lights.IsEnabled = !environmentLocked;
+            PreviewToolbarItem lights = _lightsItem;
+            lights.IsActive = _session.LightingControlsSupported && _session.LightsEnabled;
+            lights.IsEnabled = _session.LightingControlsSupported && !environmentLocked;
             lights.FallbackText = "Lights";
-            lights.Tooltip = "Toggle model lights";
+            lights.Tooltip = _session.LightingControlsSupported
+                ? "Toggle model lights"
+                : "Lighting controls are unavailable when the active renderer is URP 2D.";
             lights.IconNames = LightsIcons;
 
-            if (_collidersIndex >= 0)
-            {
-                PreviewToolbarItem colliders = _toolbarItems[_collidersIndex];
-                colliders.IsActive = _session.ColliderOverlayEnabled;
-                colliders.IsEnabled = true;
-                colliders.FallbackText = "Coll";
-                colliders.Tooltip = "Toggle collider and trigger overlay";
-                colliders.IconNames = ColliderIcons;
-            }
+            if (_showColliderToggle)
+                PreviewToolbarCommonFeatures.Refresh(_session, _colliderFeature);
 
-            PreviewToolbarItem grid = _toolbarItems[_gridIndex];
-            grid.IsActive = _session.GridEnabled;
-            grid.IsEnabled = true;
-            grid.FallbackText = "Grid";
-            grid.Tooltip = "Toggle preview grid";
-            grid.IconNames = GridIcons;
+            PreviewToolbarCommonFeatures.Refresh(_session, _boundsFeature);
+            PreviewToolbarCommonFeatures.Refresh(_session, _gridFeature);
 
-            PreviewToolbarItem lightGizmo = _toolbarItems[_lightGizmoIndex];
-            lightGizmo.IsActive = _session.LightWidgetEnabled;
-            lightGizmo.IsEnabled = !environmentLocked;
-            lightGizmo.FallbackText = "Gizmo";
-            lightGizmo.Tooltip = "Toggle light rig gizmo";
-            lightGizmo.IconNames = LightGizmoIcons;
-
-            PreviewToolbarItem skybox = _toolbarItems[_skyboxIndex];
-            skybox.IsActive = _session.SkyboxEnabled;
-            skybox.IsEnabled = !environmentLocked;
+            PreviewToolbarItem skybox = _skyboxItem;
+            skybox.IsActive = _session.SkyboxSupported && _session.SkyboxEnabled;
+            skybox.IsEnabled = _session.SkyboxSupported;
             skybox.FallbackText = "Skybox";
-            skybox.Tooltip = "Toggle model skybox";
+            skybox.Tooltip = _session.SkyboxSupported
+                ? "Toggle model skybox"
+                : "Skybox is unavailable when the active renderer is URP 2D.";
             skybox.IconNames = SkyboxIcons;
 
-            PreviewToolbarItem visualMode = _toolbarItems[_visualModeIndex];
+            PreviewToolbarItem visualMode = _visualModeItem;
             visualMode.IsActive = _session.VisualMode != ModelPreviewVisualMode.None;
             GetVisualModeButtonContent(
                 _session.VisualMode == ModelPreviewVisualMode.None ? _session.LastNonNoneVisualMode : _session.VisualMode,
@@ -251,32 +180,14 @@ namespace ParticleThumbnailAndPreview.Editor
             visualMode.Tooltip = visualTooltip;
             visualMode.TintIcon = visualTintIcon;
             visualMode.IconNames = visualIcons;
-
-            PreviewToolbarItem mode = _toolbarItems[_modeIndex];
-            mode.IsActive = _session.ModeOverride == PreviewModeOverride.Force2D;
-            mode.IsEnabled = true;
-            mode.FallbackText = _session.ModeContext.Effective2D ? "2D" : "3D";
-            mode.Tooltip = "Switch preview mode (2D/3D)";
-            mode.IconNames = null;
-        }
-
-        private void OnTurntableClicked()
-        {
-            _session.SetTurntableEnabled(!_session.TurntableEnabled);
-            RequestRepaint();
-        }
-
-        private void OnInfoToggled(bool value)
-        {
-            if (value == _session.InfoEnabled)
-                return;
-
-            _session.SetInfoEnabled(value);
-            RequestRepaint();
+            PreviewToolbarCommonFeatures.Refresh(_session, _modeFeature);
         }
 
         private void OnLightsToggled(bool value)
         {
+            if (!_session.LightingControlsSupported)
+                return;
+
             if (value == _session.LightsEnabled)
                 return;
 
@@ -284,35 +195,11 @@ namespace ParticleThumbnailAndPreview.Editor
             RequestRepaint();
         }
 
-        private void OnGridToggled(bool value)
-        {
-            if (value == _session.GridEnabled)
-                return;
-
-            _session.SetGridEnabled(value);
-            RequestRepaint();
-        }
-
-        private void OnCollidersToggled(bool value)
-        {
-            if (value == _session.ColliderOverlayEnabled)
-                return;
-
-            _session.SetColliderOverlayEnabled(value);
-            RequestRepaint();
-        }
-
-        private void OnLightGizmoToggled(bool value)
-        {
-            if (value == _session.LightWidgetEnabled)
-                return;
-
-            _session.SetLightWidgetEnabled(value);
-            RequestRepaint();
-        }
-
         private void OnSkyboxToggled(bool value)
         {
+            if (!_session.SkyboxSupported)
+                return;
+
             if (value == _session.SkyboxEnabled)
                 return;
 
@@ -331,11 +218,6 @@ namespace ParticleThumbnailAndPreview.Editor
             ShowVisualModeMenu(splitRect);
         }
 
-        private void OnModeButtonClicked()
-        {
-            _session.CycleModeOverride();
-            RequestRepaint();
-        }
         #endregion
 
         private void ShowVisualModeMenu(Rect splitRect)
@@ -414,20 +296,19 @@ namespace ParticleThumbnailAndPreview.Editor
             if (Event.current.type != EventType.Repaint)
                 return;
 
-            string line1 = $"Mode: {_session.ModeLabel}";
-            string line2 = $"Renderers: {_session.RendererCount}";
-            string line3 = $"Tris: {_session.TriangleCount}  Mats: {_session.MaterialSlotCount}";
+            string line1 = $"Renderers: {_session.RendererCount}";
+            string line2 = $"Tris: {_session.TriangleCount}  Mats: {_session.MaterialSlotCount}";
             Vector3 boundsSize = _session.BoundsSize;
-            string line4 = $"Bounds: {boundsSize.x:F2}, {boundsSize.y:F2}, {boundsSize.z:F2}";
+            string line3 = $"Bounds: {boundsSize.x:F2}, {boundsSize.y:F2}, {boundsSize.z:F2}";
 
             const float padding = 4f;
             const float spacing = 2f;
             GUIStyle style = PreviewToolbarTheme.InfoValueStyle;
 
             float width = Mathf.Max(
-                Mathf.Max(style.CalcSize(new GUIContent(line1)).x, style.CalcSize(new GUIContent(line2)).x),
-                Mathf.Max(style.CalcSize(new GUIContent(line3)).x, style.CalcSize(new GUIContent(line4)).x)) + padding * 2f;
-            float height = style.lineHeight * 4f + spacing * 3f + padding * 2f;
+                style.CalcSize(new GUIContent(line1)).x,
+                Mathf.Max(style.CalcSize(new GUIContent(line2)).x, style.CalcSize(new GUIContent(line3)).x)) + padding * 2f;
+            float height = style.lineHeight * 3f + spacing * 2f + padding * 2f;
             Rect panelRect = new Rect(previewRect.x + 5f, previewRect.yMax - height - 5f, width, height);
 
             float y = panelRect.y + padding;
@@ -436,8 +317,6 @@ namespace ParticleThumbnailAndPreview.Editor
             GUI.Label(new Rect(panelRect.x + padding, y, panelRect.width - padding * 2f, style.lineHeight), line2, style);
             y += style.lineHeight + spacing;
             GUI.Label(new Rect(panelRect.x + padding, y, panelRect.width - padding * 2f, style.lineHeight), line3, style);
-            y += style.lineHeight + spacing;
-            GUI.Label(new Rect(panelRect.x + padding, y, panelRect.width - padding * 2f, style.lineHeight), line4, style);
         }
 
         #region Update Loop

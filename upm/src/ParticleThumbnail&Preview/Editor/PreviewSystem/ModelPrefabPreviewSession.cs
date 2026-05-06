@@ -17,7 +17,7 @@ namespace ParticleThumbnailAndPreview.Editor
         Matcap,
     }
 
-    internal sealed class ModelPrefabPreviewSession
+    internal sealed class ModelPrefabPreviewSession : IPreviewToolbarCommonSession
     {
         private const double SessionRestoreWindowSeconds = 2.0d;
         private const int MaxCachedSessionStates = 64;
@@ -60,7 +60,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private const string MatcapMaterialPath = "PrefabPreviewMatcap.mat";
         private const string OverdrawMaterialPath = "PrefabPreviewOverdraw.mat";
 
-        private static Mesh s_boundsWireCubeMesh;
         private static Mesh s_pivotCrossMesh;
         private static Mesh s_axesMesh;
         private static Material s_solidLineMaterial;
@@ -114,8 +113,8 @@ namespace ParticleThumbnailAndPreview.Editor
         private bool _lightsEnabled;
         private bool _lightWidgetEnabled;
         private bool _skyboxEnabled;
-        private bool _infoEnabled = true;
         private bool _turntableEnabled = true;
+        private bool _boundsOverlayEnabled = PreviewSettings.SharedBoundsRulerDefaultEnabled;
         private bool _colliderOverlayEnabled;
         private PreviewModeOverride _modeOverride = PreviewModeOverride.Force3D;
         private ModelPreviewVisualMode _visualMode = ModelPreviewVisualMode.None;
@@ -149,8 +148,8 @@ namespace ParticleThumbnailAndPreview.Editor
             internal bool LightsEnabled;
             internal bool LightWidgetEnabled;
             internal bool SkyboxEnabled;
-            internal bool InfoEnabled;
             internal bool TurntableEnabled;
+            internal bool BoundsOverlayEnabled;
             internal bool ColliderOverlayEnabled;
             internal PreviewModeOverride ModeOverride;
             internal ModelPreviewVisualMode VisualMode;
@@ -191,9 +190,11 @@ namespace ParticleThumbnailAndPreview.Editor
         internal bool GridEnabled => _gridEnabled;
         internal bool LightsEnabled => _lightsEnabled;
         internal bool LightWidgetEnabled => _lightWidgetEnabled;
+        internal bool LightingControlsSupported => ComputeLightingControlsSupportedForTests(ModeContext.IsUrp2DRenderer);
         internal bool SkyboxEnabled => _skyboxEnabled;
-        internal bool InfoEnabled => _infoEnabled;
+        internal bool SkyboxSupported => ComputeSkyboxSupportedForTests(ModeContext.IsUrp2DRenderer);
         internal bool TurntableEnabled => _turntableEnabled;
+        internal bool BoundsOverlayEnabled => _boundsOverlayEnabled;
         internal bool ColliderOverlayEnabled => _colliderOverlayEnabled;
         internal PreviewModeOverride ModeOverride => _modeOverride;
         internal ModelPreviewVisualMode VisualMode => _visualMode;
@@ -206,6 +207,32 @@ namespace ParticleThumbnailAndPreview.Editor
         internal int MaterialSlotCount => _materialSlotCount;
         internal Vector3 BoundsSize => _hasFramedBounds ? _framedBounds.size : Vector3.zero;
         internal string ModeLabel => ModeContext.Effective2D ? "2D" : "3D";
+
+        bool IPreviewToolbarCommonSession.GridEnabled
+        {
+            get => GridEnabled;
+            set => SetGridEnabled(value);
+        }
+
+        bool IPreviewToolbarCommonSession.BoundsOverlayEnabled
+        {
+            get => BoundsOverlayEnabled;
+            set => SetBoundsOverlayEnabled(value);
+        }
+
+        bool IPreviewToolbarCommonSession.ColliderOverlayEnabled
+        {
+            get => ColliderOverlayEnabled;
+            set => SetColliderOverlayEnabled(value);
+        }
+
+        PreviewModeOverride IPreviewToolbarCommonSession.ModeOverride => ModeOverride;
+        PreviewModeContext IPreviewToolbarCommonSession.ModeContext => ModeContext;
+
+        void IPreviewToolbarCommonSession.CycleModeOverride()
+        {
+            CycleModeOverride();
+        }
 
         internal void Setup(GameObject prefab, bool force3DWhenAutoMode = false)
         {
@@ -254,8 +281,8 @@ namespace ParticleThumbnailAndPreview.Editor
             _lightsEnabled = true;
             _lightWidgetEnabled = PreviewSettings.ModelDefaultLightRotationGizmosEnabled;
             _skyboxEnabled = PreviewSettings.ModelDefaultSkyboxEnabled;
-            _infoEnabled = PreviewSettings.ModelDefaultInfoEnabled;
             _turntableEnabled = PreviewSettings.ModelDefaultTurntableEnabled;
+            _boundsOverlayEnabled = PreviewSettings.SharedBoundsRulerDefaultEnabled;
             _colliderOverlayEnabled = false;
             _visualMode = ModelPreviewVisualMode.None;
             _lastNonNoneVisualMode = ModelPreviewVisualMode.Normals;
@@ -276,8 +303,8 @@ namespace ParticleThumbnailAndPreview.Editor
                 _lightsEnabled = restored.LightsEnabled;
                 _lightWidgetEnabled = restored.LightWidgetEnabled;
                 _skyboxEnabled = restored.SkyboxEnabled;
-                _infoEnabled = restored.InfoEnabled;
                 _turntableEnabled = restored.TurntableEnabled;
+                _boundsOverlayEnabled = restored.BoundsOverlayEnabled;
                 _colliderOverlayEnabled = restored.ColliderOverlayEnabled;
                 _modeOverride = NormalizeModeOverride(restored.ModeOverride, force3DWhenAutoMode);
                 _visualMode = restored.VisualMode;
@@ -290,6 +317,10 @@ namespace ParticleThumbnailAndPreview.Editor
                 _lastGridDiagnosticsKey = null;
                 PreviewDiagnostics.Log("ModelSession", $"Restored cached state asset='{assetPath}'");
             }
+
+            _lightsEnabled = LightingControlsSupported && _lightsEnabled;
+            _lightWidgetEnabled = LightingControlsSupported && _lightWidgetEnabled;
+            _skyboxEnabled = SkyboxSupported && _skyboxEnabled;
 
             if (ModeContext.Effective2D)
                 _turntableEnabled = false;
@@ -307,6 +338,9 @@ namespace ParticleThumbnailAndPreview.Editor
             EnsureOverlayResources();
             PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
             PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
+            PreviewDiagnostics.Log(
+                "ModelSkybox",
+                $"Setup state asset='{assetPath}' modeOverride={_modeOverride} effective2D={ModeContext.Effective2D} urp2D={ModeContext.IsUrp2DRenderer} skyboxSupported={SkyboxSupported} skyboxEnabled={_skyboxEnabled} settingsMode={PreviewSettings.ModelPreviewMode} settingsSkyboxDefault={PreviewSettings.ModelDefaultSkyboxEnabled}");
             PreviewDiagnostics.Log("ModelSession", $"Setup complete id={instanceId} asset='{assetPath}'");
         }
 
@@ -379,8 +413,8 @@ namespace ParticleThumbnailAndPreview.Editor
                     LightsEnabled = _lightsEnabled,
                     LightWidgetEnabled = _lightWidgetEnabled,
                     SkyboxEnabled = _skyboxEnabled,
-                    InfoEnabled = _infoEnabled,
                     TurntableEnabled = _turntableEnabled,
+                    BoundsOverlayEnabled = _boundsOverlayEnabled,
                     ColliderOverlayEnabled = _colliderOverlayEnabled,
                     ModeOverride = NormalizeModeOverride(_modeOverride),
                     VisualMode = _visualMode,
@@ -411,22 +445,22 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal void SetLightsEnabled(bool enabled)
         {
-            _lightsEnabled = enabled;
+            _lightsEnabled = LightingControlsSupported && enabled;
         }
 
         internal void SetLightWidgetEnabled(bool enabled)
         {
-            _lightWidgetEnabled = enabled;
+            _lightWidgetEnabled = LightingControlsSupported && enabled;
         }
 
         internal void SetSkyboxEnabled(bool enabled)
         {
-            _skyboxEnabled = enabled;
+            _skyboxEnabled = SkyboxSupported && enabled;
         }
 
-        internal void SetInfoEnabled(bool enabled)
+        internal void SetBoundsOverlayEnabled(bool enabled)
         {
-            _infoEnabled = enabled;
+            _boundsOverlayEnabled = enabled;
         }
 
         internal void SetTurntableEnabled(bool enabled)
@@ -521,7 +555,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             bool effective2D = ModeContext.Effective2D;
             Rect lightWidgetRect = GetLightWidgetPadRect(previewRect);
-            bool lightWidgetInteractive = _lightWidgetEnabled && !effective2D;
+            bool lightWidgetInteractive = _lightWidgetEnabled && LightingControlsSupported && !effective2D;
             int lightRigControlId = lightWidgetInteractive
                 ? GUIUtility.GetControlID(LightWidgetControlHash, FocusType.Passive, lightWidgetRect)
                 : 0;
@@ -694,10 +728,18 @@ namespace ParticleThumbnailAndPreview.Editor
             ApplyEnvironmentState();
             SamplePreviewAnimation();
             _preview.BeginPreview(previewRect, background ?? GUIStyle.none);
+            bool useSrpSkyboxPrepass = ShouldUseSrpSkyboxPrepass();
+            PreviewDiagnostics.Log(
+                "ModelSkybox",
+                $"Draw path asset='{_prefabAssetPath}' clearFlags={_preview.camera.clearFlags} cameraSkyboxEnabled={(_cameraSkybox != null && _cameraSkybox.enabled)} srpSkyboxPrepass={useSrpSkyboxPrepass} visualMode={_visualMode}");
+            if (useSrpSkyboxPrepass)
+                RenderSrpSkyboxPrepass();
             if (DrawGrid())
                 LogGridDiagnosticsState("drawn");
             else
                 LogGridDiagnosticsState(_gridEnabled ? "skip-grid-draw-failed" : "skip-grid-disabled");
+            if (_boundsOverlayEnabled && _hasFramedBounds)
+                PreviewBoundsVisualizer.DrawWire(_preview, _framedBounds);
             if (_colliderOverlayEnabled)
                 ModelColliderOverlayRenderer.Draw(_preview, _colliders, _colliders2D);
 
@@ -710,9 +752,12 @@ namespace ParticleThumbnailAndPreview.Editor
 
             try
             {
-                using (ParticleRenderCompatibilityUtility.EnableRenderersScoped(_renderers, _rendererInitialStates))
+                using (PreviewRenderCompatibilityUtility.EnableRenderersScoped(_renderers, _rendererInitialStates))
                 {
-                    ParticleRenderCompatibilityUtility.RenderPreviewWithCameraPath(_preview);
+                    if (useSrpSkyboxPrepass)
+                        PrepareCameraForGeometryPass();
+
+                    PreviewRenderCompatibilityUtility.RenderPreviewWithCameraPath(_preview);
                 }
             }
             finally
@@ -725,8 +770,61 @@ namespace ParticleThumbnailAndPreview.Editor
             if (previewTexture != null)
                 EditorGUI.DrawPreviewTexture(previewRect, previewTexture, null, ScaleMode.StretchToFill);
 
-            if (_lightWidgetEnabled)
+            if (_boundsOverlayEnabled && _hasFramedBounds)
+                PreviewBoundsVisualizer.DrawLabels(previewRect, _preview.camera, _framedBounds);
+
+            if (_lightWidgetEnabled && LightingControlsSupported)
                 DrawLightWidget(previewRect);
+        }
+
+        private bool ShouldUseSrpSkyboxPrepass()
+        {
+            if (_preview == null || _preview.camera == null || _cameraSkybox == null)
+                return false;
+
+            if (!_cameraSkybox.enabled || _preview.camera.clearFlags != CameraClearFlags.Skybox)
+                return false;
+
+            PreviewRenderPipelineKind pipelineKind = PreviewRenderCompatibilityUtility.DetectCurrentPipelineKind();
+            return pipelineKind != PreviewRenderPipelineKind.BuiltIn;
+        }
+
+        private void RenderSrpSkyboxPrepass()
+        {
+            bool[] previousStates = new bool[_renderers.Count];
+            for (int i = 0; i < _renderers.Count; i++)
+            {
+                Renderer renderer = _renderers[i];
+                if (renderer == null)
+                    continue;
+
+                previousStates[i] = renderer.enabled;
+                renderer.enabled = false;
+            }
+
+            try
+            {
+                PreviewRenderCompatibilityUtility.RenderPreviewWithCompatibility(_preview);
+            }
+            finally
+            {
+                for (int i = 0; i < _renderers.Count; i++)
+                {
+                    Renderer renderer = _renderers[i];
+                    if (renderer != null)
+                        renderer.enabled = previousStates[i];
+                }
+            }
+        }
+
+        private void PrepareCameraForGeometryPass()
+        {
+            _preview.camera.clearFlags = CameraClearFlags.Nothing;
+            if (_cameraSkybox != null)
+                _cameraSkybox.enabled = false;
+            PreviewDiagnostics.Log(
+                "ModelSkybox",
+                $"Prepare geometry pass asset='{_prefabAssetPath}' clearFlags={_preview.camera.clearFlags} cameraSkyboxEnabled={(_cameraSkybox != null && _cameraSkybox.enabled)}");
         }
 
         private bool TickPreviewAnimationPlayback(double now)
@@ -1022,8 +1120,8 @@ namespace ParticleThumbnailAndPreview.Editor
         private void ApplyEnvironmentState()
         {
             bool effective2D = ModeContext.Effective2D;
-            bool lightingEnabled = _lightsEnabled && !effective2D;
-            bool skyboxEnabled = _skyboxEnabled && !effective2D;
+            bool lightingEnabled = _lightsEnabled && LightingControlsSupported && !effective2D;
+            bool skyboxEnabled = _skyboxEnabled && SkyboxSupported;
             PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
             PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
             SharedPreviewLightingProfile lightingProfile = PreviewLightingSystem.CreateProfileFromSettings();
@@ -1042,6 +1140,9 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 Material skyboxMaterial = PreviewSettings.ModelSkyboxMaterial;
                 bool canUseSkybox = skyboxEnabled && skyboxMaterial != null;
+                PreviewDiagnostics.Log(
+                    "ModelSkybox",
+                    $"Apply env asset='{_prefabAssetPath}' modeOverride={_modeOverride} effective2D={effective2D} urp2D={ModeContext.IsUrp2DRenderer} lightingEnabled={lightingEnabled} skyboxToggle={_skyboxEnabled} skyboxSupported={SkyboxSupported} materialNull={(skyboxMaterial == null)} canUseSkybox={canUseSkybox}");
                 _cameraSkybox.enabled = canUseSkybox;
                 if (canUseSkybox)
                 {
@@ -1132,15 +1233,6 @@ namespace ParticleThumbnailAndPreview.Editor
             }
 
             SharedMaterialRestoreCache.Clear();
-        }
-
-        private void DrawBoundsOverlay()
-        {
-            if (!_hasFramedBounds || s_solidLineMaterial == null || s_boundsWireCubeMesh == null)
-                return;
-
-            Matrix4x4 matrix = Matrix4x4.TRS(_framedBounds.center, Quaternion.identity, _framedBounds.size);
-            _preview.DrawMesh(s_boundsWireCubeMesh, matrix, s_solidLineMaterial, 0);
         }
 
         private void DrawPivotOverlay()
@@ -1245,14 +1337,24 @@ namespace ParticleThumbnailAndPreview.Editor
             return Mathf.Max(size * 1.5f / Mathf.Max(Mathf.Tan(fovRad), 0.001f), 0.3f);
         }
 
-        internal static bool ComputeLightingEnabledForTests(bool toggleEnabled, bool effective2D)
+        internal static bool ComputeLightingControlsSupportedForTests(bool isUrp2DRenderer)
         {
-            return toggleEnabled && !effective2D;
+            return !isUrp2DRenderer;
         }
 
-        internal static bool ComputeSkyboxEnabledForTests(bool toggleEnabled, bool hasCubemap, bool effective2D)
+        internal static bool ComputeLightingEnabledForTests(bool toggleEnabled, bool effective2D, bool isUrp2DRenderer)
         {
-            return toggleEnabled && hasCubemap && !effective2D;
+            return toggleEnabled && !effective2D && ComputeLightingControlsSupportedForTests(isUrp2DRenderer);
+        }
+
+        internal static bool ComputeSkyboxSupportedForTests(bool isUrp2DRenderer)
+        {
+            return !isUrp2DRenderer;
+        }
+
+        internal static bool ComputeSkyboxEnabledForTests(bool toggleEnabled, bool hasCubemap, bool effective2D, bool isUrp2DRenderer)
+        {
+            return toggleEnabled && hasCubemap && !effective2D && ComputeSkyboxSupportedForTests(isUrp2DRenderer);
         }
 
         private bool TryComputeFramingBounds(out Bounds bounds)
@@ -1574,12 +1676,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 s_solidLineMaterial.renderQueue = 2999;
             }
 
-            if (s_boundsWireCubeMesh == null)
-            {
-                s_boundsWireCubeMesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-                BuildBoundsWireCubeMesh(s_boundsWireCubeMesh);
-            }
-
             if (s_pivotCrossMesh == null)
             {
                 s_pivotCrossMesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
@@ -1614,7 +1710,6 @@ namespace ParticleThumbnailAndPreview.Editor
             }
 
             DestroyOwnedObject(ref s_solidLineMaterial);
-            DestroyOwnedObject(ref s_boundsWireCubeMesh);
             DestroyOwnedObject(ref s_pivotCrossMesh);
             DestroyOwnedObject(ref s_axesMesh);
         }
@@ -1830,42 +1925,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 return false;
 
             return root.GetComponentInChildren(componentType, true) != null;
-        }
-
-        private static void BuildBoundsWireCubeMesh(Mesh mesh)
-        {
-            var vertices = new List<Vector3>();
-            var colors = new List<Color>();
-            Color c = new Color(0.98f, 0.82f, 0.18f, 0.95f);
-
-            static void AddEdge(List<Vector3> verts, List<Color> cols, Vector3 a, Vector3 b, Color col)
-            {
-                verts.Add(a);
-                cols.Add(col);
-                verts.Add(b);
-                cols.Add(col);
-            }
-
-            Vector3[] p =
-            {
-                new Vector3(-0.5f, -0.5f, -0.5f),
-                new Vector3(0.5f, -0.5f, -0.5f),
-                new Vector3(0.5f, 0.5f, -0.5f),
-                new Vector3(-0.5f, 0.5f, -0.5f),
-                new Vector3(-0.5f, -0.5f, 0.5f),
-                new Vector3(0.5f, -0.5f, 0.5f),
-                new Vector3(0.5f, 0.5f, 0.5f),
-                new Vector3(-0.5f, 0.5f, 0.5f),
-            };
-
-            AddEdge(vertices, colors, p[0], p[1], c); AddEdge(vertices, colors, p[1], p[2], c);
-            AddEdge(vertices, colors, p[2], p[3], c); AddEdge(vertices, colors, p[3], p[0], c);
-            AddEdge(vertices, colors, p[4], p[5], c); AddEdge(vertices, colors, p[5], p[6], c);
-            AddEdge(vertices, colors, p[6], p[7], c); AddEdge(vertices, colors, p[7], p[4], c);
-            AddEdge(vertices, colors, p[0], p[4], c); AddEdge(vertices, colors, p[1], p[5], c);
-            AddEdge(vertices, colors, p[2], p[6], c); AddEdge(vertices, colors, p[3], p[7], c);
-
-            SetLineMeshData(mesh, vertices, colors);
         }
 
         private static void BuildPivotMesh(Mesh mesh)

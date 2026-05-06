@@ -10,6 +10,7 @@ namespace ParticleThumbnailAndPreview.Editor
         Unsupported = 0,
         Particle = 1,
         Model = 2,
+        Sprite = 3,
     }
 
     internal static class PrefabPreviewTargetClassifier
@@ -35,10 +36,14 @@ namespace ParticleThumbnailAndPreview.Editor
                 return PrefabPreviewTargetKind.Unsupported;
 
             bool hasModelRenderer = HasSupportedModelRenderer(prefabAsset);
+            bool hasSpriteRenderer = HasSupportedSpriteRenderer(prefabAsset);
             bool rootHasParticleSystem = prefabAsset.GetComponent<ParticleSystem>() != null;
 
             if (hasModelRenderer)
                 return PrefabPreviewTargetKind.Model;
+
+            if (hasSpriteRenderer)
+                return PrefabPreviewTargetKind.Sprite;
 
             if (rootHasParticleSystem)
                 return PrefabPreviewTargetKind.Particle;
@@ -115,6 +120,21 @@ namespace ParticleThumbnailAndPreview.Editor
                     continue;
 
                 return true;
+            }
+
+            return false;
+        }
+
+        private static bool HasSupportedSpriteRenderer(GameObject prefab)
+        {
+            if (prefab == null)
+                return false;
+
+            SpriteRenderer[] spriteRenderers = prefab.GetComponentsInChildren<SpriteRenderer>(true);
+            for (int i = 0; i < spriteRenderers.Length; i++)
+            {
+                if (spriteRenderers[i] != null)
+                    return true;
             }
 
             return false;

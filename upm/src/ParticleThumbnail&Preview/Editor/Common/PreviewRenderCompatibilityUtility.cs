@@ -4,11 +4,11 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
-// Applies rendering compatibility safeguards so particle output remains consistent across Built-in, URP, and HDRP editor contexts.
+// Applies rendering compatibility safeguards so preview rendering remains consistent across Built-in, URP, and HDRP editor contexts.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
-    internal enum ParticleRenderPipelineKind
+    internal enum PreviewRenderPipelineKind
     {
         BuiltIn,
         Urp3D,
@@ -18,10 +18,10 @@ namespace ParticleThumbnailAndPreview.Editor
     }
 
     /// <summary>
-    /// Shared rendering compatibility helpers for particle thumbnail/preview rendering across
+    /// Shared rendering compatibility helpers for thumbnail/preview rendering across
     /// Built-in, URP and HDRP editor preview paths.
     /// </summary>
-    internal static class ParticleRenderCompatibilityUtility
+    internal static class PreviewRenderCompatibilityUtility
     {
         private const bool EnableDiagnostics = false;
 
@@ -33,18 +33,18 @@ namespace ParticleThumbnailAndPreview.Editor
             new[] { typeof(bool) },
             null);
 
-        internal static ParticleRenderPipelineKind DetectCurrentPipelineKind()
+        internal static PreviewRenderPipelineKind DetectCurrentPipelineKind()
         {
             RenderPipelineAsset current = GraphicsSettings.currentRenderPipeline;
             if (current == null)
             {
                 LogDiagnosticOnce("pipeline:builtin", "Detected Built-in render pipeline.");
-                return ParticleRenderPipelineKind.BuiltIn;
+                return PreviewRenderPipelineKind.BuiltIn;
             }
 
             string pipelineTypeName = current.GetType().FullName ?? current.GetType().Name ?? string.Empty;
             string rendererTypeName = TryGetDefaultRendererTypeName(current);
-            ParticleRenderPipelineKind kind = ClassifyPipelineKind(pipelineTypeName, rendererTypeName);
+            PreviewRenderPipelineKind kind = ClassifyPipelineKind(pipelineTypeName, rendererTypeName);
 
             LogDiagnosticOnce(
                 $"pipeline:{kind}:{pipelineTypeName}:{rendererTypeName}",
@@ -58,7 +58,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (preview == null)
                 return;
 
-            ParticleRenderPipelineKind kind = DetectCurrentPipelineKind();
+            PreviewRenderPipelineKind kind = DetectCurrentPipelineKind();
             bool usedSrpPath = false;
             bool fallbackUsed = false;
 
@@ -250,14 +250,14 @@ namespace ParticleThumbnailAndPreview.Editor
             }
         }
 
-        internal static ParticleRenderPipelineKind ClassifyPipelineKindForTests(string pipelineTypeName, string rendererTypeName)
+        internal static PreviewRenderPipelineKind ClassifyPipelineKindForTests(string pipelineTypeName, string rendererTypeName)
         {
             return ClassifyPipelineKind(pipelineTypeName, rendererTypeName);
         }
 
         internal static bool HasSrpRenderOverloadForTests => PreviewRenderWithSrpMethod != null;
 
-        internal static bool ShouldPreferSrpRenderForTests(ParticleRenderPipelineKind kind)
+        internal static bool ShouldPreferSrpRenderForTests(PreviewRenderPipelineKind kind)
         {
             return ShouldPreferSrpRender(kind);
         }
@@ -278,31 +278,31 @@ namespace ParticleThumbnailAndPreview.Editor
             }
         }
 
-        private static bool ShouldPreferSrpRender(ParticleRenderPipelineKind kind)
+        private static bool ShouldPreferSrpRender(PreviewRenderPipelineKind kind)
         {
-            return kind != ParticleRenderPipelineKind.BuiltIn;
+            return kind != PreviewRenderPipelineKind.BuiltIn;
         }
 
-        private static ParticleRenderPipelineKind ClassifyPipelineKind(string pipelineTypeName, string rendererTypeName)
+        private static PreviewRenderPipelineKind ClassifyPipelineKind(string pipelineTypeName, string rendererTypeName)
         {
             if (string.IsNullOrEmpty(pipelineTypeName))
-                return ParticleRenderPipelineKind.BuiltIn;
+                return PreviewRenderPipelineKind.BuiltIn;
 
             if (ContainsIgnoreCase(pipelineTypeName, "UniversalRenderPipeline"))
             {
                 return ContainsIgnoreCase(rendererTypeName, "Renderer2DData")
-                    ? ParticleRenderPipelineKind.Urp2D
-                    : ParticleRenderPipelineKind.Urp3D;
+                    ? PreviewRenderPipelineKind.Urp2D
+                    : PreviewRenderPipelineKind.Urp3D;
             }
 
             if (ContainsIgnoreCase(pipelineTypeName, "HDRenderPipeline")
                 || ContainsIgnoreCase(pipelineTypeName, "HighDefinitionRenderPipeline")
                 || ContainsIgnoreCase(pipelineTypeName, "HDRP"))
             {
-                return ParticleRenderPipelineKind.Hdrp;
+                return PreviewRenderPipelineKind.Hdrp;
             }
 
-            return ParticleRenderPipelineKind.UnknownSrp;
+            return PreviewRenderPipelineKind.UnknownSrp;
         }
 
         private static string TryGetDefaultRendererTypeName(RenderPipelineAsset pipelineAsset)

@@ -22,10 +22,12 @@ namespace ParticleThumbnailAndPreview.Editor
 		[SerializeField] internal PreviewToolbarColorPreset toolbarColorPreset = PreviewSettings.D_ToolbarColorPreset;
 		[SerializeField] internal float toolbarHeight = PreviewSettings.D_ToolbarHeight;
 			[SerializeField] internal bool modelPreviewActive = PreviewSettings.D_ModelPreviewActive;
+			[SerializeField] internal bool spritePrefabPreviewActive = PreviewSettings.D_SpritePrefabPreviewActive;
 			[SerializeField] internal bool modelImporterPreviewActive = PreviewSettings.D_ModelImporterPreviewActive;
 			[SerializeField] internal PreviewModeOverride modelPreviewMode = PreviewSettings.D_ModelPreviewMode;
 			[SerializeField] internal bool modelDefaultTurntableEnabled = PreviewSettings.D_ModelDefaultTurntableEnabled;
-			[SerializeField] internal bool modelDefaultInfoEnabled = PreviewSettings.D_ModelDefaultInfoEnabled;
+			[SerializeField] internal bool showStatsEnabled = PreviewSettings.D_ShowStatsEnabled;
+			[SerializeField] internal bool sharedBoundsRulerDefaultEnabled = PreviewSettings.D_SharedBoundsRulerDefaultEnabled;
 			[SerializeField] internal bool modelDefaultLightRotationGizmosEnabled = PreviewSettings.D_ModelDefaultLightRotationGizmosEnabled;
 			[SerializeField] internal bool modelDefaultSkyboxEnabled = PreviewSettings.D_ModelDefaultSkyboxEnabled;
 			[SerializeField] internal bool sharedGridDefaultEnabled = PreviewSettings.D_SharedGridDefaultEnabled;
@@ -79,10 +81,12 @@ namespace ParticleThumbnailAndPreview.Editor
 			toolbarColorPreset = PreviewSettings.D_ToolbarColorPreset;
 			toolbarHeight = PreviewSettings.D_ToolbarHeight;
 			modelPreviewActive = PreviewSettings.D_ModelPreviewActive;
+			spritePrefabPreviewActive = PreviewSettings.D_SpritePrefabPreviewActive;
 			modelImporterPreviewActive = PreviewSettings.D_ModelImporterPreviewActive;
 			modelPreviewMode = PreviewSettings.D_ModelPreviewMode;
 			modelDefaultTurntableEnabled = PreviewSettings.D_ModelDefaultTurntableEnabled;
-			modelDefaultInfoEnabled = PreviewSettings.D_ModelDefaultInfoEnabled;
+			showStatsEnabled = PreviewSettings.D_ShowStatsEnabled;
+			sharedBoundsRulerDefaultEnabled = PreviewSettings.D_SharedBoundsRulerDefaultEnabled;
 			modelDefaultLightRotationGizmosEnabled = PreviewSettings.D_ModelDefaultLightRotationGizmosEnabled;
 			modelDefaultSkyboxEnabled = PreviewSettings.D_ModelDefaultSkyboxEnabled;
 			sharedGridDefaultEnabled = PreviewSettings.D_SharedGridDefaultEnabled;
@@ -138,14 +142,16 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float MaxMotionSpeed = 200f;
 		public static readonly Color D_BackgroundColor = new Color(0.11f, 0.11f, 0.11f, 1f);
 		public const PreviewToolbarColorPreset D_ToolbarColorPreset = PreviewToolbarColorPreset.UnityBlue;
-			public const float D_ToolbarHeight = 35f;
+		public const float D_ToolbarHeight = 35f;
 		public const float MinToolbarHeight = 16f;
 		public const float MaxToolbarHeight = 40f;
 		public const bool D_ModelPreviewActive = true;
+		public const bool D_SpritePrefabPreviewActive = true;
 		public const bool D_ModelImporterPreviewActive = true;
 			public const PreviewModeOverride D_ModelPreviewMode = PreviewModeOverride.Auto;
 			public const bool D_ModelDefaultTurntableEnabled = true;
-			public const bool D_ModelDefaultInfoEnabled = true;
+			public const bool D_ShowStatsEnabled = true;
+			public const bool D_SharedBoundsRulerDefaultEnabled = false;
 			public const bool D_ModelDefaultLightRotationGizmosEnabled = true;
 			public const bool D_ModelDefaultSkyboxEnabled = true;
 			public const bool D_SharedGridDefaultEnabled = true;
@@ -196,7 +202,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		public static bool ParticlePrefabPreviewActive => Storage.active;
 		public static bool Active => ParticlePrefabPreviewActive;
-		public static bool AnyPrefabCustomPreviewActive => ParticlePrefabPreviewActive || ModelPreviewActive;
+		public static bool AnyPrefabCustomPreviewActive => ParticlePrefabPreviewActive || ModelPreviewActive || SpritePrefabPreviewActive;
 		public static bool Autoplay => true;
 		public static int RefreshFps => Mathf.Clamp(Storage.refreshFps, MinRefreshFps, MaxRefreshFps);
 
@@ -220,11 +226,13 @@ namespace ParticleThumbnailAndPreview.Editor
 				? D_ToolbarHeight
 				: Mathf.Clamp(Storage.toolbarHeight, MinToolbarHeight, MaxToolbarHeight);
 			public static bool ModelPreviewActive => Storage.modelPreviewActive;
+			public static bool SpritePrefabPreviewActive => Storage.spritePrefabPreviewActive;
 			public static bool ThreeDAssetPreviewActive => Storage.modelImporterPreviewActive;
 			public static bool ModelImporterPreviewActive => ThreeDAssetPreviewActive;
 			public static PreviewModeOverride ModelPreviewMode => Storage.modelPreviewMode;
 			public static bool ModelDefaultTurntableEnabled => Storage.modelDefaultTurntableEnabled;
-			public static bool ModelDefaultInfoEnabled => Storage.modelDefaultInfoEnabled;
+			public static bool ShowStatsEnabled => Storage.showStatsEnabled;
+			public static bool SharedBoundsRulerDefaultEnabled => Storage.sharedBoundsRulerDefaultEnabled;
 			public static bool ModelDefaultLightRotationGizmosEnabled => Storage.modelDefaultLightRotationGizmosEnabled;
 			public static bool ModelDefaultSkyboxEnabled => Storage.modelDefaultSkyboxEnabled;
 			public static bool SharedGridDefaultEnabled => Storage.sharedGridDefaultEnabled;
@@ -329,6 +337,11 @@ namespace ParticleThumbnailAndPreview.Editor
 			"d_Prefab Icon",
 			"Prefab Icon",
 		};
+		private static readonly string[] SpritePrefabPreviewSystemIcons =
+		{
+			"d_SpriteRenderer Icon",
+			"SpriteRenderer Icon",
+		};
 		private static readonly string[] ModelImporterPreviewSystemIcons =
 		{
 			"d_Mesh Icon",
@@ -344,10 +357,12 @@ namespace ParticleThumbnailAndPreview.Editor
 		private const string ToolbarColorPresetPropertyName = "toolbarColorPreset";
 		private const string ToolbarHeightPropertyName = "toolbarHeight";
 		private const string ModelPreviewActivePropertyName = "modelPreviewActive";
+		private const string SpritePrefabPreviewActivePropertyName = "spritePrefabPreviewActive";
 		private const string ModelImporterPreviewActivePropertyName = "modelImporterPreviewActive";
 		private const string ModelPreviewModePropertyName = "modelPreviewMode";
 		private const string ModelDefaultTurntableEnabledPropertyName = "modelDefaultTurntableEnabled";
-		private const string ModelDefaultInfoEnabledPropertyName = "modelDefaultInfoEnabled";
+		private const string ShowStatsEnabledPropertyName = "showStatsEnabled";
+		private const string SharedBoundsRulerDefaultEnabledPropertyName = "sharedBoundsRulerDefaultEnabled";
 		private const string ModelDefaultLightRotationGizmosEnabledPropertyName = "modelDefaultLightRotationGizmosEnabled";
 		private const string ModelDefaultSkyboxEnabledPropertyName = "modelDefaultSkyboxEnabled";
 		private const string SharedGridDefaultEnabledPropertyName = "sharedGridDefaultEnabled";
@@ -485,6 +500,11 @@ namespace ParticleThumbnailAndPreview.Editor
 					"Enable custom preview rendering for non-particle prefabs that use mesh/skinned renderers.",
 					PrefabPreviewSystemIcons);
 				DrawIconToggleLeft(
+					serializedObject.FindProperty(SpritePrefabPreviewActivePropertyName),
+					"Draw Sprite Prefab Custom Preview",
+					"Enable custom preview rendering for sprite-based world-space prefabs.",
+					SpritePrefabPreviewSystemIcons);
+				DrawIconToggleLeft(
 					serializedObject.FindProperty(ModelImporterPreviewActivePropertyName),
 					"Draw 3D File (FBX/BLEND) Asset Custom Preview",
 					"Enable custom preview rendering for imported 3D model assets when the Model tab is active.",
@@ -575,7 +595,8 @@ namespace ParticleThumbnailAndPreview.Editor
 			DrawSectionCard("Default enabled state", () =>
 			{
 				DrawToggle(serializedObject.FindProperty(ModelDefaultTurntableEnabledPropertyName), "Turntable", "Default state for the Turntable toggle.");
-				DrawToggle(serializedObject.FindProperty(ModelDefaultInfoEnabledPropertyName), "Stat Info", "Default state for the Stat Info toggle.");
+				DrawToggle(serializedObject.FindProperty(ShowStatsEnabledPropertyName), "Show Stats", "Show stats overlays in model, sprite, and particle preview.");
+				DrawToggle(serializedObject.FindProperty(SharedBoundsRulerDefaultEnabledPropertyName), "Bounds Ruler", "Default state for the bounds ruler toggle in model and sprite preview.");
 				DrawToggle(serializedObject.FindProperty(ModelDefaultLightRotationGizmosEnabledPropertyName), "Light Rotation Gizmos", "Default state for the Light Rotation Gizmos toggle.");
 				DrawToggle(serializedObject.FindProperty(ModelDefaultSkyboxEnabledPropertyName), "Skybox", "Default state for the Skybox toggle.");
 			});
