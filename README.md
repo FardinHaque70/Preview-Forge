@@ -36,12 +36,16 @@ This package focuses on three core workflows:
 
 ## See It In Action
 
-### 1. No More Blue Cubes
+### 1. Particle Thumbnails and Custom Preview
 
-Particle prefabs are easier to browse when the Project window shows a real rendered thumbnail instead of Unity's default prefab cube.
+Particle prefabs are easier to browse when the Project window shows real thumbnails and a built-in custom preview workflow, so you can inspect effects directly from the Project window and Inspector.
 
 <p align="center">
-  <img src=".github/readme-media/no-more-blue-cubes.gif" alt="Rendered particle thumbnails in the Unity Project window" width="720" />
+  <img src=".github/readme-media/particle-thumbnail-preview-showcase.gif" alt="Particle thumbnails and custom preview showcase" width="100%" />
+</p>
+
+<p align="center">
+  <img src=".github/readme-media/better-particle-preview-controls.gif" alt="Particle preview controls in the Unity Inspector" width="100%" />
 </p>
 
 ### 2. Better Prefab Preview
@@ -51,21 +55,6 @@ Prefabs with 3D models, along with 3D asset files such as FBX and Blend, get a m
 <p align="center">
   <img src=".github/readme-media/general-prefab-preview.gif" alt="General prefab preview with orbit and framing controls in the Unity Inspector" width="720" />
 </p>
-
-### 3. Better Particle Preview Controls
-
-Particle prefabs can be previewed directly in the preview window, so you do not need to open the prefab or drop it into the scene just to inspect the effect.
-
-<table width="100%">
-  <tr>
-    <td align="center" width="42%">
-      <img src=".github/readme-media/better-particle-preview-controls.gif" alt="Particle preview controls in the Unity Inspector" width="100%" />
-    </td>
-    <td align="center" width="58%">
-      <img src=".github/readme-media/particle-thumbnail-preview-showcase.gif" alt="Particle thumbnail and preview showcase" width="100%" />
-    </td>
-  </tr>
-</table>
 
 ## Feature Overview
 
