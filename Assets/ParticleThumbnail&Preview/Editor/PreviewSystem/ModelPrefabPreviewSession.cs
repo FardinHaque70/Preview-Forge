@@ -54,11 +54,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float LightPadPanelPadding = 8f;
         private const float LightPadInnerPadding = 7.2f;
         private const float LightPadMarkerSize = 6.4f;
-        private static readonly string[] VisualModesRoots =
-        {
-            "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/VisualModes",
-            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/VisualModes",
-        };
         private const string NormalsMaterialPath = "PrefabPreviewNormals.mat";
         private const string UvCheckerMaterialPath = "PrefabPreviewUvChecker.mat";
         private const string VertexColorMaterialPath = "PrefabPreviewVertexColor.mat";
@@ -1952,10 +1947,10 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static Material LoadVisualModeMaterial(string fileName)
         {
-            for (int i = 0; i < VisualModesRoots.Length; i++)
+            string[] candidatePaths = PreviewInstallLayout.BuildAssetPaths("Editor/Common/PreviewAssets/VisualModes/" + fileName);
+            for (int i = 0; i < candidatePaths.Length; i++)
             {
-                string path = VisualModesRoots[i] + "/" + fileName;
-                Material loaded = AssetDatabase.LoadAssetAtPath<Material>(path);
+                Material loaded = AssetDatabase.LoadAssetAtPath<Material>(candidatePaths[i]);
                 if (loaded != null)
                     return loaded;
             }

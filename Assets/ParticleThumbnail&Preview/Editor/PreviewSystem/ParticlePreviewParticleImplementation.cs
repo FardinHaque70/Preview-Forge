@@ -8,11 +8,6 @@ namespace ParticleThumbnailAndPreview.Editor
 {
     internal sealed class ParticlePreviewParticleImplementation : IPrefabPreviewImplementation
     {
-        private static readonly string[] ToolbarIconRoots =
-        {
-            "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
-            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
-        };
         private static readonly string[] PlayIcons = BuildIconNames("Particle_PlayArrow_Round_White.png", "d_PlayButton", "PlayButton");
         private static readonly string[] PauseIcons = BuildIconNames("Particle_Pause_Round_White.png", "d_PauseButton", "PauseButton");
         private static readonly string[] RestartIcons = BuildIconNames("Particle_Replay_Round_White.png", "d_Refresh", "Refresh");
@@ -37,9 +32,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static string[] BuildIconNames(string fileName, params string[] fallbacks)
         {
-            var values = new List<string>(ToolbarIconRoots.Length + (fallbacks?.Length ?? 0));
-            for (int i = 0; i < ToolbarIconRoots.Length; i++)
-                values.Add(ToolbarIconRoots[i] + "/" + fileName);
+            string[] assetPaths = PreviewInstallLayout.BuildAssetPaths("Editor/Common/PreviewAssets/ToolbarIcons/" + fileName);
+            var values = new List<string>(assetPaths.Length + (fallbacks?.Length ?? 0));
+            values.AddRange(assetPaths);
             if (fallbacks != null && fallbacks.Length > 0)
                 values.AddRange(fallbacks);
             return values.ToArray();

@@ -19,8 +19,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private const string HarmonyTypeName = "HarmonyLib.Harmony";
         private const string HarmonyMethodTypeName = "HarmonyLib.HarmonyMethod";
         private const string HarmonyAssemblyName = "0Harmony";
-        private const string HarmonyAssetsRelativePath = "Assets/ParticleThumbnail&Preview/Editor/PreviewSystem/ThirdParty/0Harmony.dll";
-        private const string HarmonyUpmRelativePath = "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/PreviewSystem/ThirdParty/0Harmony.dll";
+        private const string HarmonyRelativePath = "Editor/PreviewSystem/ThirdParty/0Harmony.dll";
         private const int MaxRetryAttempts = 12;
         private const string CompatibilityRemediationHint =
             " If another tool (for example Odin Inspector) still overrides GameObject previews, disable this package's custom previews in Project Settings > Particle Thumbnail & Preview, then re-enable after adjusting tool registration order.";
@@ -275,19 +274,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static string TryResolveHarmonyAssemblyPath()
         {
-            string projectRoot = Directory.GetCurrentDirectory();
-            string[] candidateRelativePaths =
-            {
-                HarmonyAssetsRelativePath,
-                HarmonyUpmRelativePath,
-            };
-
-            for (int i = 0; i < candidateRelativePaths.Length; i++)
-            {
-                string fullPath = Path.Combine(projectRoot, candidateRelativePaths[i]);
-                if (File.Exists(fullPath))
-                    return fullPath;
-            }
+            string installPath = PreviewInstallLayout.TryResolveExistingAbsolutePath(HarmonyRelativePath);
+            if (!string.IsNullOrEmpty(installPath))
+                return installPath;
 
             string[] harmonyGuids = AssetDatabase.FindAssets("0Harmony");
             for (int i = 0; i < harmonyGuids.Length; i++)
@@ -305,7 +294,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
                 if (isKnownToolPath)
                 {
-                    string fullPath = Path.Combine(projectRoot, assetPath);
+                    string fullPath = Path.GetFullPath(assetPath);
                     if (File.Exists(fullPath))
                         return fullPath;
                 }

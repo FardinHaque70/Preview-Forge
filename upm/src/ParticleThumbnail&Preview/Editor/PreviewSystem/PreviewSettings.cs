@@ -94,7 +94,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				sharedGridFadeStartBoundsPadding = PreviewSettings.D_SharedGridFadeStartBoundsPadding;
 				sharedGridStyle = PreviewSettings.D_SharedGridStyle;
 				modelSkyboxCubemap = PreviewSettings.D_ModelSkyboxCubemap;
-				modelSkyboxMaterial = PreviewSkyboxAssets.GetOrCreateSkyboxMaterialForCubemap(modelSkyboxCubemap);
+					modelSkyboxMaterial = null;
 				modelAmbientLightColor = PreviewSettings.D_ModelAmbientLightColor;
 				modelSunLightEnabled = PreviewSettings.D_ModelSunLightEnabled;
 				modelSunLightColor = PreviewSettings.D_ModelSunLightColor;
@@ -245,22 +245,23 @@ namespace ParticleThumbnailAndPreview.Editor
 				SharedGridStyle);
 			public static Cubemap ModelSkyboxCubemap => Storage.modelSkyboxCubemap;
 
-		public static Material ModelSkyboxMaterial
-		{
-			get
+			public static Material ModelSkyboxMaterial
 			{
-				EnsureModelSkyboxMaterialBackfill();
-				return Storage.modelSkyboxMaterial;
+				get
+				{
+					Cubemap resolvedCubemap = Storage.modelSkyboxCubemap ?? PreviewSkyboxAssets.GetDefaultSkyboxCubemap();
+					return Storage.modelSkyboxMaterial != null
+						? Storage.modelSkyboxMaterial
+						: PreviewSkyboxAssets.GetDefaultSkyboxMaterialForCubemap(resolvedCubemap);
+				}
 			}
-		}
 
 			public static Cubemap ModelReflectionCubemap
 			{
-			get
-			{
-				EnsureModelSkyboxMaterialBackfill();
-				return Storage.modelReflectionCubemap;
-			}
+				get
+				{
+					return Storage.modelReflectionCubemap;
+				}
 			}
 
 			public static Color ModelAmbientLightColor => Storage.modelAmbientLightColor;
@@ -291,18 +292,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			SettingsChanged?.Invoke();
 		}
 
-		private static void EnsureModelSkyboxMaterialBackfill()
-		{
-			if (Storage.modelSkyboxMaterial != null)
-				return;
-
-			if (Storage.modelSkyboxCubemap == null)
-				Storage.modelSkyboxCubemap = PreviewSkyboxAssets.GetDefaultSkyboxCubemap();
-			Storage.modelSkyboxMaterial = PreviewSkyboxAssets.TryLoadDefaultSkyboxMaterial()
-			                              ?? PreviewSkyboxAssets.GetOrCreateSkyboxMaterialForCubemap(Storage.modelSkyboxCubemap);
-			Storage.SaveStorage();
 		}
-	}
 
 	internal static class PreviewSettingsProvider
 	{
@@ -752,10 +742,12 @@ namespace ParticleThumbnailAndPreview.Editor
 
 	internal static class PreviewSkyboxAssets
 	{
-		private const string SkyboxFolderPath = "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/Skybox";
+		private const string SkyboxFolderPath = "Editor/Common/PreviewAssets/Skybox";
 		private const string DefaultSkyboxGuid = "83fb20c8d36eb4afe9b376da509dc0d6";
 		private const string DefaultReflectionGuid = "e628e60fedd134eae92c45e351f5f566";
 		private const string DefaultSkyboxMaterialPath = SkyboxFolderPath + "/PreviewSkybox.mat";
+		private static Material s_generatedSkyboxMaterial;
+		private static int s_generatedSkyboxSourceCubemapId;
 
 		internal static Cubemap GetDefaultSkyboxCubemap()
 		{
@@ -777,64 +769,49 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		internal static Material GetDefaultSkyboxMaterial()
 		{
-			return GetOrCreateSkyboxMaterialForCubemap(GetDefaultSkyboxCubemap());
+			return GetDefaultSkyboxMaterialForCubemap(GetDefaultSkyboxCubemap());
 		}
 
 		internal static Material TryLoadDefaultSkyboxMaterial()
 		{
-			return AssetDatabase.LoadAssetAtPath<Material>(DefaultSkyboxMaterialPath);
+			return PreviewInstallLayout.LoadFirstAssetAtRelativePath<Material>(DefaultSkyboxMaterialPath);
 		}
 
-		internal static Material GetOrCreateSkyboxMaterialForCubemap(Cubemap cubemap)
+		internal static Material GetDefaultSkyboxMaterialForCubemap(Cubemap cubemap)
 		{
 			Cubemap resolvedCubemap = cubemap != null ? cubemap : GetDefaultSkyboxCubemap();
+			Material defaultMaterial = TryLoadDefaultSkyboxMaterial();
 			if (resolvedCubemap == null)
-				return null;
+				return defaultMaterial;
 
-			EnsureSkyboxFolderExists();
-			string materialPath = DefaultSkyboxMaterialPath;
+			if (defaultMaterial != null && defaultMaterial.GetTexture("_Tex") == resolvedCubemap)
+				return defaultMaterial;
 
-			Material existing = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
-			if (existing != null)
+			int sourceCubemapId = resolvedCubemap.GetInstanceID();
+			if (s_generatedSkyboxMaterial != null && s_generatedSkyboxSourceCubemapId == sourceCubemapId)
+				return s_generatedSkyboxMaterial;
+
+			if (s_generatedSkyboxMaterial != null)
+				UnityEngine.Object.DestroyImmediate(s_generatedSkyboxMaterial);
+
+			if (defaultMaterial != null)
 			{
-				if (existing.GetTexture("_Tex") != resolvedCubemap)
-				{
-					existing.SetTexture("_Tex", resolvedCubemap);
-					EditorUtility.SetDirty(existing);
-					AssetDatabase.SaveAssets();
-				}
+				s_generatedSkyboxMaterial = new Material(defaultMaterial);
+			}
+			else
+			{
+				Shader shader = Shader.Find("Skybox/Cubemap");
+				if (shader == null)
+					return null;
 
-				return existing;
+				s_generatedSkyboxMaterial = new Material(shader);
 			}
 
-			Shader shader = Shader.Find("Skybox/Cubemap");
-			if (shader == null)
-				return null;
-
-			Material material = new Material(shader)
-			{
-				name = Path.GetFileNameWithoutExtension(materialPath),
-			};
-			material.SetTexture("_Tex", resolvedCubemap);
-			AssetDatabase.CreateAsset(material, materialPath);
-			AssetDatabase.SaveAssets();
-			return material;
-		}
-
-		private static void EnsureSkyboxFolderExists()
-		{
-			if (AssetDatabase.IsValidFolder(SkyboxFolderPath))
-				return;
-
-			string[] parts = SkyboxFolderPath.Split('/');
-			string current = parts[0];
-			for (int i = 1; i < parts.Length; i++)
-			{
-				string next = $"{current}/{parts[i]}";
-				if (!AssetDatabase.IsValidFolder(next))
-					AssetDatabase.CreateFolder(current, parts[i]);
-				current = next;
-			}
+			s_generatedSkyboxMaterial.name = "PreviewSkybox (Generated)";
+			s_generatedSkyboxMaterial.hideFlags = HideFlags.HideAndDontSave;
+			s_generatedSkyboxMaterial.SetTexture("_Tex", resolvedCubemap);
+			s_generatedSkyboxSourceCubemapId = sourceCubemapId;
+			return s_generatedSkyboxMaterial;
 		}
 	}
 }

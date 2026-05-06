@@ -81,6 +81,18 @@ Unity Editor restart is recommended after first install so preview hook initiali
 - After import, open `Project Settings > Particle Thumbnail & Preview` to confirm defaults for your project.
 - Restart Unity once after first import so preview hook initialization is clean.
 
+## Distribution Workflow
+
+- Asset Store release payload: `Assets/ParticleThumbnail&Preview`
+- Git UPM release payload: `upm/src`
+- Each install is single-root:
+  - Asset Store import runs entirely from `Assets/ParticleThumbnail&Preview`
+  - Git UPM install runs entirely from `Packages/com.fardinhaque.particle-thumbnail-preview`
+- Project configuration stays in `ProjectSettings/ParticleThumbnailAndPreview`
+- Git UPM installs should not require or auto-create a companion `Assets/ParticleThumbnail&Preview` folder
+
+For this repository, authoring stays in `Assets/ParticleThumbnail&Preview`. Run `scripts/sync_upm_package.sh` before Git UPM release work to mirror the current source into `upm/src`.
+
 ## Usage
 
 1. Import or select a particle prefab in the Project window.

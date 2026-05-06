@@ -8,11 +8,6 @@ namespace ParticleThumbnailAndPreview.Editor
 {
     internal sealed class ModelPrefabPreviewImplementation : IPrefabPreviewImplementation
     {
-        private static readonly string[] ToolbarIconRoots =
-        {
-            "Assets/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
-            "Packages/com.fardinhaque.particle-thumbnail-preview/ParticleThumbnail&Preview/Editor/Common/PreviewAssets/ToolbarIcons",
-        };
         private static readonly string[] TurntableIcons = BuildIconNames("Model_Turntable_Round_White.png", "d_SceneViewTools", "SceneViewTools", "d_RotateTool", "RotateTool");
         private static readonly string[] InfoIcons = BuildIconNames("Model_Info_Round_White.png", "d_SelectionList Icon", "SelectionList Icon", "d_Search Icon", "Search Icon");
         private static readonly string[] LightsIcons = BuildIconNames("Model_Lightbulb_Round_White.png", "d_Light Icon", "Light Icon", "d_SceneViewLighting", "SceneViewLighting");
@@ -59,9 +54,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static string[] BuildIconNames(string fileName, params string[] fallbacks)
         {
-            var values = new List<string>(ToolbarIconRoots.Length + (fallbacks?.Length ?? 0));
-            for (int i = 0; i < ToolbarIconRoots.Length; i++)
-                values.Add(ToolbarIconRoots[i] + "/" + fileName);
+            string[] assetPaths = PreviewInstallLayout.BuildAssetPaths("Editor/Common/PreviewAssets/ToolbarIcons/" + fileName);
+            var values = new List<string>(assetPaths.Length + (fallbacks?.Length ?? 0));
+            values.AddRange(assetPaths);
             if (fallbacks != null && fallbacks.Length > 0)
                 values.AddRange(fallbacks);
             return values.ToArray();
