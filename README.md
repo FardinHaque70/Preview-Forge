@@ -4,23 +4,35 @@
 
 Editor-only Unity tools for clearer particle thumbnails and a more useful prefab preview workflow.
 
-[![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-black?style=for-the-badge&logo=unity)](#compatibility)
-[![Git UPM](https://img.shields.io/badge/Install-Git%20UPM-2ea44f?style=for-the-badge)](#installation)
-[![Support](https://img.shields.io/badge/Support-Unity%20Asset%20Store-222c37?style=for-the-badge&logo=unity&logoColor=white)](https://assetstore.unity.com/preview/370342/1307444)
+[![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-black?style=flat-square&logo=unity)](#compatibility)
+[![Editor Only](https://img.shields.io/badge/Editor-Only-1f6feb?style=flat-square)](#notes)
+[![Pipelines](https://img.shields.io/badge/Pipelines-Built--in%20%7C%20URP%20%7C%20HDRP-6f42c1?style=flat-square)](#compatibility)
+[![Git UPM](https://img.shields.io/badge/Install-Git%20UPM-2ea44f?style=flat-square)](#installation)
+[![Support](https://img.shields.io/badge/Support-Unity%20Asset%20Store-222c37?style=flat-square&logo=unity&logoColor=white)](https://assetstore.unity.com/preview/370342/1307444)
 
 </div>
 
 > [!TIP]
-> I believe tools that make development easier should be available to **everyone**, so the **free GitHub version** and the **paid Asset Store version** include the same toolset.
-> If you'd like to support **ongoing development**, you can also pick it up on the [Unity Asset Store](https://assetstore.unity.com/preview/370342/1307444). I genuinely appreciate the support.
+> I want this tool to stay accessible to everyone, so the **free GitHub version** and the **paid Unity Asset Store version** include the exact same toolset.
+> The Asset Store version is completely optional. If you'd like to support my work and ongoing development, you can pick it up on the [Unity Asset Store](https://assetstore.unity.com/preview/370342/1307444).
 
-This package focuses on two things:
+This package focuses on three core workflows:
 
 - `Particle Thumbnail`  
   Static rendered Project window thumbnails for particle prefabs, so effects are easier to identify at a glance.
-- `Improved Preview Window`  
-  A richer Inspector preview with better lighting, environment options, floor and grid support, particle playback, and smoother camera control.
+- `Prefab Preview`  
+  A richer Inspector preview for prefabs and 3D assets with better lighting, view modes, and smoother camera control.
+- `Particle Preview`  
+  A playback-focused preview workflow for particle prefabs with scrubbing and motion-aware inspection.
 
+## Table of Contents
+
+- [See It In Action](#see-it-in-action)
+- [Feature Overview](#feature-overview)
+- [Compatibility](#compatibility)
+- [Installation](#installation)
+- [Notes](#notes)
+- [Known Limitations](#known-limitations)
 
 ## See It In Action
 
@@ -57,25 +69,25 @@ Particle prefabs can be previewed directly in the preview window, so you do not 
 
 ## Feature Overview
 
-### Project Window Thumbnails
+### Particle Thumbnail
 
 - Static rendered thumbnails for particle prefabs
 - Motion-aware framing for effects that emit over traveled distance
 - Thumbnails are cached inside `Library/ParticleThumbnailCache`
 
-### Custom Preview Window for Prefabs and 3D Assets
+### Prefab Preview
 
 - Much improved lighting that includes shadow casting directional light and a 3-point lighting rig
 - Better camera control with orbit, pan, zoom, and auto-framing controls
 - View mode toggles like Normal, UV, Vertex Color, Matcap, and Overdraw
 - Visualize box and sphere colliders
 
-### Preview Window for Particle Prefabs
+### Particle Preview
 
 - Custom preview window automatically opens for the selected particle prefab
 - Includes particle timeline scrubbing and motion path support for systems that need motion
 
-### Notes
+### Safety and Integration
 
 - Editor-only assemblies with no runtime build dependency
 - The custom preview window is integrated through a scoped Harmony patcher
@@ -90,9 +102,12 @@ Particle prefabs can be previewed directly in the preview window, so you do not 
 
 ## Installation
 
+> [!NOTE]
+> Choose the install path that matches how you want to use the tool: `Git UPM` for package-based installs, or `Unity Asset Store` for project import workflows.
+
 ### Git UPM
 
-In Unity:
+Best for package-based installs and versioned repository usage.
 
 1. Open `Window > Package Manager`
 2. Click `+`
@@ -113,21 +128,24 @@ Or add it directly to `Packages/manifest.json`:
 }
 ```
 
-Restarting Unity once after first install is recommended so preview initialization starts cleanly.
+Restarting the Unity Editor once after first install is recommended so the preview window hooks initialize cleanly.
 
 ### Unity Asset Store Package
 
+- Best for direct project import through Unity
 - Get it from the [Unity Asset Store](https://assetstore.unity.com/preview/370342/1307444)
 - Import the package from `My Assets` or from a provided `.unitypackage`
 - Open `Project Settings > Particle Thumbnail & Preview` to review defaults for your project
-- Restart Unity once after first import
+- Restart the Unity Editor once after first import
 
 ## Notes
 
 - This is an editor-only package and does not target runtime or player features.
 - Git UPM installs use `upm/src` as the package root.
 - Asset Store imports use `Assets/ParticleThumbnail&Preview` as the package root.
+- The preview integration uses a scoped Harmony patcher designed to coexist with other editor tools like Odin Inspector.
 
-## Limitations
+## Known Limitations
 
 - VFX Graph thumbnails are not currently supported.
+- A Unity Editor restart may be needed after first install or import for smoother preview window hook initialization.
