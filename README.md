@@ -56,7 +56,7 @@ Prefabs with 3D models, along with 3D asset files such as FBX and Blend, get a m
 
 Particle prefabs can be previewed directly in the preview window, so you do not need to open the prefab or drop it into the scene just to inspect the effect.
 
-<table>
+<table width="100%">
   <tr>
     <td align="center" width="42%">
       <img src=".github/readme-media/better-particle-preview-controls.gif" alt="Particle preview controls in the Unity Inspector" width="100%" />
