@@ -21,6 +21,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private readonly ModelPrefabPreviewSession _session = new();
         private readonly List<PreviewToolbarItem> _toolbarItems;
         private readonly bool _showColliderToggle;
+        private readonly bool _force3DWhenAutoMode;
         private readonly int _turntableIndex;
         private readonly int _infoIndex;
         private readonly int _lightsIndex;
@@ -35,9 +36,10 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public PrefabPreviewTargetKind Kind => PrefabPreviewTargetKind.Model;
 
-        internal ModelPrefabPreviewImplementation(bool showColliderToggle = true)
+        internal ModelPrefabPreviewImplementation(bool showColliderToggle = true, bool force3DWhenAutoMode = false)
         {
             _showColliderToggle = showColliderToggle;
+            _force3DWhenAutoMode = force3DWhenAutoMode;
 
             int index = 0;
             _turntableIndex = index++;
@@ -69,7 +71,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public bool EnsureReady(GameObject prefab)
         {
-            _session.Setup(prefab);
+            _session.Setup(prefab, _force3DWhenAutoMode);
             return _session.IsReady;
         }
 
