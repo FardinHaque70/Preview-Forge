@@ -116,14 +116,6 @@ Or add it directly to `Packages/manifest.json`:
 
 Restarting the Unity Editor once after first install is recommended so the preview window hooks initialize cleanly.
 
-### Unity Asset Store Package
-
-- Best for direct project import through Unity
-- Get it from the [Unity Asset Store](https://assetstore.unity.com/preview/370342/1307444)
-- Import the package from `My Assets` or from a provided `.unitypackage`
-- Open `Project Settings > Particle Thumbnail & Preview` to review defaults for your project
-- Restart the Unity Editor once after first import
-
 ## Notes
 
 - This is an editor-only package.
