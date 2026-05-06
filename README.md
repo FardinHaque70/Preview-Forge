@@ -6,6 +6,7 @@ Editor-only Unity tools for clearer particle thumbnails and a more useful prefab
 
 [![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-black?style=for-the-badge&logo=unity)](#compatibility)
 [![Git UPM](https://img.shields.io/badge/Install-Git%20UPM-2ea44f?style=for-the-badge)](#installation)
+[![Support](https://img.shields.io/badge/Support-Unity%20Asset%20Store-222c37?style=for-the-badge&logo=unity&logoColor=white)](https://assetstore.unity.com/preview/370342/1307444)
 
 </div>
 
