@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.18] - 2026-05-07
+
+- Add `PreviewEditorTransitionGuard` and gate preview auto-select, inspector repaint, and Harmony preview suppression logic during unsafe compile/update/playmode transitions.
+- Harden preview target suppression and property-editor inspection checks to avoid fallback mis-targeting and transition-time reflection failures.
+- Add `PreviewHookSafetyTests` coverage for transition guard behavior and preview target-gate fallback rules.
+
 ## [1.1.17] - 2026-05-06
 
 - Support clean single-root installs for both Asset Store and Git UPM distributions by resolving bundled preview assets from either `Assets/ParticleThumbnail&Preview` or `Packages/com.fardinhaque.particle-thumbnail-preview`.
