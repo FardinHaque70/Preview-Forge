@@ -37,7 +37,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal static bool ShouldSuppressCompetingPreview(UnityObject[] targets, bool previewActive)
         {
-            if (!previewActive)
+            if (!previewActive || PreviewEditorTransitionGuard.IsUnsafeTransition())
                 return false;
 
             PrefabPreviewTargetKind kind = GetTargetKind(targets);
@@ -84,13 +84,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (targets == null || targets.Length != 1)
                 return false;
 
-            if (TryResolveSourceSupportedPrefab(targets[0], out _))
-                return true;
-
-            if (Selection.activeObject is GameObject selectedPrefab && IsSupportedTarget(selectedPrefab))
-                return true;
-
-            return false;
+            return TryResolveSourceSupportedPrefab(targets[0], out _);
         }
 
         private static bool TryResolveSourceSupportedPrefab(UnityObject target, out GameObject prefabAsset)

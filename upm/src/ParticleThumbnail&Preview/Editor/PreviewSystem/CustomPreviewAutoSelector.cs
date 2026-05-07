@@ -81,13 +81,15 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal static void ScheduleAutoSelect()
         {
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition())
+            {
+                ResetPendingAutoSelectState();
+                return;
+            }
+
             if (!TryResolveAutoSelectRequest(Selection.objects, out AutoSelectRequest request))
             {
-                _autoSelectPending = false;
-                _framesRemaining = 0;
-                _modelImporterRearmFramesRemaining = 0;
-                _modelImporterRearmSelectionKey = null;
-                EnsureUpdateHook(shouldSubscribe: false);
+                ResetPendingAutoSelectState();
                 return;
             }
 
@@ -108,10 +110,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 && HasSelectedPreviewInOpenPropertyEditors(request.PreviewTypeName))
             {
                 LogDiagnostic($"Skip duplicate auto-select for same target: {selectionKey}");
-                _autoSelectPending = false;
-                _framesRemaining = 0;
-                _modelImporterRearmFramesRemaining = 0;
-                EnsureUpdateHook(shouldSubscribe: false);
+                ResetPendingAutoSelectState();
                 return;
             }
 
@@ -122,6 +121,12 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal static void NotifyModelImporterPreviewCandidate(string modelAssetPath)
         {
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition())
+            {
+                ResetPendingAutoSelectState();
+                return;
+            }
+
             if (!PreviewSettings.ThreeDAssetPreviewActive || string.IsNullOrEmpty(modelAssetPath))
                 return;
 
@@ -145,14 +150,16 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static void OnEditorUpdate()
         {
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition())
+            {
+                ResetPendingAutoSelectState();
+                return;
+            }
+
             UnityObject[] propertyEditors = GetOpenPropertyEditors();
             if (!TryResolveAutoSelectRequest(Selection.objects, out AutoSelectRequest request))
             {
-                _autoSelectPending = false;
-                _framesRemaining = 0;
-                _modelImporterRearmFramesRemaining = 0;
-                _modelImporterRearmSelectionKey = null;
-                EnsureUpdateHook(shouldSubscribe: false);
+                ResetPendingAutoSelectState();
                 return;
             }
 
@@ -240,19 +247,27 @@ namespace ParticleThumbnailAndPreview.Editor
             AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
             Selection.selectionChanged -= ScheduleAutoSelect;
             PreviewSettings.SettingsChanged -= ScheduleAutoSelect;
-            EnsureUpdateHook(shouldSubscribe: false);
+            ResetPendingAutoSelectState();
+            LoggedAppliedSelectionKeys.Clear();
+        }
+
+        private static void ResetPendingAutoSelectState()
+        {
             _autoSelectPending = false;
             _framesRemaining = 0;
             _appliedSelectionKey = null;
             _modelImporterRearmFramesRemaining = 0;
             _modelImporterRearmSelectionKey = null;
-            LoggedAppliedSelectionKeys.Clear();
+            EnsureUpdateHook(shouldSubscribe: false);
         }
 
         // ── Core selection logic ─────────────────────────────────────────────
 
         private static bool TrySelectInOpenPropertyEditors(string previewTypeName, UnityObject[] propertyEditors = null)
         {
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition())
+                return false;
+
             if (PropertyEditorType == null || PreviewsField == null)
                 return false;
 
@@ -347,6 +362,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static bool HasSelectedPreviewInOpenPropertyEditors(string previewTypeName, UnityObject[] propertyEditors = null)
         {
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition())
+                return false;
+
             if (PropertyEditorType == null || PreviewsField == null || string.IsNullOrEmpty(previewTypeName))
                 return false;
 
@@ -627,15 +645,19 @@ namespace ParticleThumbnailAndPreview.Editor
         private static bool TryGetInspectedObject(UnityObject propertyEditor, out UnityObject inspectedObject)
         {
             inspectedObject = null;
-            if (GetInspectedObjectMethod == null || propertyEditor == null)
+            if (propertyEditor == null)
+                return false;
+
+            if (GetInspectedObjectMethod == null)
                 return true;
+
             try
             {
                 inspectedObject = GetInspectedObjectMethod.Invoke(propertyEditor, null) as UnityObject;
             }
             catch
             {
-                return true;
+                return false;
             }
 
             return inspectedObject != null;
@@ -643,7 +665,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static bool ShouldApplyToPropertyEditor(UnityObject propertyEditor, string previewTypeName)
         {
-            if (propertyEditor == null || string.IsNullOrEmpty(previewTypeName))
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition()
+                || propertyEditor == null
+                || string.IsNullOrEmpty(previewTypeName))
                 return false;
 
             if (GetInspectedObjectMethod != null)
@@ -656,8 +680,10 @@ namespace ParticleThumbnailAndPreview.Editor
                 }
                 catch
                 {
-                    // Ignore and fall through to selection-based fallback.
+                    return false;
                 }
+
+                return false;
             }
 
             UnityObject selectionTarget = Selection.activeObject;

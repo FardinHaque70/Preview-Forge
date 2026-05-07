@@ -502,21 +502,41 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static bool GameObjectInspectorHasPreviewPrefix(UnityEditor.Editor __instance, ref bool __result)
         {
-            if (!PrefabPreviewTargetGate.ShouldSuppressCompetingPreview(__instance != null ? __instance.targets : null))
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition())
                 return true;
 
-            __result = false;
-            return false;
+            try
+            {
+                if (!PrefabPreviewTargetGate.ShouldSuppressCompetingPreview(__instance != null ? __instance.targets : null))
+                    return true;
+
+                __result = false;
+                return false;
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         private static bool CustomPreviewHasPreviewPrefix(object __instance, ref bool __result)
         {
-            UnityObject[] targets = PrefabPreviewTargetGate.TryGetObjectPreviewTargets(__instance);
-            if (!PrefabPreviewTargetGate.ShouldSuppressCompetingPreview(targets))
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition())
                 return true;
 
-            __result = false;
-            return false;
+            try
+            {
+                UnityObject[] targets = PrefabPreviewTargetGate.TryGetObjectPreviewTargets(__instance);
+                if (!PrefabPreviewTargetGate.ShouldSuppressCompetingPreview(targets))
+                    return true;
+
+                __result = false;
+                return false;
+            }
+            catch
+            {
+                return true;
+            }
         }
     }
 

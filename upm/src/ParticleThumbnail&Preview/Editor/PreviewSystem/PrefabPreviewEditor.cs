@@ -72,6 +72,13 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public override bool HasPreviewGUI()
         {
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition())
+            {
+                CleanupActiveImplementation(clearSessionCache: true);
+                LogResolveState("unsafe-transition");
+                return false;
+            }
+
             if (!PreviewSettings.AnyPrefabCustomPreviewActive)
             {
                 CleanupActiveImplementation();
@@ -499,7 +506,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private bool RepaintOwningPropertyEditors()
         {
-            if (PropertyEditorType == null)
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition() || PropertyEditorType == null)
                 return false;
 
             Object targetObject = target;

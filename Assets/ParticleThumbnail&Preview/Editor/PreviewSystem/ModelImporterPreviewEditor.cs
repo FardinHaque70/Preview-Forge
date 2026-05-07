@@ -85,6 +85,13 @@ namespace ParticleThumbnailAndPreview.Editor
         #region Preview Host
         public override bool HasPreviewGUI()
         {
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition())
+            {
+                CleanupPreview(clearSessionCache: true);
+                LogResolveState("unsafe-transition", force: true);
+                return false;
+            }
+
             if (!PreviewSettings.ThreeDAssetPreviewActive)
             {
                 CleanupPreview(clearSessionCache: false);
@@ -648,7 +655,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private void RequestPreviewRepaint()
         {
             bool repainted = TryInvokeObjectPreviewRepaint();
-            if (RepaintOwningPropertyEditors())
+            if (!PreviewEditorTransitionGuard.IsUnsafeTransition() && RepaintOwningPropertyEditors())
                 repainted = true;
 
             if (!repainted)
@@ -673,7 +680,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private bool RepaintOwningPropertyEditors()
         {
-            if (PropertyEditorType == null)
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition() || PropertyEditorType == null)
                 return false;
 
             Object[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
