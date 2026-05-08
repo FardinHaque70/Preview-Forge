@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.19] - 2026-05-08
+
+- Document the current URP limitation where particle shaders that require the camera opaque texture may render pink in thumbnails and prefab previews.
+
 ## [1.1.18] - 2026-05-07
 
 - Add `PreviewEditorTransitionGuard` and gate preview auto-select, inspector repaint, and Harmony preview suppression logic during unsafe compile/update/playmode transitions.

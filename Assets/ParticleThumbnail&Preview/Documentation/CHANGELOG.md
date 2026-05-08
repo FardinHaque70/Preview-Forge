@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.19] - 2026-05-08
+
+- Document the current URP limitation where particle shaders that require the camera opaque texture may render pink in thumbnails and prefab previews.
+
 ## [1.1.17] - 2026-05-06
 
 - Support clean single-root installs for both Asset Store and Git UPM distributions by resolving bundled preview assets from either `Assets/ParticleThumbnail&Preview` or `Packages/com.fardinhaque.particle-thumbnail-preview`.

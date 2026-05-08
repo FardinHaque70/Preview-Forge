@@ -115,4 +115,5 @@ Restarting the Unity Editor once after first install is recommended so the previ
 ## Known Limitations
 
 - VFX Graph thumbnails are not currently supported.
+- In URP, particle shaders that require the camera opaque texture may render pink in thumbnails and prefab previews. This is not supported by the current preview rendering path.
 - A Unity Editor restart may be needed after first install or import for smoother preview window hook initialization.
