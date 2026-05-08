@@ -232,7 +232,7 @@ namespace ParticleThumbnailAndPreview.Editor
             CycleModeOverride();
         }
 
-        internal void Setup(GameObject prefab, bool force3DWhenAutoMode = false)
+        internal void Setup(GameObject prefab)
         {
             if (prefab == null)
                 return;
@@ -274,7 +274,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             BuildPreviewRootFromPrefab(prefab);
 
-            _modeOverride = NormalizeModeOverride(PreviewSettings.ModelPreviewMode, force3DWhenAutoMode);
+            _modeOverride = PreviewModeOverride.Force3D;
             _gridEnabled = PreviewSettings.SharedGridDefaultEnabled;
             _lightsEnabled = true;
             _lightWidgetEnabled = PreviewSettings.ModelDefaultLightRotationGizmosEnabled;
@@ -304,7 +304,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 _turntableEnabled = restored.TurntableEnabled;
                 _boundsOverlayEnabled = restored.BoundsOverlayEnabled;
                 _colliderOverlayEnabled = restored.ColliderOverlayEnabled;
-                _modeOverride = NormalizeModeOverride(restored.ModeOverride, force3DWhenAutoMode);
+                _modeOverride = NormalizeModeOverride(restored.ModeOverride);
                 _visualMode = restored.VisualMode;
                 _lastNonNoneVisualMode = restored.LastNonNoneVisualMode == ModelPreviewVisualMode.None
                     ? ModelPreviewVisualMode.Normals
@@ -1574,23 +1574,12 @@ namespace ParticleThumbnailAndPreview.Editor
             return _turntableEnabled || PreviewCameraController.HasPendingMotion(state, CameraInteractionConfig);
         }
 
-        private static PreviewModeOverride NormalizeModeOverride(PreviewModeOverride modeOverride, bool force3DWhenAutoMode = false)
+        private static PreviewModeOverride NormalizeModeOverride(PreviewModeOverride modeOverride)
         {
             if (modeOverride == PreviewModeOverride.Force2D || modeOverride == PreviewModeOverride.Force3D)
                 return modeOverride;
 
-            return ResolveProjectDefaultModeOverride(force3DWhenAutoMode);
-        }
-
-        private static PreviewModeOverride ResolveProjectDefaultModeOverride(bool force3DWhenAutoMode)
-        {
-            if (force3DWhenAutoMode)
-                return PreviewModeOverride.Force3D;
-
-            PreviewModeContext projectDefaultContext = PreviewModeResolver.Resolve(PreviewModeOverride.Auto);
-            return projectDefaultContext.CameraIs2D
-                ? PreviewModeOverride.Force2D
-                : PreviewModeOverride.Force3D;
+            return PreviewModeOverride.Force3D;
         }
 
         private static void EnsureOverlayResources()

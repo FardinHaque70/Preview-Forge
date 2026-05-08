@@ -6,7 +6,7 @@ namespace ParticleThumbnailAndPreview.Editor
 {
     internal sealed class ModelImporterPreviewImplementation
     {
-        private readonly ModelPrefabPreviewImplementation _modelPreviewImplementation = new(showColliderToggle: false, force3DWhenAutoMode: true);
+        private readonly ModelPrefabPreviewImplementation _modelPreviewImplementation = new(showColliderToggle: false);
         private GameObject _activeModelRoot;
         private AnimationClip _activeAnimationClip;
         private bool _sessionActive;

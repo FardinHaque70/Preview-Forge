@@ -31,7 +31,6 @@ namespace ParticleThumbnailAndPreview.Editor
 			[SerializeField] internal bool modelPreviewActive = PreviewSettings.D_ModelPreviewActive;
 			[SerializeField] internal bool spritePrefabPreviewActive = PreviewSettings.D_SpritePrefabPreviewActive;
 			[SerializeField] internal bool modelImporterPreviewActive = PreviewSettings.D_ModelImporterPreviewActive;
-			[SerializeField] internal PreviewModeOverride modelPreviewMode = PreviewSettings.D_ModelPreviewMode;
 			[SerializeField] internal bool modelDefaultTurntableEnabled = PreviewSettings.D_ModelDefaultTurntableEnabled;
 			[SerializeField] internal bool showStatsEnabled = PreviewSettings.D_ShowStatsEnabled;
 			[SerializeField] internal bool sharedBoundsRulerDefaultEnabled = PreviewSettings.D_SharedBoundsRulerDefaultEnabled;
@@ -91,7 +90,6 @@ namespace ParticleThumbnailAndPreview.Editor
 			modelPreviewActive = PreviewSettings.D_ModelPreviewActive;
 			spritePrefabPreviewActive = PreviewSettings.D_SpritePrefabPreviewActive;
 			modelImporterPreviewActive = PreviewSettings.D_ModelImporterPreviewActive;
-			modelPreviewMode = PreviewSettings.D_ModelPreviewMode;
 			modelDefaultTurntableEnabled = PreviewSettings.D_ModelDefaultTurntableEnabled;
 			showStatsEnabled = PreviewSettings.D_ShowStatsEnabled;
 			sharedBoundsRulerDefaultEnabled = PreviewSettings.D_SharedBoundsRulerDefaultEnabled;
@@ -157,7 +155,6 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const bool D_ModelPreviewActive = true;
 		public const bool D_SpritePrefabPreviewActive = true;
 		public const bool D_ModelImporterPreviewActive = true;
-			public const PreviewModeOverride D_ModelPreviewMode = PreviewModeOverride.Auto;
 			public const bool D_ModelDefaultTurntableEnabled = true;
 			public const bool D_ShowStatsEnabled = true;
 			public const bool D_SharedBoundsRulerDefaultEnabled = false;
@@ -239,7 +236,6 @@ namespace ParticleThumbnailAndPreview.Editor
 			public static bool SpritePrefabPreviewActive => Storage.spritePrefabPreviewActive;
 			public static bool ThreeDAssetPreviewActive => Storage.modelImporterPreviewActive;
 			public static bool ModelImporterPreviewActive => ThreeDAssetPreviewActive;
-			public static PreviewModeOverride ModelPreviewMode => Storage.modelPreviewMode;
 			public static bool ModelDefaultTurntableEnabled => Storage.modelDefaultTurntableEnabled;
 			public static bool ShowStatsEnabled => Storage.showStatsEnabled;
 			public static bool SharedBoundsRulerDefaultEnabled => Storage.sharedBoundsRulerDefaultEnabled;
@@ -375,7 +371,6 @@ namespace ParticleThumbnailAndPreview.Editor
 		private const string ModelPreviewActivePropertyName = "modelPreviewActive";
 		private const string SpritePrefabPreviewActivePropertyName = "spritePrefabPreviewActive";
 		private const string ModelImporterPreviewActivePropertyName = "modelImporterPreviewActive";
-		private const string ModelPreviewModePropertyName = "modelPreviewMode";
 		private const string ModelDefaultTurntableEnabledPropertyName = "modelDefaultTurntableEnabled";
 		private const string ShowStatsEnabledPropertyName = "showStatsEnabled";
 		private const string SharedBoundsRulerDefaultEnabledPropertyName = "sharedBoundsRulerDefaultEnabled";
@@ -609,11 +604,6 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static void DrawDefaultEnabledStateTab(SerializedObject serializedObject)
 		{
-			DrawSectionCard("Mode", () =>
-			{
-				DrawEnumPopup(serializedObject.FindProperty(ModelPreviewModePropertyName), typeof(PreviewModeOverride), "Mode Override", "Controls the model preview camera view. Auto follows the editor's default 2D/3D behavior, while 2D and 3D force the camera mode.");
-			});
-
 			DrawSectionCard("Default enabled state", () =>
 			{
 				DrawToggle(serializedObject.FindProperty(ModelDefaultTurntableEnabledPropertyName), "Turntable", "Default state for the Turntable toggle.");

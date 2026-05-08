@@ -9,7 +9,7 @@ Editor-only Unity tools for rendered particle thumbnails and a workflow-focused 
   - Motion-aware framing for effects that emit over traveled distance.
 - `Particle Preview`
   - Custom prefab preview for particle prefabs with playback controls and timeline scrubbing.
-  - Model prefab preview (mesh and skinned mesh) with auto-framing, orbit, pan, zoom, and `Auto` / `2D` / `3D` mode override.
+  - Model prefab preview (mesh and skinned mesh) with auto-framing, orbit, pan, zoom, and default `3D` view mode.
 - `Editor Safety`
   - Editor-only assemblies with no runtime/player build dependency.
   - Scoped preview-hook patching with bounded retries and compatibility fallbacks.

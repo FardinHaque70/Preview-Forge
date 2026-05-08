@@ -286,7 +286,6 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static void GenerateAllThumbnailsInProject(bool unthrottledProcessing)
 		{
-			ParticleThumbnailWelcomeBootstrap.MarkWelcomeHandled();
 			FailedDependencyByRequest.Clear();
 			RefreshVolatileStatsSnapshot();
 			ResetGenerateAllProgress();
@@ -309,18 +308,6 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (GenerateAllScanGuids.Length == 0)
 				FinalizeGenerateAllPreparation();
 		}
-
-		[MenuItem("Tools/Particle Thumbnail/Clear Memory Cache")]
-		private static void MenuClearMemoryCache() => ClearMemoryCache();
-
-		[MenuItem("Tools/Particle Thumbnail/Clear Persistent Cache")]
-		private static void MenuClearPersistentCache() => ClearPersistentCache();
-
-		[MenuItem("Tools/Particle Thumbnail/Rebuild Visible Thumbnails")]
-		private static void MenuRebuildVisible() => RebuildVisibleThumbnails();
-
-		[MenuItem("Tools/Particle Thumbnail/Generate All Thumbnails")]
-		private static void MenuGenerateAll() => GenerateAllThumbnailsInProject();
 
 		[MenuItem("Assets/Particle Thumbnail/Regenerate Thumbnail", true)]
 		private static bool MenuRegenerateSelectedValidate()

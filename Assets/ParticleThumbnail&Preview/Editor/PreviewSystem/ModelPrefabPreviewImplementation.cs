@@ -19,7 +19,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private readonly ModelPrefabPreviewSession _session = new();
         private readonly List<PreviewToolbarItem> _toolbarItems;
         private readonly bool _showColliderToggle;
-        private readonly bool _force3DWhenAutoMode;
         private readonly PreviewToolbarCommonFeatureBinding _colliderFeature;
         private readonly PreviewToolbarCommonFeatureBinding _boundsFeature;
         private readonly PreviewToolbarCommonFeatureBinding _gridFeature;
@@ -32,10 +31,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public PrefabPreviewTargetKind Kind => PrefabPreviewTargetKind.Model;
 
-        internal ModelPrefabPreviewImplementation(bool showColliderToggle = true, bool force3DWhenAutoMode = false)
+        internal ModelPrefabPreviewImplementation(bool showColliderToggle = true)
         {
             _showColliderToggle = showColliderToggle;
-            _force3DWhenAutoMode = force3DWhenAutoMode;
             _toolbarItems = new List<PreviewToolbarItem>(_showColliderToggle ? 8 : 7);
             _colliderFeature = PreviewToolbarCommonFeatures.CreateColliderToggle(_session, RequestRepaint, ColliderIcons);
             _boundsFeature = PreviewToolbarCommonFeatures.CreateBoundsToggle(_session, RequestRepaint, BoundsIcons);
@@ -50,7 +48,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public bool EnsureReady(GameObject prefab)
         {
-            _session.Setup(prefab, _force3DWhenAutoMode);
+            _session.Setup(prefab);
             return _session.IsReady;
         }
 
