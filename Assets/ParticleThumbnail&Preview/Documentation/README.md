@@ -25,10 +25,8 @@ Editor-only Unity tools for rendered particle thumbnails and a workflow-focused 
 
 ## Performance and Safety Notes
 
-- No runtime update loops or player-side hooks are added by this package.
+- No runtime update loops or player-side hooks are added using Harmony Patcher.
 - Preview update hooks are scoped and unsubscribed when not needed.
-- Harmony preview-hook retries are bounded to avoid unbounded delayed-call churn.
-- If preview hook patching cannot be applied in a given editor runtime, the tool falls back safely and logs guidance.
 
 ## Third-Party Inspector / Preview Coexistence
 
@@ -70,31 +68,12 @@ Unity Editor restart is recommended after first install so preview hook initiali
 - After import, open `Project Settings > Particle Thumbnail & Preview` to confirm defaults for your project.
 - Restart Unity once after first import so preview hook initialization is clean.
 
-## Distribution Workflow
-
-- Asset Store release payload: `Assets/ParticleThumbnail&Preview`
-- Git UPM release payload: `upm/src`
-- Each install is single-root:
-  - Asset Store import runs entirely from `Assets/ParticleThumbnail&Preview`
-  - Git UPM install runs entirely from `Packages/com.fardinhaque.particle-thumbnail-preview`
-- Project configuration stays in `ProjectSettings/ParticleThumbnailAndPreview`
-- Git UPM installs should not require or auto-create a companion `Assets/ParticleThumbnail&Preview` folder
-
-For this repository, authoring stays in `Assets/ParticleThumbnail&Preview`. Run `scripts/sync_upm_package.sh` before Git UPM release work to mirror the current source into `upm/src`.
-
 ## Usage
 
 1. Import or select a particle prefab in the Project window.
 2. Open the prefab Inspector preview to use playback and scrubbing controls.
 3. For mesh/skinned prefabs, use model preview controls for orbit/pan/zoom and visual mode toggles.
 4. Use package project settings for thumbnail cache maintenance, regeneration, and preview behavior defaults.
-
-## Extending Safely
-
-- Keep extension code in editor-only assemblies (`includePlatforms: Editor`).
-- Reuse `PreviewRenderCompatibilityUtility` and `PreviewModeResolver` for SRP/version-safe decisions.
-- Prefer lightweight, event-driven hooks over persistent editor update polling.
-- When adding preview integrations, keep conflict logs actionable and one-time to avoid console spam.
 
 ## Limitations
 
