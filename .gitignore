@@ -100,4 +100,5 @@ InitTestScene*.unity*
 OldImplementation
 agent.md
 AGENTS.md
+scripts/
 Assets/Tests
