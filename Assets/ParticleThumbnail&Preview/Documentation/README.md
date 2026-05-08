@@ -20,7 +20,7 @@ Editor-only Unity tools for rendered particle thumbnails and a workflow-focused 
 - Verified in development environment: Unity `6000.3.10f1` on macOS
 - Render pipeline support target:
   - Built-in Render Pipeline
-  - URP (`3D` and `2D Renderer` detection for Auto mode)
+  - URP (`3D` and `2D Renderer` detection for preview compatibility safeguards)
   - HDRP
 
 ## Performance and Safety Notes

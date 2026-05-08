@@ -142,11 +142,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private void UpdateToolbarItemState()
         {
-            bool environmentLocked = _session.ModeContext.Effective2D;
-
             PreviewToolbarItem lights = _lightsItem;
             lights.IsActive = _session.LightingControlsSupported && _session.LightsEnabled;
-            lights.IsEnabled = _session.LightingControlsSupported && !environmentLocked;
+            lights.IsEnabled = _session.LightingControlsSupported;
             lights.FallbackText = "Lights";
             lights.Tooltip = _session.LightingControlsSupported
                 ? "Toggle model lights"

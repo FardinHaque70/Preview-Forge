@@ -21,6 +21,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private const int MaxRefineSeeds = 5;
         private const float MinRefineSeedSeparation = 1f / 30f;
         private const float MinAxisExtent = 0.02f;
+        private const int MinParticlesForTightFraming = 8;
         private const float BaseMinFillDistanceScale = 0.68f;
         private const float TinyBurstMinFillDistanceScale = 0.50f;
         private const float TinyBurstCoverageLow = 0.06f;
@@ -1051,6 +1052,12 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             bool hasParticles = false;
             Bounds fullBounds = new Bounds(Vector3.zero, Vector3.zero);
+            List<float> minXs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> minYs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> minZs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> maxXs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> maxYs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> maxZs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
 
             for (int i = 0; i < systems.Length; i++)
             {
@@ -1066,8 +1073,11 @@ namespace ParticleThumbnailAndPreview.Editor
                         : ps.transform.TransformPoint(ParticleBuffer[j].position);
 
                     Vector3 size3 = ParticleBuffer[j].GetCurrentSize3D(ps);
-                    float diameter = Mathf.Max(size3.x, size3.y, size3.z, 0.01f);
-                    Bounds particleBounds = new Bounds(position, Vector3.one * diameter);
+                    Vector3 particleSize = new Vector3(
+                        Mathf.Max(Mathf.Abs(size3.x), MinAxisExtent),
+                        Mathf.Max(Mathf.Abs(size3.y), MinAxisExtent),
+                        Mathf.Max(Mathf.Abs(size3.z), MinAxisExtent));
+                    Bounds particleBounds = new Bounds(position, particleSize);
 
                     if (!hasParticles)
                     {
@@ -1078,16 +1088,101 @@ namespace ParticleThumbnailAndPreview.Editor
                     {
                         fullBounds.Encapsulate(particleBounds);
                     }
+
+                    if (minXs != null)
+                    {
+                        Vector3 extents = particleBounds.extents;
+                        minXs.Add(position.x - extents.x);
+                        minYs.Add(position.y - extents.y);
+                        minZs.Add(position.z - extents.z);
+                        maxXs.Add(position.x + extents.x);
+                        maxYs.Add(position.y + extents.y);
+                        maxZs.Add(position.z + extents.z);
+                    }
                 }
             }
 
             if (!hasParticles || fullBounds.size.sqrMagnitude <= 0.0001f)
                 return new Bounds(Vector3.zero, Vector3.one * 2f);
 
+            Bounds result = fullBounds;
+            if (ParticleThumbnailSettings.EnableTightFraming
+                && minXs != null
+                && minXs.Count >= MinParticlesForTightFraming
+                && TryBuildPercentileBounds(
+                    minXs,
+                    minYs,
+                    minZs,
+                    maxXs,
+                    maxYs,
+                    maxZs,
+                    ParticleThumbnailSettings.ParticleFramingPercentile,
+                    out Bounds tightBounds))
+            {
+                result = tightBounds;
+            }
+
             Vector3 minSize = new Vector3(MinAxisExtent, MinAxisExtent, MinAxisExtent);
-            Vector3 clampedSize = Vector3.Max(fullBounds.size, minSize);
-            fullBounds.size = clampedSize;
-            return fullBounds;
+            result.size = Vector3.Max(result.size, minSize);
+            return result;
+        }
+
+        private static bool TryBuildPercentileBounds(
+            List<float> minXs,
+            List<float> minYs,
+            List<float> minZs,
+            List<float> maxXs,
+            List<float> maxYs,
+            List<float> maxZs,
+            float percentile,
+            out Bounds bounds)
+        {
+            bounds = default;
+            if (minXs == null
+                || minYs == null
+                || minZs == null
+                || maxXs == null
+                || maxYs == null
+                || maxZs == null)
+            {
+                return false;
+            }
+
+            int count = minXs.Count;
+            if (count == 0
+                || minYs.Count != count
+                || minZs.Count != count
+                || maxXs.Count != count
+                || maxYs.Count != count
+                || maxZs.Count != count)
+            {
+                return false;
+            }
+
+            float trimFraction = Mathf.Clamp01((1f - Mathf.Clamp(percentile, 0.80f, 0.99f)) * 0.5f);
+            int trimCount = Mathf.Clamp(Mathf.CeilToInt(count * trimFraction), 0, Mathf.Max(0, (count - 1) / 2));
+            if (trimCount <= 0)
+                return false;
+
+            minXs.Sort();
+            minYs.Sort();
+            minZs.Sort();
+            maxXs.Sort();
+            maxYs.Sort();
+            maxZs.Sort();
+
+            int lowIndex = trimCount;
+            int highIndex = count - trimCount - 1;
+            if (lowIndex >= highIndex)
+                return false;
+
+            Vector3 min = new Vector3(minXs[lowIndex], minYs[lowIndex], minZs[lowIndex]);
+            Vector3 max = new Vector3(maxXs[highIndex], maxYs[highIndex], maxZs[highIndex]);
+            if (max.x < min.x || max.y < min.y || max.z < min.z)
+                return false;
+
+            bounds = new Bounds((min + max) * 0.5f, max - min);
+            return true;
         }
 
         private static void EstimateVisibilityMetrics(Camera camera, Bounds bounds, out float coverage, out float inViewRatio, out float centerBias)

@@ -6,11 +6,11 @@ namespace ParticleThumbnailAndPreview.Editor
 {
     internal enum PreviewToolbarColorPreset
     {
-        UnrealEngine = 0,
-        Godot = 1,
-        Blender = 2,
-        VibrantGreen = 4,
-        UnityBlue = 5,
+        Amber = 0,
+        SkyBlue = 1,
+        Orange = 2,
+        Emerald = 4,
+        Cobalt = 5,
     }
 
     internal static class PreviewToolbarTheme
@@ -160,27 +160,27 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             return PreviewSettings.ToolbarColorPreset switch
             {
-                PreviewToolbarColorPreset.UnrealEngine => new ToolbarPalette(
+                PreviewToolbarColorPreset.Amber => new ToolbarPalette(
                     new Color32(0xF3, 0x9C, 0x12, 0xFF),
                     new Color32(0xF3, 0x9C, 0x12, 0x38),
                     new Color32(0xFF, 0xB5, 0x3B, 0xFF),
                     new Color32(0x10, 0x10, 0x10, 0xFF)),
-                PreviewToolbarColorPreset.Godot => new ToolbarPalette(
+                PreviewToolbarColorPreset.SkyBlue => new ToolbarPalette(
                     new Color32(0x47, 0x8C, 0xBF, 0xFF),
                     new Color32(0x47, 0x8C, 0xBF, 0x38),
                     new Color32(0x69, 0x9C, 0xE8, 0xFF),
                     new Color32(0xF0, 0xF6, 0xFB, 0xFF)),
-                PreviewToolbarColorPreset.Blender => new ToolbarPalette(
+                PreviewToolbarColorPreset.Orange => new ToolbarPalette(
                     new Color32(0xEA, 0x76, 0x00, 0xFF),
                     new Color32(0xEA, 0x76, 0x00, 0x38),
                     new Color32(0xFF, 0x92, 0x2E, 0xFF),
                     new Color32(0x12, 0x12, 0x12, 0xFF)),
-                PreviewToolbarColorPreset.UnityBlue => new ToolbarPalette(
+                PreviewToolbarColorPreset.Cobalt => new ToolbarPalette(
                     new Color32(0x3A, 0x72, 0xB8, 0xFF),
                     new Color32(0x3A, 0x72, 0xB8, 0x38),
                     new Color32(0x5A, 0x8D, 0xCC, 0xFF),
                     new Color32(0xEE, 0xF4, 0xFF, 0xFF)),
-                PreviewToolbarColorPreset.VibrantGreen => new ToolbarPalette(
+                PreviewToolbarColorPreset.Emerald => new ToolbarPalette(
                     new Color(0.11f, 0.84f, 0.39f, 1f),
                     new Color(0.11f, 0.84f, 0.39f, 0.22f),
                     new Color(0.18f, 0.95f, 0.46f, 1f),

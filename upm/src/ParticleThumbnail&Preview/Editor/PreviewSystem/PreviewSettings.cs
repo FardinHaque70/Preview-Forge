@@ -6,6 +6,13 @@ using UnityEngine;
 
 namespace ParticleThumbnailAndPreview.Editor
 {
+	internal enum PreviewMatcapPreset
+	{
+		Matcap01 = 0,
+		Matcap02 = 1,
+		Matcap03 = 2,
+	}
+
 	[FilePath(SettingsPath, FilePathAttribute.Location.ProjectFolder)]
 	internal sealed class PreviewSettingsStorage : ScriptableSingleton<PreviewSettingsStorage>
 	{
@@ -37,9 +44,10 @@ namespace ParticleThumbnailAndPreview.Editor
 				[SerializeField] internal float sharedGridAlpha = PreviewSettings.D_SharedGridAlpha;
 				[SerializeField] internal float sharedGridFadeStartBoundsScale = PreviewSettings.D_SharedGridFadeStartBoundsScale;
 				[SerializeField] internal float sharedGridFadeStartBoundsPadding = PreviewSettings.D_SharedGridFadeStartBoundsPadding;
-				[SerializeField] internal PreviewGridStyle sharedGridStyle = PreviewSettings.D_SharedGridStyle;
+			[SerializeField] internal PreviewGridStyle sharedGridStyle = PreviewSettings.D_SharedGridStyle;
 			[SerializeField] internal Cubemap modelSkyboxCubemap = PreviewSettings.D_ModelSkyboxCubemap;
 			[SerializeField] internal Material modelSkyboxMaterial;
+			[SerializeField] internal PreviewMatcapPreset modelMatcapPreset = PreviewSettings.D_ModelMatcapPreset;
 			[SerializeField] internal Cubemap modelReflectionCubemap = PreviewSettings.D_ModelReflectionCubemap;
 			[SerializeField] internal Color modelAmbientLightColor = PreviewSettings.D_ModelAmbientLightColor;
 			[SerializeField] internal bool modelSunLightEnabled = PreviewSettings.D_ModelSunLightEnabled;
@@ -98,7 +106,8 @@ namespace ParticleThumbnailAndPreview.Editor
 				sharedGridFadeStartBoundsPadding = PreviewSettings.D_SharedGridFadeStartBoundsPadding;
 				sharedGridStyle = PreviewSettings.D_SharedGridStyle;
 				modelSkyboxCubemap = PreviewSettings.D_ModelSkyboxCubemap;
-					modelSkyboxMaterial = null;
+				modelSkyboxMaterial = null;
+				modelMatcapPreset = PreviewSettings.D_ModelMatcapPreset;
 				modelAmbientLightColor = PreviewSettings.D_ModelAmbientLightColor;
 				modelSunLightEnabled = PreviewSettings.D_ModelSunLightEnabled;
 				modelSunLightColor = PreviewSettings.D_ModelSunLightColor;
@@ -141,7 +150,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float MinMotionSpeed = 0.1f;
 		public const float MaxMotionSpeed = 200f;
 		public static readonly Color D_BackgroundColor = new Color(0.11f, 0.11f, 0.11f, 1f);
-		public const PreviewToolbarColorPreset D_ToolbarColorPreset = PreviewToolbarColorPreset.UnityBlue;
+		public const PreviewToolbarColorPreset D_ToolbarColorPreset = PreviewToolbarColorPreset.Cobalt;
 		public const float D_ToolbarHeight = 35f;
 		public const float MinToolbarHeight = 16f;
 		public const float MaxToolbarHeight = 40f;
@@ -173,6 +182,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				public const float MinSharedGridFadeStartBoundsPadding = 0f;
 				public const float MaxSharedGridFadeStartBoundsPadding = 50f;
 			public const Cubemap D_ModelSkyboxCubemap = null;
+			public const PreviewMatcapPreset D_ModelMatcapPreset = PreviewMatcapPreset.Matcap01;
 			public const Cubemap D_ModelReflectionCubemap = null;
 			public static readonly Color D_ModelAmbientLightColor = new Color(0.6132076f, 0.6045301f, 0.6045301f, 1f);
 			public const bool D_ModelSunLightEnabled = true;
@@ -271,6 +281,12 @@ namespace ParticleThumbnailAndPreview.Editor
 					return Storage.modelReflectionCubemap;
 				}
 			}
+
+			public static PreviewMatcapPreset ModelMatcapPreset => Enum.IsDefined(typeof(PreviewMatcapPreset), Storage.modelMatcapPreset)
+				? Storage.modelMatcapPreset
+				: D_ModelMatcapPreset;
+
+			public static Texture2D ModelMatcapTexture => PreviewMatcapAssets.GetTexture(ModelMatcapPreset);
 
 			public static Color ModelAmbientLightColor => Storage.modelAmbientLightColor;
 			public static bool ModelSunLightEnabled => Storage.modelSunLightEnabled;
@@ -374,6 +390,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		private const string SharedGridFadeStartBoundsScalePropertyName = "sharedGridFadeStartBoundsScale";
 		private const string SharedGridFadeStartBoundsPaddingPropertyName = "sharedGridFadeStartBoundsPadding";
 		private const string ModelSkyboxMaterialPropertyName = "modelSkyboxMaterial";
+		private const string ModelMatcapPresetPropertyName = "modelMatcapPreset";
 		private const string ModelAmbientLightColorPropertyName = "modelAmbientLightColor";
 		private const string ModelSunLightEnabledPropertyName = "modelSunLightEnabled";
 		private const string ModelSunLightColorPropertyName = "modelSunLightColor";
@@ -550,6 +567,11 @@ namespace ParticleThumbnailAndPreview.Editor
 				if (selectedMaterial != modelSkyboxMaterialProperty.objectReferenceValue)
 					modelSkyboxMaterialProperty.objectReferenceValue = selectedMaterial;
 
+				DrawMatcapPresetSelector(
+					serializedObject.FindProperty(ModelMatcapPresetPropertyName),
+					"Matcap Style",
+					"Texture used by the Matcap visual mode in model preview.");
+
 				DrawHdrColorField(serializedObject.FindProperty(ModelAmbientLightColorPropertyName), "Ambient (HDR)", "Shared ambient lighting color used by model and particle preview when lights are enabled.");
 			});
 
@@ -589,7 +611,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			DrawSectionCard("Mode", () =>
 			{
-				DrawEnumPopup(serializedObject.FindProperty(ModelPreviewModePropertyName), typeof(PreviewModeOverride), "Mode Override", "Auto resolves to project default (2D or 3D) when a model preview session starts. 2D/3D force a mode.");
+				DrawEnumPopup(serializedObject.FindProperty(ModelPreviewModePropertyName), typeof(PreviewModeOverride), "Mode Override", "Controls the model preview camera view. Auto follows the editor's default 2D/3D behavior, while 2D and 3D force the camera mode.");
 			});
 
 			DrawSectionCard("Default enabled state", () =>
@@ -746,6 +768,29 @@ namespace ParticleThumbnailAndPreview.Editor
 				property.vector2Value = newValue;
 		}
 
+		private static void DrawMatcapPresetSelector(SerializedProperty property, string label, string tooltip)
+		{
+			PreviewMatcapPreset currentPreset = Enum.IsDefined(typeof(PreviewMatcapPreset), property.intValue)
+				? (PreviewMatcapPreset) property.intValue
+				: PreviewSettings.D_ModelMatcapPreset;
+
+			EditorGUILayout.LabelField(new GUIContent(label, tooltip));
+			EditorGUILayout.BeginHorizontal();
+			for (int i = 0; i < PreviewMatcapAssets.PresetCount; i++)
+			{
+				PreviewMatcapPreset preset = (PreviewMatcapPreset) i;
+				Texture2D texture = PreviewMatcapAssets.GetTexture(preset);
+				GUIContent content = texture != null
+					? new GUIContent(texture, preset.ToString())
+					: new GUIContent($"M{i + 1}", preset.ToString());
+
+				bool isSelected = currentPreset == preset;
+				if (GUILayout.Toggle(isSelected, content, "Button", GUILayout.Height(64f), GUILayout.Width(64f)) && !isSelected)
+					property.intValue = i;
+			}
+			EditorGUILayout.EndHorizontal();
+		}
+
 		private static void DrawIconToggleLeft(SerializedProperty property, string label, string tooltip, params string[] iconNames)
 		{
 			GUIContent iconContent = PreviewToolbarControls.GetIconContent(string.Empty, tooltip, iconNames);
@@ -839,6 +884,86 @@ namespace ParticleThumbnailAndPreview.Editor
 			s_generatedSkyboxMaterial.SetTexture("_Tex", resolvedCubemap);
 			s_generatedSkyboxSourceCubemapId = sourceCubemapId;
 			return s_generatedSkyboxMaterial;
+		}
+	}
+
+	internal static class PreviewMatcapAssets
+	{
+		private const string VisualModesFolderPath = "Editor/Common/PreviewAssets/VisualModes";
+		private const string DefaultMatcapMaterialPath = VisualModesFolderPath + "/PrefabPreviewMatcap.mat";
+		private const string MatcapTexturePropertyName = "_MatcapTex";
+		private static readonly string[] MatcapTexturePaths =
+		{
+			VisualModesFolderPath + "/Matcap_01.png",
+			VisualModesFolderPath + "/Matcap_02.png",
+			VisualModesFolderPath + "/Matcap_03.png",
+		};
+		private static Material s_generatedMatcapMaterial;
+		private static int s_generatedMatcapTextureId;
+		internal static int PresetCount => MatcapTexturePaths.Length;
+
+		internal static Texture2D GetDefaultMatcapTexture()
+		{
+			return GetTexture(PreviewSettings.D_ModelMatcapPreset);
+		}
+
+		internal static Texture2D GetTexture(PreviewMatcapPreset preset)
+		{
+			int index = Mathf.Clamp((int) preset, 0, MatcapTexturePaths.Length - 1);
+			Texture2D texture = PreviewInstallLayout.LoadFirstAssetAtRelativePath<Texture2D>(MatcapTexturePaths[index]);
+			if (texture != null)
+				return texture;
+
+			for (int i = 0; i < MatcapTexturePaths.Length; i++)
+			{
+				texture = PreviewInstallLayout.LoadFirstAssetAtRelativePath<Texture2D>(MatcapTexturePaths[i]);
+				if (texture != null)
+					return texture;
+			}
+
+			return null;
+		}
+
+		internal static Material GetConfiguredMatcapMaterial()
+		{
+			Material defaultMaterial = PreviewInstallLayout.LoadFirstAssetAtRelativePath<Material>(DefaultMatcapMaterialPath);
+			Texture2D resolvedTexture = PreviewSettings.ModelMatcapTexture;
+			if (resolvedTexture == null)
+			{
+				if (defaultMaterial != null && defaultMaterial.GetTexture(MatcapTexturePropertyName) != null)
+					return defaultMaterial;
+
+				return null;
+			}
+
+			if (defaultMaterial != null && defaultMaterial.GetTexture(MatcapTexturePropertyName) == resolvedTexture)
+				return defaultMaterial;
+
+			int sourceTextureId = resolvedTexture.GetInstanceID();
+			if (s_generatedMatcapMaterial != null && s_generatedMatcapTextureId == sourceTextureId)
+				return s_generatedMatcapMaterial;
+
+			if (s_generatedMatcapMaterial != null)
+				UnityEngine.Object.DestroyImmediate(s_generatedMatcapMaterial);
+
+			if (defaultMaterial != null)
+			{
+				s_generatedMatcapMaterial = new Material(defaultMaterial);
+			}
+			else
+			{
+				Shader shader = Shader.Find("Hidden/PrefabPreview/Matcap");
+				if (shader == null)
+					return null;
+
+				s_generatedMatcapMaterial = new Material(shader);
+			}
+
+			s_generatedMatcapMaterial.name = "PrefabPreviewMatcap (Generated)";
+			s_generatedMatcapMaterial.hideFlags = HideFlags.HideAndDontSave;
+			s_generatedMatcapMaterial.SetTexture(MatcapTexturePropertyName, resolvedTexture);
+			s_generatedMatcapTextureId = sourceTextureId;
+			return s_generatedMatcapMaterial;
 		}
 	}
 }

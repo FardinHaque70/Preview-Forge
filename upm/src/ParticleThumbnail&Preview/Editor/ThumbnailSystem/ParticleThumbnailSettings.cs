@@ -128,7 +128,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static float MotionPadding => Mathf.Clamp(Storage.motionPadding, 0f, 3f);
 		public static float MotionRadius => Mathf.Clamp(Storage.motionRadius, 0.1f, 50f);
 		public static float MotionSpeed => Mathf.Clamp(Storage.motionSpeed, 0.1f, 200f);
-		public static float ThumbnailFillTarget => 1f;
+		public static float ThumbnailFillTarget => Mathf.Clamp(Storage.thumbnailFillTarget, 0.45f, 1f);
 		public static bool EnableTightFraming => Storage.enableTightFraming;
 		public static float ParticleFramingPercentile => Mathf.Clamp(Storage.particleFramingPercentile, 0.80f, 0.99f);
 

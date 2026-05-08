@@ -165,7 +165,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 case PreviewToolbarCommonFeatureKind.Mode:
                     item.IsActive = session.ModeOverride == PreviewModeOverride.Force2D;
                     item.IsEnabled = true;
-                    item.FallbackText = session.ModeContext.Effective2D ? "2D" : "3D";
+                    item.FallbackText = session.ModeContext.CameraIs2D ? "2D" : "3D";
                     item.Tooltip = "Switch preview mode (2D/3D)";
                     item.IconNames = null;
                     break;

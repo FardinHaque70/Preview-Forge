@@ -135,27 +135,13 @@ namespace ParticleThumbnailAndPreview.Editor
 			public long DiskCacheBytes;
 		}
 
+		private static CacheStats CachedStats;
+		private static bool CacheStatsInitialized;
+
 		public static CacheStats GetCacheStats()
 		{
-			ParticleThumbnailPersistentCache.GetCachedDiskStats(out int persistentCount, out long diskBytes);
-
-			CacheStats stats = new CacheStats
-			{
-				TotalEntries = Cache.Count,
-				PersistentEntryCount = persistentCount,
-				GeneratingCount = GenerateAllPendingRequests.Count,
-				FailedCount = FailedDependencyByRequest.Count,
-				QueueDepth = PriorityRenderQueue.Count + RenderQueue.Count,
-				DiskCacheBytes = diskBytes,
-			};
-
-			foreach (ParticleThumbnailRecord record in Cache.Values)
-			{
-				if (record?.Texture is Texture2D texture)
-					stats.MemoryCacheBytes += (long) texture.width * texture.height * 4L;
-			}
-
-			return stats;
+			EnsureCacheStatsInitialized();
+			return CachedStats;
 		}
 
 		public static void InvalidatePath(string assetPath)
@@ -193,6 +179,8 @@ namespace ParticleThumbnailAndPreview.Editor
 					ParticleThumbnailPersistentCache.InvalidateGuid(guid);
 			}
 
+			RefreshDiskStatsSnapshot();
+
 			if (repaintProjectWindow)
 				EditorApplication.RepaintProjectWindow();
 		}
@@ -223,6 +211,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			KnownPersistentCacheMisses.Clear();
 			ResetGenerateAllProgress();
 			SafeClearProgressWindow();
+			ResetCacheStatsSnapshot();
 			RefreshRuntimeHooks(refreshSelectionCacheWhenEnabled: true);
 			EditorApplication.RepaintProjectWindow();
 		}
@@ -258,6 +247,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static void ClearPersistentCache()
 		{
 			ParticleThumbnailPersistentCache.ClearAll();
+			RefreshDiskStatsSnapshot();
 			EditorApplication.RepaintProjectWindow();
 		}
 
@@ -298,6 +288,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			ParticleThumbnailWelcomeBootstrap.MarkWelcomeHandled();
 			FailedDependencyByRequest.Clear();
+			RefreshVolatileStatsSnapshot();
 			ResetGenerateAllProgress();
 			GenerateAllUseUnthrottledProcessing = unthrottledProcessing;
 			GenerateAllRunActive = true;
@@ -602,6 +593,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			{
 				PendingPersistentLoadQueue.Clear();
 				PendingPersistentLoadSet.Clear();
+				RefreshVolatileStatsSnapshot();
 				return;
 			}
 
@@ -664,6 +656,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				{
 					Queued.Remove(request);
 					PriorityQueued.Remove(request);
+					RefreshVolatileStatsSnapshot();
 					continue;
 				}
 
@@ -702,6 +695,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				if (texture == null)
 				{
 					FailedDependencyByRequest[request] = dependencyToken;
+					RefreshVolatileStatsSnapshot();
 					if (trackedByGenerateAll)
 						anyProgressUpdated |= CompleteGenerateAllRequest(request, success: false);
 					continue;
@@ -956,6 +950,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				{
 					PriorityQueued.Add(request);
 					PriorityRenderQueue.Enqueue(request);
+					RefreshVolatileStatsSnapshot();
 					RefreshRuntimeHooks();
 				}
 
@@ -973,6 +968,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				RenderQueue.Enqueue(request);
 			}
 
+			RefreshVolatileStatsSnapshot();
 			RefreshRuntimeHooks();
 		}
 
@@ -997,10 +993,13 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (texture == null)
 				return;
 
+			EnsureCacheStatsInitialized();
+			long previousTextureBytes = 0L;
 			if (Cache.TryGetValue(request, out ParticleThumbnailRecord existing)
 			    && existing?.Texture != null
 			    && existing.Texture != texture)
 			{
+				previousTextureBytes = GetTextureFootprintBytes(existing.Texture);
 				UnityEngine.Object.DestroyImmediate(existing.Texture);
 			}
 
@@ -1014,16 +1013,22 @@ namespace ParticleThumbnailAndPreview.Editor
 			};
 
 			Cache[request] = record;
+			CachedStats.TotalEntries = Cache.Count;
+			CachedStats.MemoryCacheBytes += GetTextureFootprintBytes(texture) - previousTextureBytes;
 			RequestLastSeenFrame.Remove(request);
 			TouchLru(request);
 			EnforceCacheLimit();
 
 			FailedDependencyByRequest.Remove(request);
+			RefreshVolatileStatsSnapshot();
 			string settingsToken = ParticleThumbnailSettings.GetPersistentSettingsToken();
 			KnownPersistentCacheMisses.Remove(ParticleThumbnailPersistentCache.BuildCacheKey(request, dependencyToken, settingsToken));
 
 			if (persistToDisk)
+			{
 				ParticleThumbnailPersistentCache.SaveTexture(request, dependencyToken, texture);
+				RefreshDiskStatsSnapshot();
+			}
 		}
 
 		private static void TouchLru(ParticleThumbnailRequest request)
@@ -1056,8 +1061,13 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			if (Cache.TryGetValue(request, out ParticleThumbnailRecord record))
 			{
+				EnsureCacheStatsInitialized();
+				CachedStats.TotalEntries = Math.Max(0, CachedStats.TotalEntries - 1);
 				if (record?.Texture != null)
+				{
+					CachedStats.MemoryCacheBytes = Math.Max(0L, CachedStats.MemoryCacheBytes - GetTextureFootprintBytes(record.Texture));
 					UnityEngine.Object.DestroyImmediate(record.Texture);
+				}
 
 				Cache.Remove(request);
 			}
@@ -1069,6 +1079,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			}
 
 			RequestLastSeenFrame.Remove(request);
+			RefreshVolatileStatsSnapshot();
 		}
 
 		private static void RemoveFailedEntries(string assetPath, string guid)
@@ -1082,6 +1093,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			for (int i = 0; i < toRemove.Count; i++)
 				FailedDependencyByRequest.Remove(toRemove[i]);
+
+			if (toRemove.Count > 0)
+				RefreshVolatileStatsSnapshot();
 		}
 
 		private static void RemoveQueuedEntries(string assetPath, string guid)
@@ -1089,6 +1103,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (PriorityRenderQueue.Count == 0 && RenderQueue.Count == 0 && PendingPersistentLoadQueue.Count == 0)
 				return;
 
+			bool anyRemoved = false;
 			Queue<ParticleThumbnailRequest> retainedPriority = new Queue<ParticleThumbnailRequest>(PriorityRenderQueue.Count);
 			while (PriorityRenderQueue.Count > 0)
 			{
@@ -1100,6 +1115,7 @@ namespace ParticleThumbnailAndPreview.Editor
 					PriorityQueued.Remove(request);
 					RequestLastSeenFrame.Remove(request);
 					CompleteGenerateAllRequest(request, success: false);
+					anyRemoved = true;
 					continue;
 				}
 
@@ -1119,6 +1135,7 @@ namespace ParticleThumbnailAndPreview.Editor
 					Queued.Remove(request);
 					RequestLastSeenFrame.Remove(request);
 					CompleteGenerateAllRequest(request, success: false);
+					anyRemoved = true;
 					continue;
 				}
 
@@ -1141,6 +1158,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				{
 					PendingPersistentLoadSet.Remove(request);
 					RequestLastSeenFrame.Remove(request);
+					anyRemoved = true;
 					continue;
 				}
 
@@ -1149,6 +1167,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			while (retainedLoads.Count > 0)
 				PendingPersistentLoadQueue.Enqueue(retainedLoads.Dequeue());
+
+			if (anyRemoved)
+				RefreshVolatileStatsSnapshot();
 		}
 
 		private static void HandleSettingsChanged()
@@ -1163,6 +1184,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				return;
 
 			GenerateAllTotalCount++;
+			RefreshVolatileStatsSnapshot();
 		}
 
 		private static bool CompleteGenerateAllRequest(ParticleThumbnailRequest request, bool success)
@@ -1180,6 +1202,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				GenerateAllCurrentAssetPath = string.Empty;
 
 			RequestLastSeenFrame.Remove(request);
+			RefreshVolatileStatsSnapshot();
 			return true;
 		}
 
@@ -1202,6 +1225,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			GenerateAllRunActive = false;
 			GenerateAllStartTime = 0.0;
 			GenerateAllWarmupFramePending = false;
+			RefreshVolatileStatsSnapshot();
 		}
 
 		private static void MarkRequestSeen(ParticleThumbnailRequest request)
@@ -1217,6 +1241,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				if (!Queued.Contains(request))
 					continue;
 
+				RefreshVolatileStatsSnapshot();
 				return true;
 			}
 
@@ -1226,11 +1251,105 @@ namespace ParticleThumbnailAndPreview.Editor
 				if (!Queued.Contains(request))
 					continue;
 
+				RefreshVolatileStatsSnapshot();
 				return true;
 			}
 
 			request = default;
 			return false;
+		}
+
+		internal static void ResetCacheStatsStateForTests()
+		{
+			CacheStatsInitialized = false;
+			CachedStats = default;
+		}
+
+		internal static void StoreCacheRecordForTests(ParticleThumbnailRequest request, string dependencyToken, Texture2D texture)
+		{
+			StoreCacheRecord(request, dependencyToken, texture, persistToDisk: false);
+		}
+
+		internal static void RemoveCacheEntryForTests(ParticleThumbnailRequest request)
+		{
+			RemoveCacheEntry(request);
+		}
+
+		internal static void EnqueueForTests(ParticleThumbnailRequest request, bool prioritize)
+		{
+			Enqueue(request, prioritize);
+		}
+
+		internal static void TrackGenerateAllRequestForTests(ParticleThumbnailRequest request)
+		{
+			TrackGenerateAllRequest(request);
+		}
+
+		internal static void CompleteGenerateAllRequestForTests(ParticleThumbnailRequest request, bool success)
+		{
+			CompleteGenerateAllRequest(request, success);
+		}
+
+		internal static void MarkFailedRequestForTests(ParticleThumbnailRequest request, string dependencyToken)
+		{
+			FailedDependencyByRequest[request] = dependencyToken ?? string.Empty;
+			RefreshVolatileStatsSnapshot();
+		}
+
+		private static void EnsureCacheStatsInitialized()
+		{
+			if (CacheStatsInitialized)
+				return;
+
+			ParticleThumbnailPersistentCache.GetCachedDiskStats(out int persistentCount, out long diskBytes);
+
+			CachedStats = new CacheStats
+			{
+				TotalEntries = Cache.Count,
+				PersistentEntryCount = persistentCount,
+				GeneratingCount = GenerateAllPendingRequests.Count,
+				FailedCount = FailedDependencyByRequest.Count,
+				QueueDepth = PriorityRenderQueue.Count + RenderQueue.Count,
+				DiskCacheBytes = diskBytes,
+			};
+
+			foreach (ParticleThumbnailRecord record in Cache.Values)
+			{
+				if (record?.Texture != null)
+					CachedStats.MemoryCacheBytes += GetTextureFootprintBytes(record.Texture);
+			}
+
+			CacheStatsInitialized = true;
+		}
+
+		private static void RefreshVolatileStatsSnapshot()
+		{
+			EnsureCacheStatsInitialized();
+			CachedStats.TotalEntries = Cache.Count;
+			CachedStats.GeneratingCount = GenerateAllPendingRequests.Count;
+			CachedStats.FailedCount = FailedDependencyByRequest.Count;
+			CachedStats.QueueDepth = PriorityRenderQueue.Count + RenderQueue.Count;
+		}
+
+		private static void RefreshDiskStatsSnapshot()
+		{
+			EnsureCacheStatsInitialized();
+			ParticleThumbnailPersistentCache.GetCachedDiskStats(out int persistentCount, out long diskBytes);
+			CachedStats.PersistentEntryCount = persistentCount;
+			CachedStats.DiskCacheBytes = diskBytes;
+		}
+
+		private static void ResetCacheStatsSnapshot()
+		{
+			CacheStatsInitialized = true;
+			CachedStats = default;
+			RefreshDiskStatsSnapshot();
+			RefreshVolatileStatsSnapshot();
+		}
+
+		private static long GetTextureFootprintBytes(Texture2D texture)
+		{
+			return texture == null ? 0L : (long) texture.width * texture.height * 4L;
 		}
 
 		private static bool ShouldDropStaleRequest(ParticleThumbnailRequest request)

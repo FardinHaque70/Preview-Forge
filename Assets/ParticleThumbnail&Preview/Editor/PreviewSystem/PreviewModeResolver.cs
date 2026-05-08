@@ -18,32 +18,32 @@ namespace ParticleThumbnailAndPreview.Editor
         public readonly PreviewRenderPipelineKind PipelineKind;
         public readonly bool IsEditorDefaultBehavior2D;
         public readonly bool IsUrp2DRenderer;
-        public readonly bool Effective2D;
+        public readonly bool CameraIs2D;
 
         public PreviewModeContext(
             PreviewModeOverride modeOverride,
             PreviewRenderPipelineKind pipelineKind,
             bool isEditorDefaultBehavior2D,
             bool isUrp2DRenderer,
-            bool effective2D)
+            bool cameraIs2D)
         {
             Override = modeOverride;
             PipelineKind = pipelineKind;
             IsEditorDefaultBehavior2D = isEditorDefaultBehavior2D;
             IsUrp2DRenderer = isUrp2DRenderer;
-            Effective2D = effective2D;
+            CameraIs2D = cameraIs2D;
         }
     }
 
     internal static class PreviewModeResolver
     {
-        internal static bool ResolveEffective2DForTests(PreviewModeOverride modeOverride, bool isUrp2DRenderer, bool isEditorDefaultBehavior2D)
+        internal static bool ResolveCameraIs2DForTests(PreviewModeOverride modeOverride, bool isEditorDefaultBehavior2D)
         {
             return modeOverride switch
             {
                 PreviewModeOverride.Force2D => true,
                 PreviewModeOverride.Force3D => false,
-                _ => isUrp2DRenderer || isEditorDefaultBehavior2D,
+                _ => isEditorDefaultBehavior2D,
             };
         }
 
@@ -53,9 +53,9 @@ namespace ParticleThumbnailAndPreview.Editor
             bool urp2D = IsUrp2DRendererActive();
             PreviewRenderPipelineKind kind = PreviewRenderCompatibilityUtility.DetectCurrentPipelineKind();
 
-            bool effective2D = ResolveEffective2DForTests(modeOverride, urp2D, editorMode2D);
+            bool cameraIs2D = ResolveCameraIs2DForTests(modeOverride, editorMode2D);
 
-            return new PreviewModeContext(modeOverride, kind, editorMode2D, urp2D, effective2D);
+            return new PreviewModeContext(modeOverride, kind, editorMode2D, urp2D, cameraIs2D);
         }
 
         private static bool IsEditorDefaultBehavior2D()

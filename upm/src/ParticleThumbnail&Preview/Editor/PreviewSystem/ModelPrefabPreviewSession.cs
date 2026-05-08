@@ -57,7 +57,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private const string NormalsMaterialPath = "PrefabPreviewNormals.mat";
         private const string UvCheckerMaterialPath = "PrefabPreviewUvChecker.mat";
         private const string VertexColorMaterialPath = "PrefabPreviewVertexColor.mat";
-        private const string MatcapMaterialPath = "PrefabPreviewMatcap.mat";
         private const string OverdrawMaterialPath = "PrefabPreviewOverdraw.mat";
 
         private static Mesh s_pivotCrossMesh;
@@ -66,7 +65,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private static Material s_normalsMaterial;
         private static Material s_uvCheckerMaterial;
         private static Material s_vertexColorMaterial;
-        private static Material s_matcapMaterial;
         private static Material s_overdrawMaterial;
         private static readonly List<Material[]> SharedMaterialRestoreCache = new();
         private static readonly Dictionary<string, SessionStateSnapshot> SessionStateByAssetPath = new();
@@ -206,7 +204,7 @@ namespace ParticleThumbnailAndPreview.Editor
         internal int TriangleCount => _triangleCount;
         internal int MaterialSlotCount => _materialSlotCount;
         internal Vector3 BoundsSize => _hasFramedBounds ? _framedBounds.size : Vector3.zero;
-        internal string ModeLabel => ModeContext.Effective2D ? "2D" : "3D";
+        internal string ModeLabel => ModeContext.CameraIs2D ? "2D" : "3D";
 
         bool IPreviewToolbarCommonSession.GridEnabled
         {
@@ -322,7 +320,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _lightWidgetEnabled = LightingControlsSupported && _lightWidgetEnabled;
             _skyboxEnabled = SkyboxSupported && _skyboxEnabled;
 
-            if (ModeContext.Effective2D)
+            if (ModeContext.CameraIs2D)
                 _turntableEnabled = false;
 
             _prefabInstanceId = instanceId;
@@ -519,13 +517,13 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal void CycleModeOverride()
         {
-            bool wasEffective2D = ModeContext.Effective2D;
+            bool wasEffective2D = ModeContext.CameraIs2D;
 
             _modeOverride = _modeOverride == PreviewModeOverride.Force2D
                 ? PreviewModeOverride.Force3D
                 : PreviewModeOverride.Force2D;
 
-            bool isEffective2D = ModeContext.Effective2D;
+            bool isEffective2D = ModeContext.CameraIs2D;
             if (isEffective2D)
             {
                 _targetOrbit = Vector2.zero;
@@ -550,7 +548,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (!IsReady || evt == null)
                 return false;
 
-            bool effective2D = ModeContext.Effective2D;
+            bool effective2D = ModeContext.CameraIs2D;
             Rect lightWidgetRect = GetLightWidgetPadRect(previewRect);
             bool lightWidgetInteractive = _lightWidgetEnabled && LightingControlsSupported && !effective2D;
             int lightRigControlId = lightWidgetInteractive
@@ -666,7 +664,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             float orbitSmoothing = Mathf.Max(0.0001f, PreviewSettings.OrbitSmoothing);
             float panSmoothing = Mathf.Max(0.0001f, PreviewSettings.PanSmoothing);
-            bool effective2D = ModeContext.Effective2D;
+            bool effective2D = ModeContext.CameraIs2D;
 
             double now = EditorApplication.timeSinceStartup;
             if (_turntableEnabled && _lastInteractionUpdateTime >= 0d)
@@ -893,7 +891,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private void DrawLightWidget(Rect previewRect)
         {
-            if (Event.current.type != EventType.Repaint || ModeContext.Effective2D)
+            if (Event.current.type != EventType.Repaint || ModeContext.CameraIs2D)
                 return;
 
             Rect padRect = GetLightWidgetPadRect(previewRect);
@@ -1032,7 +1030,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private void UpdateCameraTransform()
         {
             Camera camera = _preview.camera;
-            bool effective2D = ModeContext.Effective2D;
+            bool effective2D = ModeContext.CameraIs2D;
             if (effective2D)
             {
                 camera.orthographic = true;
@@ -1057,9 +1055,11 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private void ApplyEnvironmentState()
         {
-            bool effective2D = ModeContext.Effective2D;
-            bool lightingEnabled = _lightsEnabled && LightingControlsSupported && !effective2D;
-            bool skyboxEnabled = _skyboxEnabled && SkyboxSupported;
+            bool lightingEnabled = ComputeLightingEnabledForTests(_lightsEnabled, ModeContext.IsUrp2DRenderer);
+            bool skyboxEnabled = ComputeSkyboxEnabledForTests(
+                _skyboxEnabled,
+                PreviewSettings.ModelSkyboxMaterial != null,
+                ModeContext.IsUrp2DRenderer);
             PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
             PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
             SharedPreviewLightingProfile lightingProfile = PreviewLightingSystem.CreateProfileFromSettings();
@@ -1118,7 +1118,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 ModelPreviewVisualMode.Normals => s_normalsMaterial,
                 ModelPreviewVisualMode.UvChecker => s_uvCheckerMaterial,
                 ModelPreviewVisualMode.VertexColor => s_vertexColorMaterial,
-                ModelPreviewVisualMode.Matcap => s_matcapMaterial,
+                ModelPreviewVisualMode.Matcap => PreviewMatcapAssets.GetConfiguredMatcapMaterial(),
                 ModelPreviewVisualMode.Overdraw => s_overdrawMaterial,
                 _ => null,
             };
@@ -1230,7 +1230,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _pivot = bounds.center;
             _targetPivot = _pivot;
 
-            bool effective2D = ModeContext.Effective2D;
+            bool effective2D = ModeContext.CameraIs2D;
             if (effective2D)
             {
                 float target = ComputeInitialDistanceForBoundsForTests(bounds, true, _preview.camera.fieldOfView);
@@ -1277,9 +1277,9 @@ namespace ParticleThumbnailAndPreview.Editor
             return !isUrp2DRenderer;
         }
 
-        internal static bool ComputeLightingEnabledForTests(bool toggleEnabled, bool effective2D, bool isUrp2DRenderer)
+        internal static bool ComputeLightingEnabledForTests(bool toggleEnabled, bool isUrp2DRenderer)
         {
-            return toggleEnabled && !effective2D && ComputeLightingControlsSupportedForTests(isUrp2DRenderer);
+            return toggleEnabled && ComputeLightingControlsSupportedForTests(isUrp2DRenderer);
         }
 
         internal static bool ComputeSkyboxSupportedForTests(bool isUrp2DRenderer)
@@ -1287,9 +1287,9 @@ namespace ParticleThumbnailAndPreview.Editor
             return !isUrp2DRenderer;
         }
 
-        internal static bool ComputeSkyboxEnabledForTests(bool toggleEnabled, bool hasCubemap, bool effective2D, bool isUrp2DRenderer)
+        internal static bool ComputeSkyboxEnabledForTests(bool toggleEnabled, bool hasCubemap, bool isUrp2DRenderer)
         {
-            return toggleEnabled && hasCubemap && !effective2D && ComputeSkyboxSupportedForTests(isUrp2DRenderer);
+            return toggleEnabled && hasCubemap && ComputeSkyboxSupportedForTests(isUrp2DRenderer);
         }
 
         private bool TryComputeFramingBounds(out Bounds bounds)
@@ -1588,7 +1588,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 return PreviewModeOverride.Force3D;
 
             PreviewModeContext projectDefaultContext = PreviewModeResolver.Resolve(PreviewModeOverride.Auto);
-            return projectDefaultContext.Effective2D
+            return projectDefaultContext.CameraIs2D
                 ? PreviewModeOverride.Force2D
                 : PreviewModeOverride.Force3D;
         }
@@ -1651,7 +1651,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private bool DrawGrid()
         {
-            bool effective2D = ModeContext.Effective2D;
+            bool effective2D = ModeContext.CameraIs2D;
             PreviewGridSpace space = effective2D
                 ? PreviewGridSpace.Plane2D
                 : PreviewGridSpace.Plane3D;
@@ -1839,7 +1839,7 @@ namespace ParticleThumbnailAndPreview.Editor
             bool hasCanvas = _previewRoot != null && _previewRoot.GetComponentInChildren<Canvas>(true) != null;
             bool hasTmpUi = HasComponentInChildren(_previewRoot, TmpTextMeshProUiType);
             bool hasTmpMesh = HasComponentInChildren(_previewRoot, TmpTextMeshProType);
-            bool effective2D = ModeContext.Effective2D;
+            bool effective2D = ModeContext.CameraIs2D;
             Vector3 gridAnchor = Vector3.zero;
             string key = string.Concat(
                 state, "|", _gridEnabled ? "1" : "0", "|", effective2D ? "2d" : "3d", "|",
@@ -1938,7 +1938,6 @@ namespace ParticleThumbnailAndPreview.Editor
             s_normalsMaterial ??= LoadVisualModeMaterial(NormalsMaterialPath);
             s_uvCheckerMaterial ??= LoadVisualModeMaterial(UvCheckerMaterialPath);
             s_vertexColorMaterial ??= LoadVisualModeMaterial(VertexColorMaterialPath);
-            s_matcapMaterial ??= LoadVisualModeMaterial(MatcapMaterialPath);
             s_overdrawMaterial ??= LoadVisualModeMaterial(OverdrawMaterialPath);
         }
 

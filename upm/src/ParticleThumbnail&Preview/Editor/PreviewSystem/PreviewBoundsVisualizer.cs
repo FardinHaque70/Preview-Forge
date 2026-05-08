@@ -6,7 +6,7 @@ namespace ParticleThumbnailAndPreview.Editor
 {
     internal static class PreviewBoundsVisualizer
     {
-        private static readonly Color WireColor = new(0.95f, 0.95f, 0.95f, 0.82f);
+        private const float WireAlpha = 0.82f;
         private static readonly Color LabelBackgroundColor = new(0.08f, 0.08f, 0.08f, 0.88f);
         private static readonly Color LabelShadowColor = new(0f, 0f, 0f, 0.7f);
         private static readonly Color WidthColor = new(0.93f, 0.37f, 0.37f, 1f);
@@ -61,6 +61,13 @@ namespace ParticleThumbnailAndPreview.Editor
         internal static Color GetDimensionColorForTests(int axisIndex)
         {
             return GetDimensionColor((DimensionAxis)Mathf.Clamp(axisIndex, 0, 2));
+        }
+
+        internal static Color GetWireColorForTests(int axisIndex)
+        {
+            Color color = GetDimensionColorForTests(axisIndex);
+            color.a = WireAlpha;
+            return color;
         }
 
         private static void DrawDimensionLabel(Rect previewRect, Camera camera, Bounds bounds, DimensionAxis axis)
@@ -169,7 +176,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 s_wireMaterial.SetInt("_ZTest", (int)CompareFunction.LessEqual);
                 s_wireMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
                 s_wireMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-                s_wireMaterial.SetColor("_Color", WireColor);
+                s_wireMaterial.SetColor("_Color", Color.white);
             }
 
             if (s_wireCubeMesh == null)
@@ -223,7 +230,8 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static void BuildWireCubeMesh(Mesh mesh)
         {
-            Vector3[] vertices =
+            mesh.Clear();
+            Vector3[] corners =
             {
                 new(-0.5f, -0.5f, -0.5f),
                 new(0.5f, -0.5f, -0.5f),
@@ -235,15 +243,39 @@ namespace ParticleThumbnailAndPreview.Editor
                 new(-0.5f, 0.5f, 0.5f),
             };
 
-            int[] indices =
+            int[] edgeCornerIndices =
             {
-                0, 1, 1, 2, 2, 3, 3, 0,
-                4, 5, 5, 6, 6, 7, 7, 4,
+                0, 1, 3, 2, 4, 5, 7, 6,
+                3, 0, 2, 1, 7, 4, 6, 5,
                 0, 4, 1, 5, 2, 6, 3, 7,
             };
 
-            mesh.Clear();
+            DimensionAxis[] edgeAxes =
+            {
+                DimensionAxis.Width, DimensionAxis.Width, DimensionAxis.Width, DimensionAxis.Width,
+                DimensionAxis.Height, DimensionAxis.Height, DimensionAxis.Height, DimensionAxis.Height,
+                DimensionAxis.Depth, DimensionAxis.Depth, DimensionAxis.Depth, DimensionAxis.Depth,
+            };
+
+            Vector3[] vertices = new Vector3[edgeCornerIndices.Length];
+            Color[] colors = new Color[edgeCornerIndices.Length];
+            int[] indices = new int[edgeCornerIndices.Length];
+            for (int i = 0; i < edgeCornerIndices.Length; i += 2)
+            {
+                DimensionAxis axis = edgeAxes[i / 2];
+                Color wireColor = GetDimensionColor(axis);
+                wireColor.a = WireAlpha;
+
+                vertices[i] = corners[edgeCornerIndices[i]];
+                vertices[i + 1] = corners[edgeCornerIndices[i + 1]];
+                colors[i] = wireColor;
+                colors[i + 1] = wireColor;
+                indices[i] = i;
+                indices[i + 1] = i + 1;
+            }
+
             mesh.vertices = vertices;
+            mesh.colors = colors;
             mesh.SetIndices(indices, MeshTopology.Lines, 0);
             mesh.RecalculateBounds();
         }

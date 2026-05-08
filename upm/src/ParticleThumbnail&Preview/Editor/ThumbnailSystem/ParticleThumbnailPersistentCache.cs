@@ -10,6 +10,10 @@ namespace ParticleThumbnailAndPreview.Editor
     {
         private const int CacheFormatVersion = 2;
         private const string CacheFolderName = "ParticleThumbnailCache";
+        private static bool s_diskStatsInitialized;
+        private static int s_cachedDiskFileCount;
+        private static long s_cachedDiskBytes;
+        private static string s_cacheDirectoryOverrideForTests;
 
         public static bool TryLoadTexture(ParticleThumbnailRequest request, string dependencyToken, out Texture2D texture)
         {
@@ -23,7 +27,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 byte[] bytes = File.ReadAllBytes(path);
                 if (bytes == null || bytes.Length == 0)
                 {
-                    TryDeleteFile(path);
+                    TryDeleteFile(path, updateCachedStats: true);
                     return false;
                 }
 
@@ -37,7 +41,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 {
                     UnityEngine.Object.DestroyImmediate(texture);
                     texture = null;
-                    TryDeleteFile(path);
+                    TryDeleteFile(path, updateCachedStats: true);
                     return false;
                 }
 
@@ -45,7 +49,7 @@ namespace ParticleThumbnailAndPreview.Editor
             }
             catch
             {
-                TryDeleteFile(path);
+                TryDeleteFile(path, updateCachedStats: true);
                 return false;
             }
         }
@@ -66,7 +70,13 @@ namespace ParticleThumbnailAndPreview.Editor
                 if (!string.IsNullOrEmpty(directory))
                     Directory.CreateDirectory(directory);
 
+                bool hadExistingFile = File.Exists(path);
+                long previousLength = 0L;
+                if (hadExistingFile)
+                    previousLength = new FileInfo(path).Length;
+
                 WriteAllBytesAtomic(path, bytes);
+                UpdateCachedDiskStatsForWrite(hadExistingFile, previousLength, bytes.LongLength);
             }
             catch (Exception)
             {
@@ -86,7 +96,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 string[] files = Directory.GetFiles(directory, $"{guid}_*.png", SearchOption.TopDirectoryOnly);
                 for (int i = 0; i < files.Length; i++)
-                    TryDeleteFile(files[i]);
+                    TryDeleteFile(files[i], updateCachedStats: true);
             }
             catch (Exception)
             {
@@ -113,7 +123,7 @@ namespace ParticleThumbnailAndPreview.Editor
                     if (!string.IsNullOrEmpty(AssetDatabase.GUIDToAssetPath(guid)))
                         continue;
 
-                    TryDeleteFile(files[i]);
+                    TryDeleteFile(files[i], updateCachedStats: true);
                 }
             }
             catch (Exception)
@@ -130,6 +140,7 @@ namespace ParticleThumbnailAndPreview.Editor
             try
             {
                 Directory.Delete(directory, true);
+                ResetCachedDiskStats();
             }
             catch (Exception)
             {
@@ -138,33 +149,32 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal static void GetCachedDiskStats(out int fileCount, out long totalBytes)
         {
-            fileCount = 0;
-            totalBytes = 0L;
-
-            string directory = GetCacheDirectory();
-            if (!Directory.Exists(directory))
-                return;
-
-            try
-            {
-                string[] files = Directory.GetFiles(directory, "*.png", SearchOption.TopDirectoryOnly);
-                fileCount = files.Length;
-                for (int i = 0; i < files.Length; i++)
-                {
-                    FileInfo fileInfo = new FileInfo(files[i]);
-                    totalBytes += fileInfo.Length;
-                }
-            }
-            catch (Exception)
-            {
-                fileCount = 0;
-                totalBytes = 0L;
-            }
+            EnsureCachedDiskStatsInitialized();
+            fileCount = s_cachedDiskFileCount;
+            totalBytes = s_cachedDiskBytes;
         }
 
         internal static string BuildCacheKey(ParticleThumbnailRequest request, string dependencyToken, string settingsToken)
         {
             return $"{request.Guid}_{(int)request.Surface}_{dependencyToken}_{settingsToken}_v{CacheFormatVersion}";
+        }
+
+        internal static string GetCacheDirectoryPathForTests()
+        {
+            return GetCacheDirectory();
+        }
+
+        internal static void SetCacheDirectoryOverrideForTests(string directory)
+        {
+            s_cacheDirectoryOverrideForTests = directory;
+            ResetCachedDiskStatsForTests();
+        }
+
+        internal static void ResetCachedDiskStatsForTests()
+        {
+            s_diskStatsInitialized = false;
+            s_cachedDiskFileCount = 0;
+            s_cachedDiskBytes = 0L;
         }
 
         private static string GetCacheFilePath(ParticleThumbnailRequest request, string dependencyToken)
@@ -176,6 +186,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static string GetCacheDirectory()
         {
+            if (!string.IsNullOrEmpty(s_cacheDirectoryOverrideForTests))
+                return s_cacheDirectoryOverrideForTests;
+
             string projectRoot = Path.GetDirectoryName(Application.dataPath);
             return Path.Combine(projectRoot ?? string.Empty, "Library", CacheFolderName);
         }
@@ -183,7 +196,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private static void WriteAllBytesAtomic(string path, byte[] bytes)
         {
             string tempPath = path + ".tmp";
-            TryDeleteFile(tempPath);
+            TryDeleteFile(tempPath, updateCachedStats: false);
 
             using (FileStream stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
             {
@@ -201,20 +214,87 @@ namespace ParticleThumbnailAndPreview.Editor
             catch
             {
                 if (File.Exists(path))
-                    TryDeleteFile(path);
+                    TryDeleteFile(path, updateCachedStats: false);
 
                 File.Move(tempPath, path);
             }
         }
 
-        private static void TryDeleteFile(string path)
+        private static void EnsureCachedDiskStatsInitialized()
+        {
+            if (s_diskStatsInitialized)
+                return;
+
+            s_cachedDiskFileCount = 0;
+            s_cachedDiskBytes = 0L;
+
+            string directory = GetCacheDirectory();
+            if (!Directory.Exists(directory))
+            {
+                s_diskStatsInitialized = true;
+                return;
+            }
+
+            try
+            {
+                string[] files = Directory.GetFiles(directory, "*.png", SearchOption.TopDirectoryOnly);
+                s_cachedDiskFileCount = files.Length;
+                for (int i = 0; i < files.Length; i++)
+                {
+                    FileInfo fileInfo = new FileInfo(files[i]);
+                    s_cachedDiskBytes += fileInfo.Length;
+                }
+            }
+            catch (Exception)
+            {
+                s_cachedDiskFileCount = 0;
+                s_cachedDiskBytes = 0L;
+            }
+
+            s_diskStatsInitialized = true;
+        }
+
+        private static void UpdateCachedDiskStatsForWrite(bool hadExistingFile, long previousLength, long newLength)
+        {
+            if (!s_diskStatsInitialized)
+                return;
+
+            if (!hadExistingFile)
+            {
+                s_cachedDiskFileCount++;
+                s_cachedDiskBytes += newLength;
+                return;
+            }
+
+            s_cachedDiskBytes += newLength - previousLength;
+        }
+
+        private static void ResetCachedDiskStats()
+        {
+            if (!s_diskStatsInitialized)
+                return;
+
+            s_cachedDiskFileCount = 0;
+            s_cachedDiskBytes = 0L;
+        }
+
+        private static void TryDeleteFile(string path, bool updateCachedStats)
         {
             if (string.IsNullOrEmpty(path) || !File.Exists(path))
                 return;
 
             try
             {
+                long fileLength = 0L;
+                if (updateCachedStats && s_diskStatsInitialized)
+                    fileLength = new FileInfo(path).Length;
+
                 File.Delete(path);
+                if (updateCachedStats && s_diskStatsInitialized)
+                {
+                    s_cachedDiskFileCount = Math.Max(0, s_cachedDiskFileCount - 1);
+                    s_cachedDiskBytes = Math.Max(0L, s_cachedDiskBytes - fileLength);
+                }
             }
             catch
             {

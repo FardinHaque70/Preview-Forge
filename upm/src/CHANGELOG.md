@@ -97,7 +97,7 @@ All notable changes to this package are documented in this file.
 
 - Remove the `Buildbox` toolbar color preset from preview theme options.
 - Add fallback handling for legacy stored toolbar preset values that are no longer defined.
-- Sync preview default settings with current project settings for toolbar preset (`UnityBlue`), model skybox default (`enabled`), and model ambient light color.
+- Sync preview default settings with current project settings for toolbar preset (`Cobalt`), model skybox default (`enabled`), and model ambient light color.
 
 ## [1.1.2] - 2026-05-03
 

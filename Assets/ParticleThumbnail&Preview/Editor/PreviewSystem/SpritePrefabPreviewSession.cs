@@ -108,7 +108,7 @@ namespace ParticleThumbnailAndPreview.Editor
         internal Vector3 BoundsSize => _hasFramedBounds ? _framedBounds.size : Vector3.zero;
         internal PreviewModeOverride ModeOverride => _modeOverride;
         internal PreviewModeContext ModeContext => PreviewModeResolver.Resolve(_modeOverride);
-        internal string ModeLabel => ModeContext.Effective2D ? "2D" : "3D";
+        internal string ModeLabel => ModeContext.CameraIs2D ? "2D" : "3D";
 
         internal static Color ComputeColliderPreviewTintForTests(Color source)
         {
@@ -198,7 +198,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 _gridEnabled = restored.GridEnabled;
                 _boundsOverlayEnabled = restored.BoundsOverlayEnabled;
                 _colliderOverlayEnabled = restored.ColliderOverlayEnabled;
-                if (ModeContext.Effective2D)
+                if (ModeContext.CameraIs2D)
                 {
                     _orbit = Vector2.zero;
                     _targetOrbit = Vector2.zero;
@@ -255,7 +255,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (GUIUtility.hotControl != 0)
                 return false;
 
-            bool effective2D = ModeContext.Effective2D;
+            bool effective2D = ModeContext.CameraIs2D;
             bool pointerInPreview = previewRect.Contains(evt.mousePosition);
             bool changed = false;
             double now = EditorApplication.timeSinceStartup;
@@ -369,7 +369,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             float orbitSmoothing = Mathf.Max(0.0001f, PreviewSettings.OrbitSmoothing);
             float panSmoothing = Mathf.Max(0.0001f, PreviewSettings.PanSmoothing);
-            bool effective2D = ModeContext.Effective2D;
+            bool effective2D = ModeContext.CameraIs2D;
             double now = EditorApplication.timeSinceStartup;
 
             var state = new PreviewCameraInteractionState
@@ -465,12 +465,12 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal void CycleModeOverride()
         {
-            bool wasEffective2D = ModeContext.Effective2D;
+            bool wasEffective2D = ModeContext.CameraIs2D;
             _modeOverride = _modeOverride == PreviewModeOverride.Force2D
                 ? PreviewModeOverride.Force3D
                 : PreviewModeOverride.Force2D;
 
-            bool isEffective2D = ModeContext.Effective2D;
+            bool isEffective2D = ModeContext.CameraIs2D;
             if (isEffective2D)
             {
                 _orbit = Vector2.zero;
@@ -607,7 +607,7 @@ namespace ParticleThumbnailAndPreview.Editor
             _pivot = bounds.center;
             _targetPivot = _pivot;
 
-            if (ModeContext.Effective2D)
+            if (ModeContext.CameraIs2D)
             {
                 _orthoSize = Mathf.Clamp(ComputeInitialOrthoSizeForBoundsForTests(bounds, 1f), MinOrthoSize, MaxOrthoSize);
                 _targetOrthoSize = _orthoSize;
@@ -649,7 +649,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private void UpdateCameraTransform(Rect previewRect)
         {
             Camera camera = _preview.camera;
-            if (ModeContext.Effective2D)
+            if (ModeContext.CameraIs2D)
             {
                 float aspect = previewRect.height > 0.0001f ? previewRect.width / previewRect.height : 1f;
                 float minSize = Mathf.Clamp(ComputeInitialOrthoSizeForBoundsForTests(_framedBounds, aspect), MinOrthoSize, MaxOrthoSize) * 0.35f;
@@ -679,7 +679,7 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             var request = new PreviewGridDrawRequest(
                 _preview,
-                ModeContext.Effective2D ? PreviewGridSpace.Plane2D : PreviewGridSpace.Plane3D,
+                ModeContext.CameraIs2D ? PreviewGridSpace.Plane2D : PreviewGridSpace.Plane3D,
                 _gridEnabled,
                 gridTransformOverride: Matrix4x4.identity);
             PreviewGridSystem.Draw(request);
@@ -711,7 +711,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private bool ComputeHasPendingCameraMotion()
         {
-            bool effective2D = ModeContext.Effective2D;
+            bool effective2D = ModeContext.CameraIs2D;
             var state = new PreviewCameraInteractionState
             {
                 Orbit = _orbit,
