@@ -55,6 +55,8 @@ namespace ParticleThumbnailAndPreview.Editor
 		private const float LightPadPanelPadding = 8f;
 		private const float LightPadInnerPadding = 7.2f;
 		private const float LightPadMarkerSize = 6.4f;
+		private const float MinLightRigPitchDegrees = 0f;
+		private const float MaxLightRigPitchDegrees = 89f;
 		private const string NormalsMaterialPath = "PrefabPreviewNormals.mat";
 		private const string UvCheckerMaterialPath = "PrefabPreviewUvChecker.mat";
 		private const string VertexColorMaterialPath = "PrefabPreviewVertexColor.mat";
@@ -125,7 +127,8 @@ namespace ParticleThumbnailAndPreview.Editor
 		private int _materialSlotCount;
 		private ModelPreviewVisualMode _loggedVisualModeFailure = ModelPreviewVisualMode.None;
 		private string _lastGridDiagnosticsKey;
-		private Vector3 _lightRigDirectionWorld;
+		private Vector2 _lightRigYawPitch;
+		private bool _hasLightRigYawPitch;
 		private AnimationClip _previewAnimationClip;
 		private bool _previewAnimationPlaying;
 		private float _previewAnimationTime;
@@ -151,6 +154,8 @@ namespace ParticleThumbnailAndPreview.Editor
 			internal bool TurntableEnabled;
 			internal bool BoundsOverlayEnabled;
 			internal bool ColliderOverlayEnabled;
+			internal Vector2 LightRigYawPitch;
+			internal bool HasLightRigYawPitch;
 			internal PreviewModeOverride ModeOverride;
 			internal ModelPreviewVisualMode VisualMode;
 			internal ModelPreviewVisualMode LastNonNoneVisualMode;
@@ -306,6 +311,10 @@ namespace ParticleThumbnailAndPreview.Editor
 				_turntableEnabled = restored.TurntableEnabled;
 				_boundsOverlayEnabled = restored.BoundsOverlayEnabled;
 				_colliderOverlayEnabled = restored.ColliderOverlayEnabled;
+				_lightRigYawPitch = restored.HasLightRigYawPitch
+					? ClampLightRigYawPitch(restored.LightRigYawPitch)
+					: GetDefaultLightRigYawPitch();
+				_hasLightRigYawPitch = true;
 				_modeOverride = NormalizeModeOverride(restored.ModeOverride);
 				_visualMode = restored.VisualMode;
 				_lastNonNoneVisualMode = restored.LastNonNoneVisualMode == ModelPreviewVisualMode.None
@@ -360,7 +369,8 @@ namespace ParticleThumbnailAndPreview.Editor
 			_cameraSkybox = null;
 			_sunLight = null;
 			_rimLight = null;
-			_lightRigDirectionWorld = Vector3.zero;
+			_lightRigYawPitch = default;
+			_hasLightRigYawPitch = false;
 			_loggedVisualModeFailure = ModelPreviewVisualMode.None;
 			_previewAnimationClip = null;
 			_previewAnimationPlaying = false;
@@ -413,6 +423,8 @@ namespace ParticleThumbnailAndPreview.Editor
 					TurntableEnabled = _turntableEnabled,
 					BoundsOverlayEnabled = _boundsOverlayEnabled,
 					ColliderOverlayEnabled = _colliderOverlayEnabled,
+					LightRigYawPitch = _lightRigYawPitch,
+					HasLightRigYawPitch = _hasLightRigYawPitch,
 					ModeOverride = NormalizeModeOverride(_modeOverride),
 					VisualMode = _visualMode,
 					LastNonNoneVisualMode = _lastNonNoneVisualMode,
@@ -963,35 +975,24 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private Vector2 GetLightWidgetMarkerPosition(Rect padRect)
 		{
-			if (_preview == null || _preview.camera == null)
-				return padRect.center;
-
-			Vector3 local = _preview.camera.transform.InverseTransformDirection(GetLightRigDirectionWorld()).normalized;
-			Vector2 planar = new Vector2(local.x, local.y);
-			if (planar.sqrMagnitude > 1f)
-				planar.Normalize();
-
 			float radius = Mathf.Max(4f, Mathf.Min(padRect.width, padRect.height) * 0.5f - 4f);
-			return padRect.center + new Vector2(planar.x, -planar.y) * radius;
+			Vector2 yawPitch = GetLightRigYawPitch();
+			float normalizedRadius = Mathf.InverseLerp(MaxLightRigPitchDegrees, MinLightRigPitchDegrees, yawPitch.y);
+			float yawRadians = yawPitch.x * Mathf.Deg2Rad;
+			Vector2 offset = new Vector2(Mathf.Sin(yawRadians), -Mathf.Cos(yawRadians)) * (normalizedRadius * radius);
+			return padRect.center + offset;
 		}
 
 		private void SetLightRigDirectionFromPadPoint(Vector2 mousePosition, Rect padRect)
 		{
-			if (_preview == null || _preview.camera == null)
-				return;
-
 			Vector2 center = padRect.center;
 			float radius = Mathf.Max(4f, Mathf.Min(padRect.width, padRect.height) * 0.5f - 4f);
 			Vector2 delta = (mousePosition - center) / Mathf.Max(0.0001f, radius);
-			if (delta.sqrMagnitude > 1f)
-				delta.Normalize();
-
-			float x = delta.x;
-			float y = -delta.y;
-			float z = Mathf.Sqrt(Mathf.Max(0f, 1f - x * x - y * y));
-			Vector3 local = new Vector3(x, y, z).normalized;
-			Vector3 world = _preview.camera.transform.TransformDirection(local).normalized;
-			SetLightRigDirectionWorld(world);
+			float normalizedRadius = Mathf.Clamp01(delta.magnitude);
+			float yaw = Mathf.Atan2(delta.x, -delta.y) * Mathf.Rad2Deg;
+			float pitch = Mathf.Lerp(MaxLightRigPitchDegrees, MinLightRigPitchDegrees, normalizedRadius);
+			_lightRigYawPitch = ClampLightRigYawPitch(new Vector2(yaw, pitch));
+			_hasLightRigYawPitch = true;
 		}
 
 		private static void DrawRectBorder(Rect rect, Color color)
@@ -1004,7 +1005,8 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private void ResetLightRigDirection()
 		{
-			_lightRigDirectionWorld = GetDefaultLightRigDirection();
+			_lightRigYawPitch = GetDefaultLightRigYawPitch();
+			_hasLightRigYawPitch = true;
 		}
 
 		private Vector3 GetDefaultLightRigDirection()
@@ -1013,20 +1015,40 @@ namespace ParticleThumbnailAndPreview.Editor
 			return direction.sqrMagnitude <= 0.0001f ? Vector3.forward : direction.normalized;
 		}
 
-		private Vector3 GetLightRigDirectionWorld()
+		private Vector2 GetDefaultLightRigYawPitch()
 		{
-			if (_lightRigDirectionWorld.sqrMagnitude <= 0.0001f)
-				_lightRigDirectionWorld = GetDefaultLightRigDirection();
-
-			return _lightRigDirectionWorld.normalized;
+			return ClampLightRigYawPitch(GetYawPitchFromDirection(GetDefaultLightRigDirection()));
 		}
 
-		private void SetLightRigDirectionWorld(Vector3 direction)
+		private static Vector2 GetYawPitchFromDirection(Vector3 direction)
 		{
-			if (direction.sqrMagnitude <= 0.0001f)
-				return;
+			Vector3 normalized = direction.sqrMagnitude <= 0.0001f ? Vector3.forward : direction.normalized;
+			float yaw = Mathf.Atan2(normalized.x, normalized.z) * Mathf.Rad2Deg;
+			float pitch = Mathf.Atan2(-normalized.y, Mathf.Sqrt(normalized.x * normalized.x + normalized.z * normalized.z)) * Mathf.Rad2Deg;
+			return new Vector2(yaw, pitch);
+		}
 
-			_lightRigDirectionWorld = direction.normalized;
+		private static Vector3 DirectionFromYawPitch(Vector2 yawPitch)
+		{
+			return PreviewLightingSystem.RotationFromYawPitch(yawPitch) * Vector3.forward;
+		}
+
+		private static Vector2 ClampLightRigYawPitch(Vector2 yawPitch)
+		{
+			float yaw = Mathf.Repeat(yawPitch.x + 180f, 360f) - 180f;
+			float pitch = Mathf.Clamp(yawPitch.y, MinLightRigPitchDegrees, MaxLightRigPitchDegrees);
+			return new Vector2(yaw, pitch);
+		}
+
+		private Vector2 GetLightRigYawPitch()
+		{
+			if (!_hasLightRigYawPitch)
+			{
+				_lightRigYawPitch = GetDefaultLightRigYawPitch();
+				_hasLightRigYawPitch = true;
+			}
+
+			return _lightRigYawPitch;
 		}
 
 		private void UpdateCameraTransform()
@@ -1107,7 +1129,9 @@ namespace ParticleThumbnailAndPreview.Editor
 		private Quaternion GetRiggedLightRotation(Vector2 baseYawPitch)
 		{
 			Quaternion baseRotation = PreviewLightingSystem.RotationFromYawPitch(baseYawPitch);
-			Quaternion rigRotation = Quaternion.FromToRotation(GetDefaultLightRigDirection(), GetLightRigDirectionWorld());
+			Quaternion rigRotation = Quaternion.FromToRotation(
+				GetDefaultLightRigDirection(),
+				DirectionFromYawPitch(GetLightRigYawPitch()));
 			return rigRotation * baseRotation;
 		}
 
