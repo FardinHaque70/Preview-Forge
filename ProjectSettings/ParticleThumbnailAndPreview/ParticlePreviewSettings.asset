@@ -47,7 +47,7 @@ MonoBehaviour:
   modelSunLightColor: {r: 1, g: 0.9604328, b: 0.8915094, a: 1}
   modelSunLightIntensity: 1
   modelSunLightShadowStrength: 1
-  modelSunLightRotation: {x: 10.8, y: 66.8}
+  modelSunLightRotation: {x: 145, y: 35}
   modelKeyLightEnabled: 1
   modelKeyLightIntensity: 0.8
   modelKeyLightRotation: {x: 35, y: 35}

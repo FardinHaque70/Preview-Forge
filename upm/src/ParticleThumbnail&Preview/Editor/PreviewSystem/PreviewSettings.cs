@@ -186,7 +186,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static readonly Color D_ModelSunLightColor = new Color(1f, 0.9604328f, 0.8915094f, 1f);
 		public const float D_ModelSunLightIntensity = 1f;
 		public const float D_ModelSunLightShadowStrength = 1f;
-		public static readonly Vector2 D_ModelSunLightRotation = new Vector2(10.8f, 66.8f);
+		public static readonly Vector2 D_ModelSunLightRotation = new Vector2(145f, 35f);
 		public const bool D_ModelKeyLightEnabled = true;
 		public const float D_ModelKeyLightIntensity = 0.8f;
 		public static readonly Vector2 D_ModelKeyLightRotation = new Vector2(35f, 35f);
