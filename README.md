@@ -8,13 +8,13 @@ Editor-only Unity tools for clearer particle thumbnails and a more useful prefab
 [![Editor Only](https://img.shields.io/badge/Editor-Only-1f6feb?style=flat-square)](#notes)
 [![Pipelines](https://img.shields.io/badge/Pipelines-Built--in%20%7C%20URP%20%7C%20HDRP-6f42c1?style=flat-square)](#compatibility)
 [![Git UPM](https://img.shields.io/badge/Install-Git%20UPM-2ea44f?style=flat-square)](#installation)
-[![Support](https://img.shields.io/badge/Support-Unity%20Asset%20Store-222c37?style=flat-square&logo=unity&logoColor=white)](https://assetstore.unity.com/preview/370342/1307444)
+[![Support](https://img.shields.io/badge/Support-Unity%20Asset%20Store-222c37?style=flat-square&logo=unity&logoColor=white)](https://assetstore.unity.com/preview/370342/1347096)
 
 </div>
 
 > [!TIP]
 > I want this tool to stay accessible to everyone, so the **free GitHub version** and the **paid Unity Asset Store version** include the exact same toolset.
-> The Asset Store version is completely optional. If you'd like to support my work and ongoing development, you can pick it up on the [Unity Asset Store](https://assetstore.unity.com/preview/370342/1307444).
+> The Asset Store version is completely optional. If you'd like to support my work and ongoing development, you can pick it up on the [Unity Asset Store](https://assetstore.unity.com/preview/370342/1347096).
 
 This package focuses on three core workflows:
 
