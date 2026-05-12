@@ -761,6 +761,8 @@ namespace ParticleThumbnailAndPreview.Editor
 				if (ps == null)
 					continue;
 
+				ps.Stop(withChildren: false, ParticleSystemStopBehavior.StopEmittingAndClear);
+				ps.Clear(withChildren: false);
 				ps.useAutoRandomSeed = false;
 				ps.randomSeed = seed++;
 			}

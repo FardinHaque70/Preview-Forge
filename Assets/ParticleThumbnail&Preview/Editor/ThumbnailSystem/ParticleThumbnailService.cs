@@ -375,13 +375,21 @@ namespace ParticleThumbnailAndPreview.Editor
 				: default;
 			ParticleThumbnailRequest request = new ParticleThumbnailRequest(guid, assetPath, surface);
 			MarkRequestSeen(request);
-			if (TryGetValidRecord(request, dependencyToken, out ParticleThumbnailRecord record, allowDeferredPersistentLoad: true))
+			bool thumbnailWorkSuspended = IsThumbnailWorkSuspended();
+			ParticleThumbnailRecord record;
+			bool hasRecord = thumbnailWorkSuspended
+				? TryGetValidInMemoryRecord(request, dependencyToken, out record)
+				: TryGetValidRecord(request, dependencyToken, out record, allowDeferredPersistentLoad: true);
+			if (hasRecord)
 			{
 				DrawRecord(contentRect, record.Texture);
 				if (shouldDrawSelectionOutline)
 					DrawSelectionOutline(outlineRect);
 				return;
 			}
+
+			if (thumbnailWorkSuspended)
+				return;
 
 			DrawLoadingPlaceholder(contentRect);
 			if (shouldDrawSelectionOutline)
@@ -394,6 +402,13 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static void OnEditorUpdate()
 		{
 			if (!HasPendingEditorWork())
+			{
+				UpdateGenerateAllProgressWindow();
+				RefreshRuntimeHooks();
+				return;
+			}
+
+			if (IsThumbnailWorkSuspended())
 			{
 				UpdateGenerateAllProgressWindow();
 				RefreshRuntimeHooks();
@@ -621,6 +636,9 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static void ProcessQueue()
 		{
 			if (PriorityRenderQueue.Count == 0 && RenderQueue.Count == 0)
+				return;
+
+			if (IsThumbnailWorkSuspended())
 				return;
 
 			int maxRenders = GenerateAllUseUnthrottledProcessing ? FastModeMaxRendersPerUpdate : ParticleThumbnailSettings.MaxRendersPerUpdate;
@@ -866,6 +884,23 @@ namespace ParticleThumbnailAndPreview.Editor
 			KnownPersistentCacheMisses.Remove(cacheKey);
 			record = Cache[request];
 			return true;
+		}
+
+		private static bool TryGetValidInMemoryRecord(ParticleThumbnailRequest request, string dependencyToken, out ParticleThumbnailRecord record)
+		{
+			if (Cache.TryGetValue(request, out record))
+			{
+				if (record != null && record.IsValid && record.DependencyToken == dependencyToken)
+				{
+					TouchLru(request);
+					return true;
+				}
+
+				RemoveCacheEntry(request);
+			}
+
+			record = null;
+			return false;
 		}
 
 		private static bool IsKnownFailed(ParticleThumbnailRequest request, string dependencyToken)
@@ -1517,6 +1552,11 @@ namespace ParticleThumbnailAndPreview.Editor
 				return true;
 
 			return PriorityRenderQueue.Count > 0 || RenderQueue.Count > 0;
+		}
+
+		private static bool IsThumbnailWorkSuspended()
+		{
+			return PreviewEditorTransitionGuard.IsUnsafeTransition();
 		}
 
 		private static void RefreshRuntimeHooks(bool refreshSelectionCacheWhenEnabled = false)
