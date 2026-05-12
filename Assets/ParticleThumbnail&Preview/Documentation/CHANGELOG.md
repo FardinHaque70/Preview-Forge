@@ -2,6 +2,14 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.21] - 2026-05-12
+
+- Persist package settings as project assets.
+- Remove startup preview diagnostics.
+- Defer particle preview intensity profiling.
+- Harden inspector redraw preview patch behavior.
+- Additional minor preview and thumbnail maintenance updates.
+
 ## [1.1.19] - 2026-05-08
 
 - Document the current URP limitation where particle shaders that require the camera opaque texture may render pink in thumbnails and prefab previews.

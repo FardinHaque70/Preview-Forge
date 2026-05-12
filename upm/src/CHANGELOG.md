@@ -2,6 +2,14 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.21] - 2026-05-12
+
+- Persist package settings as project assets.
+- Remove startup preview diagnostics.
+- Defer particle preview intensity profiling.
+- Harden inspector redraw preview patch behavior.
+- Additional minor preview and thumbnail maintenance updates.
+
 ## [1.1.20] - 2026-05-12
 
 - Suspend thumbnail rendering queue work and persistent-cache fetch paths during unsafe editor transition windows (compile/update/playmode switching) to reduce transition-time churn.

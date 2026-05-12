@@ -1,6 +1,6 @@
 {
   "name": "com.fardinhaque.particle-thumbnail-preview",
-  "version": "1.1.20",
+  "version": "1.1.21",
   "displayName": "Particle Thumbnail & Preview",
   "description": "Editor-only Unity tools for rendered particle prefab thumbnails and an enhanced particle preview workflow.",
   "unity": "2021.3",
