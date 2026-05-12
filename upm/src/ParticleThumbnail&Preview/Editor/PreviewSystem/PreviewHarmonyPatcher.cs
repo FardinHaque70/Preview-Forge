@@ -396,8 +396,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 return;
             }
 
-            if (TryPatchWithPrefix(redrawFromNativeMethod, nameof(InspectorWindowRedrawFromNativePrefix)))
-                PreviewStartupDiagnostics.Log("HarmonyPatcher", "inspector redraw safety patch applied");
+            TryPatchWithPrefix(redrawFromNativeMethod, nameof(InspectorWindowRedrawFromNativePrefix));
         }
 
         private static void SuppressCompetingCustomPreviews()
@@ -623,10 +622,9 @@ namespace ParticleThumbnailAndPreview.Editor
             int afterCount = GetActiveEditorWindowCount();
             if (afterCount >= 0 && afterCount != beforeCount)
             {
-                PreviewStartupDiagnostics.Log(
-                    "InspectorRedrawPatch",
-                    $"activeEditorWindows changed during redraw before={beforeCount} after={afterCount} beforeTypes={DescribeEditorWindowTypes(snapshot)} afterTypes={DescribeActiveEditorWindowTypes()}",
-                    force: true);
+                PreviewDiagnostics.Log(
+                    "HarmonyPatcher",
+                    $"Inspector redraw used a stable editor-window snapshot because Unity changed activeEditorWindows during redraw before={beforeCount} after={afterCount}");
             }
 
             return false;
