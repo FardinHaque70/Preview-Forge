@@ -13,6 +13,13 @@ namespace ParticleThumbnailAndPreview.Editor
 		Figure8 = 2,
 	}
 
+	internal enum IntensityProfileStatus
+	{
+		NotStarted = 0,
+		Building = 1,
+		Ready = 2,
+	}
+
 	internal sealed class ParticlePrefabPreviewSession
 	{
 		#region Constants
@@ -20,7 +27,9 @@ namespace ParticleThumbnailAndPreview.Editor
 		private const double SessionRestoreWindowSeconds = 2.0d;
 		private const int MaxCachedSessionStates = 64;
 		private const int IntensityProfileSampleCount = 64;
+		private const int IntensityProfileSamplesPerTick = 4;
 		private const int MaxParticleBuffer = 10000;
+		private const float LoopingPreviewDurationCap = 10f;
 
 		private const float IntroZoomMultiplier = 1.5f;
 		private const float IntroZoomMinimumExtraDistance = 0.05f;
@@ -90,8 +99,16 @@ namespace ParticleThumbnailAndPreview.Editor
 		private float _motionSize = 3f;
 		private float _maxPlaybackTime = 5f;
 		private float[] _intensityProfile = Array.Empty<float>();
-			private int _peakVisibleParticleCount;
-			private int _subParticleSystemCount;
+		private float[] _rawIntensitySamples = Array.Empty<float>();
+		private IntensityProfileStatus _intensityProfileStatus = IntensityProfileStatus.NotStarted;
+		private int _intensityProfileReadySampleCount;
+		private int _intensityProfileNextSampleIndex;
+		private float _intensityProfileSimulationTime;
+		private float _intensityProfileMaxAliveCount;
+		private GameObject _analysisRoot;
+		private readonly List<ParticleSystem> _analysisParticleSystems = new();
+		private int _peakVisibleParticleCount;
+		private int _subParticleSystemCount;
 
 			private double _lastUpdateTime = -1d;
 			private double _lastInteractionUpdateTime = -1d;
@@ -143,6 +160,11 @@ namespace ParticleThumbnailAndPreview.Editor
 		internal float PlaybackTime => _playbackTime;
 		internal float MaxPlaybackTime => _maxPlaybackTime;
 		internal IReadOnlyList<float> IntensityProfile => _intensityProfile;
+		internal IntensityProfileStatus IntensityProfileStatus => _intensityProfileStatus;
+		internal int IntensityProfileReadySampleCount => _intensityProfileReadySampleCount;
+		internal bool HasPendingBackgroundWork => IsReady
+		                                         && _particleSystems.Count > 0
+		                                         && _intensityProfileStatus != IntensityProfileStatus.Ready;
 		internal int PeakVisibleParticleCount => _peakVisibleParticleCount;
 		internal int SubParticleSystemCount => _subParticleSystemCount;
 		internal bool HasPendingCameraMotion => ComputeHasPendingCameraMotion();
@@ -219,7 +241,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			EnsureDeterministicSeeds();
 			ComputePlaybackRangeAndLoopingMode();
 			FrameCameraToContent();
-			RebuildIntensityProfile();
+			ScheduleIntensityProfileBuild();
 			RestartInternal();
 
 			bool shouldRestoreState = !isSwitchingToDifferentPrefab && isTransientRebuildOfSameSelection;
@@ -269,6 +291,7 @@ namespace ParticleThumbnailAndPreview.Editor
 			if (cacheState)
 				CacheCurrentSessionState();
 
+			CancelIntensityProfileBuild();
 			_particleSystems.Clear();
 			_renderers.Clear();
 			_rendererInitialStates.Clear();
@@ -281,6 +304,12 @@ namespace ParticleThumbnailAndPreview.Editor
 			_hasLoopingSystem = false;
 			_maxPlaybackTime = 5f;
 			_intensityProfile = Array.Empty<float>();
+			_rawIntensitySamples = Array.Empty<float>();
+			_intensityProfileStatus = IntensityProfileStatus.NotStarted;
+			_intensityProfileReadySampleCount = 0;
+			_intensityProfileNextSampleIndex = 0;
+			_intensityProfileSimulationTime = 0f;
+			_intensityProfileMaxAliveCount = 0f;
 			_peakVisibleParticleCount = 0;
 			_subParticleSystemCount = 0;
 			_targetPivot = Vector3.zero;
@@ -465,7 +494,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			_playbackAccumulatorSeconds -= frameInterval * stepCount;
 
-			if (!_hasLoopingSystem && _playbackTime >= _maxPlaybackTime)
+			if (_playbackTime >= _maxPlaybackTime)
 				RestartInternal();
 
 			return true;
@@ -478,7 +507,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
 			bool wasPlaying = _playing;
 			FrameCameraToContent();
-			RebuildIntensityProfile();
+			ScheduleIntensityProfileBuild();
 			_playing = wasPlaying;
 			_lastUpdateTime = -1d;
 			_playbackAccumulatorSeconds = 0d;
@@ -754,10 +783,15 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private void EnsureDeterministicSeeds()
 		{
+			EnsureDeterministicSeeds(_particleSystems);
+		}
+
+		private static void EnsureDeterministicSeeds(List<ParticleSystem> particleSystems)
+		{
 			uint seed = 101u;
-			for (int i = 0; i < _particleSystems.Count; i++)
+			for (int i = 0; i < particleSystems.Count; i++)
 			{
-				ParticleSystem ps = _particleSystems[i];
+				ParticleSystem ps = particleSystems[i];
 				if (ps == null)
 					continue;
 
@@ -770,9 +804,14 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private void SanitizeCustomSimulationSpaces()
 		{
-			for (int i = 0; i < _particleSystems.Count; i++)
+			SanitizeCustomSimulationSpaces(_particleSystems, _previewRoot);
+		}
+
+		private static void SanitizeCustomSimulationSpaces(List<ParticleSystem> particleSystems, GameObject root)
+		{
+			for (int i = 0; i < particleSystems.Count; i++)
 			{
-				ParticleSystem ps = _particleSystems[i];
+				ParticleSystem ps = particleSystems[i];
 				if (ps == null)
 					continue;
 
@@ -782,8 +821,8 @@ namespace ParticleThumbnailAndPreview.Editor
 
 				Transform customSpace = main.customSimulationSpace;
 				bool isValid = customSpace != null
-				               && _previewRoot != null
-				               && (customSpace == _previewRoot.transform || customSpace.IsChildOf(_previewRoot.transform));
+				               && root != null
+				               && (customSpace == root.transform || customSpace.IsChildOf(root.transform));
 				if (isValid)
 					continue;
 
@@ -813,73 +852,187 @@ namespace ParticleThumbnailAndPreview.Editor
 				maxDuration = Mathf.Max(maxDuration, systemEnd);
 			}
 
-			_maxPlaybackTime = Mathf.Max(0.1f, maxDuration);
+			_maxPlaybackTime = _hasLoopingSystem
+				? LoopingPreviewDurationCap
+				: Mathf.Max(0.1f, maxDuration);
 			_subParticleSystemCount = Mathf.Max(0, totalSystems - 1);
 			if (_playbackTime > _maxPlaybackTime)
 				_playbackTime = 0f;
 		}
 
-		private void RebuildIntensityProfile()
+		private void ScheduleIntensityProfileBuild()
 		{
+			CancelIntensityProfileBuild();
+			_peakVisibleParticleCount = 0;
+			_intensityProfileReadySampleCount = 0;
+			_intensityProfileNextSampleIndex = 0;
+			_intensityProfileSimulationTime = 0f;
+			_intensityProfileMaxAliveCount = 0f;
+
 			if (_particleSystems.Count == 0 || _maxPlaybackTime <= 0.0001f)
 			{
 				_intensityProfile = Array.Empty<float>();
+				_rawIntensitySamples = Array.Empty<float>();
+				_intensityProfileStatus = IntensityProfileStatus.Ready;
 				return;
 			}
 
-			bool wasPlaying = _playing;
-			float restoreTime = Mathf.Clamp(_playbackTime, 0f, _maxPlaybackTime);
+			_rawIntensitySamples = new float[IntensityProfileSampleCount];
+			_intensityProfile = new float[IntensityProfileSampleCount];
+			_intensityProfileStatus = IntensityProfileStatus.NotStarted;
+		}
 
-			float[] aliveCounts = new float[IntensityProfileSampleCount];
+		internal bool TickIntensityProfileBuild()
+		{
+			if (!IsReady || _intensityProfileStatus == IntensityProfileStatus.Ready)
+				return false;
+
+			if (_intensityProfileStatus == IntensityProfileStatus.NotStarted)
+			{
+				if (!BeginIntensityProfileBuild())
+				{
+					_intensityProfile = Array.Empty<float>();
+					_rawIntensitySamples = Array.Empty<float>();
+					_intensityProfileReadySampleCount = 0;
+					_intensityProfileStatus = IntensityProfileStatus.Ready;
+					return true;
+				}
+			}
+
+			int samplesBuilt = 0;
 			float duration = Mathf.Max(0.0001f, _maxPlaybackTime);
-			float maxAliveCount = 0f;
-			int peakAlive = 0;
-
-			RestartInternal();
-			float previousSampleTime = 0f;
-			for (int i = 0; i < IntensityProfileSampleCount; i++)
+			while (_intensityProfileNextSampleIndex < IntensityProfileSampleCount
+			       && samplesBuilt < IntensityProfileSamplesPerTick)
 			{
-				float sampleTime = duration * i / (IntensityProfileSampleCount - 1);
-				float dt = sampleTime - previousSampleTime;
+				int sampleIndex = _intensityProfileNextSampleIndex;
+				float sampleTime = duration * sampleIndex / (IntensityProfileSampleCount - 1);
+				float dt = sampleTime - _intensityProfileSimulationTime;
 				if (dt > 0f)
-					SimulateStep(dt);
+					SimulateAnalysisStep(dt);
 
-				previousSampleTime = sampleTime;
-				float alive = GetAliveParticleCount();
-				aliveCounts[i] = alive;
-				maxAliveCount = Mathf.Max(maxAliveCount, alive);
-				peakAlive = Mathf.Max(peakAlive, Mathf.RoundToInt(alive));
+				_intensityProfileSimulationTime = sampleTime;
+				float alive = GetAliveParticleCount(_analysisParticleSystems);
+				_rawIntensitySamples[sampleIndex] = alive;
+				_intensityProfileMaxAliveCount = Mathf.Max(_intensityProfileMaxAliveCount, alive);
+				_peakVisibleParticleCount = Mathf.Max(_peakVisibleParticleCount, Mathf.RoundToInt(alive));
+				_intensityProfileNextSampleIndex++;
+				_intensityProfileReadySampleCount = _intensityProfileNextSampleIndex;
+				samplesBuilt++;
 			}
 
-			if (maxAliveCount > 0.0001f)
+			UpdateVisibleIntensityProfile();
+
+			if (_intensityProfileNextSampleIndex >= IntensityProfileSampleCount)
 			{
-				for (int i = 0; i < aliveCounts.Length; i++)
-					aliveCounts[i] /= maxAliveCount;
+				_intensityProfileStatus = IntensityProfileStatus.Ready;
+				CancelAnalysisObjects();
 			}
-			else
+
+			return samplesBuilt > 0;
+		}
+
+		private bool BeginIntensityProfileBuild()
+		{
+			GameObject sourcePrefab = !string.IsNullOrEmpty(_prefabAssetPath)
+				? AssetDatabase.LoadAssetAtPath<GameObject>(_prefabAssetPath)
+				: null;
+			if (sourcePrefab == null)
+				return false;
+
+			_analysisRoot = UnityEngine.Object.Instantiate(sourcePrefab);
+			_analysisRoot.name = "ParticlePreviewAnalysisRoot";
+			_analysisRoot.hideFlags = HideFlags.HideAndDontSave;
+			PreviewHierarchyUtility.ForceActivateHierarchy(_analysisRoot);
+			_analysisRoot.transform.position = _authoredRootPosition;
+			_analysisRoot.transform.rotation = _authoredRootRotation;
+			_analysisRoot.GetComponentsInChildren(true, _analysisParticleSystems);
+			SanitizeCustomSimulationSpaces(_analysisParticleSystems, _analysisRoot);
+			EnsureDeterministicSeeds(_analysisParticleSystems);
+			RestartAnalysis();
+			_intensityProfileStatus = IntensityProfileStatus.Building;
+			if (_analysisParticleSystems.Count > 0)
+				return true;
+
+			CancelAnalysisObjects();
+			return false;
+		}
+
+		private void UpdateVisibleIntensityProfile()
+		{
+			if (_intensityProfile.Length != IntensityProfileSampleCount)
+				_intensityProfile = new float[IntensityProfileSampleCount];
+
+			float normalizer = Mathf.Max(0.0001f, _intensityProfileMaxAliveCount);
+			for (int i = 0; i < _intensityProfileReadySampleCount; i++)
+				_intensityProfile[i] = Mathf.Clamp01(_rawIntensitySamples[i] / normalizer);
+		}
+
+		private void RestartAnalysis()
+		{
+			_intensityProfileSimulationTime = 0f;
+			ApplyRootPoseAtTime(_analysisRoot, 0f);
+
+			for (int i = 0; i < _analysisParticleSystems.Count; i++)
 			{
-				for (int i = 0; i < aliveCounts.Length; i++)
-					aliveCounts[i] = 0f;
+				ParticleSystem ps = _analysisParticleSystems[i];
+				if (ps == null)
+					continue;
+
+				ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+				ps.Clear(true);
+				ps.Simulate(0f, withChildren: false, restart: true, fixedTimeStep: true);
 			}
+		}
 
-			_intensityProfile = aliveCounts;
-			_peakVisibleParticleCount = peakAlive;
-			RestartInternal();
+		private void SimulateAnalysisStep(float dt)
+		{
+			if (dt <= 0f)
+				return;
 
-			if (restoreTime > 0.0001f)
-				SimulateToTime(restoreTime);
+			float nextTime = _intensityProfileSimulationTime + dt;
+			ApplyRootPoseAtTime(_analysisRoot, nextTime);
 
-			_playbackTime = restoreTime;
-			_playing = wasPlaying;
-			_lastUpdateTime = -1d;
+			for (int i = 0; i < _analysisParticleSystems.Count; i++)
+			{
+				ParticleSystem ps = _analysisParticleSystems[i];
+				if (ps == null)
+					continue;
+
+				ps.Simulate(dt, withChildren: false, restart: false, fixedTimeStep: true);
+			}
+		}
+
+		private void CancelIntensityProfileBuild()
+		{
+			CancelAnalysisObjects();
+			_intensityProfileStatus = IntensityProfileStatus.NotStarted;
+			_intensityProfileReadySampleCount = 0;
+			_intensityProfileNextSampleIndex = 0;
+			_intensityProfileSimulationTime = 0f;
+			_intensityProfileMaxAliveCount = 0f;
+		}
+
+		private void CancelAnalysisObjects()
+		{
+			_analysisParticleSystems.Clear();
+			if (_analysisRoot == null)
+				return;
+
+			UnityEngine.Object.DestroyImmediate(_analysisRoot);
+			_analysisRoot = null;
 		}
 
 		private float GetAliveParticleCount()
 		{
+			return GetAliveParticleCount(_particleSystems);
+		}
+
+		private static float GetAliveParticleCount(List<ParticleSystem> particleSystems)
+		{
 			float total = 0f;
-			for (int i = 0; i < _particleSystems.Count; i++)
+			for (int i = 0; i < particleSystems.Count; i++)
 			{
-				ParticleSystem ps = _particleSystems[i];
+				ParticleSystem ps = particleSystems[i];
 				if (ps != null)
 					total += ps.particleCount;
 			}
@@ -1059,7 +1212,12 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private void ApplyRootPoseAtTime(float time)
 		{
-			if (_previewRoot == null)
+			ApplyRootPoseAtTime(_previewRoot, time);
+		}
+
+		private void ApplyRootPoseAtTime(GameObject root, float time)
+		{
+			if (root == null)
 				return;
 
 			if (_needsMotion)
@@ -1069,20 +1227,20 @@ namespace ParticleThumbnailAndPreview.Editor
 				Vector3 nextOffset = MotionPosition(time + lookAheadTime);
 				Vector3 direction = nextOffset - offset;
 
-				_previewRoot.transform.position = _authoredRootPosition + offset;
+				root.transform.position = _authoredRootPosition + offset;
 				if (direction.sqrMagnitude > 0.000001f)
 				{
-					_previewRoot.transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up) * _authoredRootRotation;
+					root.transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up) * _authoredRootRotation;
 				}
 				else
 				{
-					_previewRoot.transform.rotation = _authoredRootRotation;
+					root.transform.rotation = _authoredRootRotation;
 				}
 				return;
 			}
 
-			_previewRoot.transform.position = _authoredRootPosition;
-			_previewRoot.transform.rotation = _authoredRootRotation;
+			root.transform.position = _authoredRootPosition;
+			root.transform.rotation = _authoredRootRotation;
 		}
 
 		private Vector3 MotionPosition(float time)

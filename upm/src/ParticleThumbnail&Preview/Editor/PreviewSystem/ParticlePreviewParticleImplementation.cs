@@ -82,7 +82,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (inputChanged || cameraChanged)
                 RequestPreviewRepaint();
 
-            if (_session.IsPlaying || _session.HasPendingCameraMotion)
+            if (_session.IsPlaying || _session.HasPendingCameraMotion || _session.HasPendingBackgroundWork)
                 EnablePlaybackUpdate();
             else
                 DisablePlaybackUpdate();
@@ -203,7 +203,14 @@ namespace ParticleThumbnailAndPreview.Editor
             float safeMax = Mathf.Max(0.0001f, _session.MaxPlaybackTime);
             float clampedTime = Mathf.Clamp(_session.PlaybackTime, 0f, safeMax);
             float normalized = Mathf.Clamp01(clampedTime / safeMax);
-            float newTime = DrawPlaybackSlider(rect, clampedTime, safeMax, normalized, _session.IntensityProfile);
+            float newTime = DrawPlaybackSlider(
+                rect,
+                clampedTime,
+                safeMax,
+                normalized,
+                _session.IntensityProfile,
+                _session.IntensityProfileStatus,
+                _session.IntensityProfileReadySampleCount);
 
             if (!Mathf.Approximately(newTime, clampedTime))
             {
@@ -354,7 +361,14 @@ namespace ParticleThumbnailAndPreview.Editor
             GUI.Label(line4Rect, line4, valueStyle);
         }
 
-        private float DrawPlaybackSlider(Rect rect, float currentTime, float maxTime, float normalizedTime, IReadOnlyList<float> intensityProfile)
+        private float DrawPlaybackSlider(
+            Rect rect,
+            float currentTime,
+            float maxTime,
+            float normalizedTime,
+            IReadOnlyList<float> intensityProfile,
+            IntensityProfileStatus intensityStatus,
+            int readySampleCount)
         {
             Event evt = Event.current;
             int controlId = GUIUtility.GetControlID(FocusType.Passive, rect);
@@ -364,7 +378,7 @@ namespace ParticleThumbnailAndPreview.Editor
             Rect thumbRect = new Rect(thumbCenterX - 5f, rect.y + rect.height * 0.5f - 8f, 10f, 16f);
 
             EditorGUI.DrawRect(trackRect, PreviewToolbarTheme.GetSliderTrackColor());
-            DrawIntensityProfile(trackRect, intensityProfile);
+            DrawIntensityProfile(trackRect, intensityProfile, intensityStatus, readySampleCount);
             DrawCurrentTimeMarker(trackRect, thumbCenterX);
             EditorGUI.DrawRect(thumbRect, PreviewToolbarTheme.GetSliderThumbColor(GUIUtility.hotControl == controlId));
 
@@ -416,13 +430,23 @@ namespace ParticleThumbnailAndPreview.Editor
             EditorGUI.DrawRect(markerRect, new Color(1f, 1f, 1f, 0.95f));
         }
 
-        private static void DrawIntensityProfile(Rect trackRect, IReadOnlyList<float> profile)
+        private static void DrawIntensityProfile(
+            Rect trackRect,
+            IReadOnlyList<float> profile,
+            IntensityProfileStatus status,
+            int readySampleCount)
         {
             if (profile == null || profile.Count < 2)
                 return;
 
+            int visibleSamples = status == IntensityProfileStatus.Ready
+                ? profile.Count
+                : Mathf.Clamp(readySampleCount, 0, profile.Count);
+            if (visibleSamples < 2)
+                return;
+
             float segmentWidth = trackRect.width / (profile.Count - 1);
-            for (int i = 0; i < profile.Count - 1; i++)
+            for (int i = 0; i < visibleSamples - 1; i++)
             {
                 float left = Mathf.Clamp01(profile[i]);
                 float right = Mathf.Clamp01(profile[i + 1]);
@@ -471,9 +495,14 @@ namespace ParticleThumbnailAndPreview.Editor
             if (_session.TickInteraction())
                 needsRepaint = true;
 
-            if (!_session.IsPlaying && !_session.HasPendingCameraMotion)
+            if (_session.TickIntensityProfileBuild())
+                needsRepaint = true;
+
+            if (!_session.IsPlaying && !_session.HasPendingCameraMotion && !_session.HasPendingBackgroundWork)
             {
                 DisablePlaybackUpdate();
+                if (needsRepaint)
+                    RequestPreviewRepaint();
                 return;
             }
 
