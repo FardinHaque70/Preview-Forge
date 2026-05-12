@@ -375,12 +375,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				: default;
 			ParticleThumbnailRequest request = new ParticleThumbnailRequest(guid, assetPath, surface);
 			MarkRequestSeen(request);
-			bool thumbnailWorkSuspended = IsThumbnailWorkSuspended();
-			ParticleThumbnailRecord record;
-			bool hasRecord = thumbnailWorkSuspended
-				? TryGetValidInMemoryRecord(request, dependencyToken, out record)
-				: TryGetValidRecord(request, dependencyToken, out record, allowDeferredPersistentLoad: true);
-			if (hasRecord)
+			if (TryGetValidRecord(request, dependencyToken, out ParticleThumbnailRecord record, allowDeferredPersistentLoad: true))
 			{
 				DrawRecord(contentRect, record.Texture);
 				if (shouldDrawSelectionOutline)
@@ -388,7 +383,7 @@ namespace ParticleThumbnailAndPreview.Editor
 				return;
 			}
 
-			if (thumbnailWorkSuspended)
+			if (IsThumbnailWorkSuspended())
 				return;
 
 			DrawLoadingPlaceholder(contentRect);
@@ -402,13 +397,6 @@ namespace ParticleThumbnailAndPreview.Editor
 		private static void OnEditorUpdate()
 		{
 			if (!HasPendingEditorWork())
-			{
-				UpdateGenerateAllProgressWindow();
-				RefreshRuntimeHooks();
-				return;
-			}
-
-			if (IsThumbnailWorkSuspended())
 			{
 				UpdateGenerateAllProgressWindow();
 				RefreshRuntimeHooks();
@@ -884,23 +872,6 @@ namespace ParticleThumbnailAndPreview.Editor
 			KnownPersistentCacheMisses.Remove(cacheKey);
 			record = Cache[request];
 			return true;
-		}
-
-		private static bool TryGetValidInMemoryRecord(ParticleThumbnailRequest request, string dependencyToken, out ParticleThumbnailRecord record)
-		{
-			if (Cache.TryGetValue(request, out record))
-			{
-				if (record != null && record.IsValid && record.DependencyToken == dependencyToken)
-				{
-					TouchLru(request);
-					return true;
-				}
-
-				RemoveCacheEntry(request);
-			}
-
-			record = null;
-			return false;
 		}
 
 		private static bool IsKnownFailed(ParticleThumbnailRequest request, string dependencyToken)
