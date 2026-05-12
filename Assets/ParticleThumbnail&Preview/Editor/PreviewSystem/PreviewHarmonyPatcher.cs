@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Runtime.CompilerServices;
 using UnityEditor;
 using UnityEngine;
@@ -14,6 +15,8 @@ namespace ParticleThumbnailAndPreview.Editor
     internal static class PreviewHarmonyPatcher
     {
         private const string HarmonyId = "com.particlethumbnailandpreview.preview";
+        private const string InspectorWindowTypeName = "UnityEditor.InspectorWindow";
+        private const string PropertyEditorTypeName = "UnityEditor.PropertyEditor";
         private const string PrefabPreviewTypeName = "ParticleThumbnailAndPreview.Editor.PrefabPreviewEditor";
         private const string ModelImporterPreviewTypeName = "ParticleThumbnailAndPreview.Editor.ModelImporterPreviewEditor";
         private const string HarmonyTypeName = "HarmonyLib.Harmony";
@@ -43,6 +46,9 @@ namespace ParticleThumbnailAndPreview.Editor
         private static MethodInfo _harmonyUnpatchAllMethod;
         private static ConstructorInfo _harmonyMethodCtor;
         private static ConstructorInfo _harmonyMethodCtorFromTypeName;
+        private static PropertyInfo _activeEditorWindowsProperty;
+        private static Type _propertyEditorType;
+        private static MethodInfo _propertyEditorRebuildContentsContainersMethod;
 
         static PreviewHarmonyPatcher()
         {
@@ -93,6 +99,7 @@ namespace ParticleThumbnailAndPreview.Editor
                     return;
                 }
 
+                PatchInspectorRedrawFromNative();
                 SuppressCompetingCustomPreviews();
                 _patchesApplied = true;
                 _retryScheduled = false;
@@ -363,6 +370,36 @@ namespace ParticleThumbnailAndPreview.Editor
             return null;
         }
 
+        private static void PatchInspectorRedrawFromNative()
+        {
+            Type inspectorWindowType = ResolveEditorTypeAcrossAssemblies(InspectorWindowTypeName);
+            MethodInfo redrawFromNativeMethod = GetStaticMethod(inspectorWindowType, "RedrawFromNative");
+            if (redrawFromNativeMethod == null)
+            {
+                LogWarningOnce(
+                    "missing-inspector-redraw-from-native",
+                    $"[ParticleThumbnailPreview] {InspectorWindowTypeName}.RedrawFromNative was not found in Unity {Application.unityVersion}; inspector redraw safety patch skipped.");
+                return;
+            }
+
+            _propertyEditorType = ResolveEditorTypeAcrossAssemblies(PropertyEditorTypeName);
+            _activeEditorWindowsProperty = typeof(EditorWindow).GetProperty(
+                "activeEditorWindows",
+                BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            _propertyEditorRebuildContentsContainersMethod = GetInstanceMethod(_propertyEditorType, "RebuildContentsContainers");
+
+            if (_activeEditorWindowsProperty == null || _propertyEditorRebuildContentsContainersMethod == null)
+            {
+                LogWarningOnce(
+                    "missing-inspector-redraw-dependencies",
+                    $"[ParticleThumbnailPreview] Unity inspector redraw internals changed in Unity {Application.unityVersion}; inspector redraw safety patch skipped.");
+                return;
+            }
+
+            if (TryPatchWithPrefix(redrawFromNativeMethod, nameof(InspectorWindowRedrawFromNativePrefix)))
+                PreviewStartupDiagnostics.Log("HarmonyPatcher", "inspector redraw safety patch applied");
+        }
+
         private static void SuppressCompetingCustomPreviews()
         {
             if (_harmonyInstance == null)
@@ -459,6 +496,19 @@ namespace ParticleThumbnailAndPreview.Editor
                 null);
         }
 
+        private static MethodInfo GetStaticMethod(Type type, string methodName)
+        {
+            if (type == null || string.IsNullOrEmpty(methodName))
+                return null;
+
+            return type.GetMethod(
+                methodName,
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                Type.EmptyTypes,
+                null);
+        }
+
         private static void LogWarningOnce(string key, string message)
         {
             if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(message))
@@ -537,6 +587,127 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 return true;
             }
+        }
+
+        private static bool InspectorWindowRedrawFromNativePrefix()
+        {
+            EditorWindow[] snapshot;
+            try
+            {
+                snapshot = GetActiveEditorWindowsSnapshot();
+            }
+            catch (Exception exception)
+            {
+                LogWarningOnce(
+                    "inspector-redraw-prefix-failed",
+                    $"[ParticleThumbnailPreview] Inspector redraw safety patch failed: {DescribeException(exception)}");
+                return true;
+            }
+
+            if (snapshot == null)
+                return true;
+
+            int beforeCount = snapshot.Length;
+            for (int i = 0; i < snapshot.Length; i++)
+            {
+                EditorWindow editorWindow = snapshot[i];
+                if (editorWindow == null)
+                    continue;
+
+                if (_propertyEditorType == null || !_propertyEditorType.IsInstanceOfType(editorWindow))
+                    continue;
+
+                InvokePropertyEditorRebuild(editorWindow);
+            }
+
+            int afterCount = GetActiveEditorWindowCount();
+            if (afterCount >= 0 && afterCount != beforeCount)
+            {
+                PreviewStartupDiagnostics.Log(
+                    "InspectorRedrawPatch",
+                    $"activeEditorWindows changed during redraw before={beforeCount} after={afterCount} beforeTypes={DescribeEditorWindowTypes(snapshot)} afterTypes={DescribeActiveEditorWindowTypes()}",
+                    force: true);
+            }
+
+            return false;
+        }
+
+        private static void InvokePropertyEditorRebuild(EditorWindow editorWindow)
+        {
+            try
+            {
+                _propertyEditorRebuildContentsContainersMethod.Invoke(editorWindow, null);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException != null)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            }
+        }
+
+        private static EditorWindow[] GetActiveEditorWindowsSnapshot()
+        {
+            if (_activeEditorWindowsProperty == null)
+                return null;
+
+            object value = _activeEditorWindowsProperty.GetValue(null, null);
+            if (value is IList<EditorWindow> typedWindows)
+            {
+                EditorWindow[] snapshot = new EditorWindow[typedWindows.Count];
+                typedWindows.CopyTo(snapshot, 0);
+                return snapshot;
+            }
+
+            if (value is System.Collections.IList windows)
+            {
+                EditorWindow[] snapshot = new EditorWindow[windows.Count];
+                for (int i = 0; i < windows.Count; i++)
+                    snapshot[i] = windows[i] as EditorWindow;
+
+                return snapshot;
+            }
+
+            return null;
+        }
+
+        private static int GetActiveEditorWindowCount()
+        {
+            if (_activeEditorWindowsProperty == null)
+                return -1;
+
+            object value = _activeEditorWindowsProperty.GetValue(null, null);
+            if (value is IList<EditorWindow> typedWindows)
+                return typedWindows.Count;
+
+            if (value is System.Collections.IList windows)
+                return windows.Count;
+
+            return -1;
+        }
+
+        private static string DescribeActiveEditorWindowTypes()
+        {
+            EditorWindow[] snapshot = GetActiveEditorWindowsSnapshot();
+            return DescribeEditorWindowTypes(snapshot);
+        }
+
+        private static string DescribeEditorWindowTypes(EditorWindow[] windows)
+        {
+            if (windows == null)
+                return "<null>";
+
+            if (windows.Length == 0)
+                return "<empty>";
+
+            int count = Math.Min(windows.Length, 24);
+            string[] parts = new string[count];
+            for (int i = 0; i < count; i++)
+            {
+                EditorWindow window = windows[i];
+                parts[i] = window != null ? window.GetType().FullName : "<null>";
+            }
+
+            string suffix = windows.Length > count ? ", ..." : string.Empty;
+            return "[" + string.Join(", ", parts) + suffix + "]";
         }
     }
 

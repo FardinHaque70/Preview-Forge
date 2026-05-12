@@ -49,7 +49,6 @@ namespace ParticleThumbnailAndPreview.Editor
         public override void Initialize(Object[] targets)
         {
             base.Initialize(targets);
-            EnsureImplementationInstances();
             RegisterEventHandlers();
             MarkTargetSupportCacheDirty();
             PreviewDiagnostics.Log("Host", $"#{_hostId} Initialize targets={targets?.Length ?? 0}");
@@ -196,27 +195,29 @@ namespace ParticleThumbnailAndPreview.Editor
             _activeImplementation.Draw(rect, background, isInteractive);
         }
 
-        private void EnsureImplementationInstances()
+        private void EnsureImplementationInstance(PrefabPreviewTargetKind kind)
         {
-            if (_implementations.Count > 0)
+            if (kind == PrefabPreviewTargetKind.Unsupported || _implementations.ContainsKey(kind))
                 return;
 
-            var particle = new ParticlePreviewParticleImplementation();
-            particle.SetRepaintCallback(RequestPreviewRepaint);
-            _implementations[particle.Kind] = particle;
+            IPrefabPreviewImplementation implementation = kind switch
+            {
+                PrefabPreviewTargetKind.Particle => new ParticlePreviewParticleImplementation(),
+                PrefabPreviewTargetKind.Model => new ModelPrefabPreviewImplementation(),
+                PrefabPreviewTargetKind.Sprite => new SpritePrefabPreviewImplementation(),
+                _ => null,
+            };
 
-            var model = new ModelPrefabPreviewImplementation();
-            model.SetRepaintCallback(RequestPreviewRepaint);
-            _implementations[model.Kind] = model;
+            if (implementation == null)
+                return;
 
-            var sprite = new SpritePrefabPreviewImplementation();
-            sprite.SetRepaintCallback(RequestPreviewRepaint);
-            _implementations[sprite.Kind] = sprite;
+            implementation.SetRepaintCallback(RequestPreviewRepaint);
+            _implementations[kind] = implementation;
         }
 
         private IPrefabPreviewImplementation ResolveImplementation(PrefabPreviewTargetKind kind)
         {
-            EnsureImplementationInstances();
+            EnsureImplementationInstance(kind);
             if (!_implementations.TryGetValue(kind, out IPrefabPreviewImplementation implementation))
                 return null;
 
