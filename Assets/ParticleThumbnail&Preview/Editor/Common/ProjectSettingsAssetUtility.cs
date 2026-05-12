@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using UnityEditor;
@@ -10,22 +11,44 @@ namespace ParticleThumbnailAndPreview.Editor
 	// Loads project-owned settings assets from Assets so Asset Store and UPM installs share the same writable settings location.
 	internal static class ProjectSettingsAssetUtility
 	{
+		private const int MaxPersistAttempts = 8;
+
+		private sealed class PendingSettingsAsset
+		{
+			internal string Key;
+			internal string AssetPath;
+			internal ScriptableObject Asset;
+			internal int Attempts;
+		}
+
+		private static readonly Dictionary<string, PendingSettingsAsset> PendingAssetsByKey = new Dictionary<string, PendingSettingsAsset>();
+		private static readonly Dictionary<int, PendingSettingsAsset> PendingAssetsByInstanceId = new Dictionary<int, PendingSettingsAsset>();
+		private static bool s_persistScheduled;
+
 		internal static T LoadOrCreate<T>(string assetPath, Action<T> initialize) where T : ScriptableObject
 		{
 			T asset = AssetDatabase.LoadAssetAtPath<T>(assetPath);
 			if (asset != null)
 				return asset;
 
-			EnsureAssetFolder(Path.GetDirectoryName(assetPath)?.Replace('\\', '/'));
-			bool replaceExistingAsset = File.Exists(assetPath);
-			asset = ScriptableObject.CreateInstance<T>();
-			initialize?.Invoke(asset);
-			if (replaceExistingAsset)
-				AssetDatabase.DeleteAsset(assetPath);
+			string key = MakeKey<T>(assetPath);
+			if (PendingAssetsByKey.TryGetValue(key, out PendingSettingsAsset pendingAsset) && pendingAsset.Asset != null)
+				return (T) pendingAsset.Asset;
 
-			AssetDatabase.CreateAsset(asset, assetPath);
-			EditorUtility.SetDirty(asset);
-			AssetDatabase.SaveAssets();
+			asset = ScriptableObject.CreateInstance<T>();
+			asset.hideFlags = HideFlags.HideAndDontSave;
+			initialize?.Invoke(asset);
+
+			pendingAsset = new PendingSettingsAsset
+			{
+				Key = key,
+				AssetPath = assetPath,
+				Asset = asset,
+			};
+			PendingAssetsByKey[key] = pendingAsset;
+			PendingAssetsByInstanceId[asset.GetInstanceID()] = pendingAsset;
+			SchedulePersistPendingAssets();
+
 			return asset;
 		}
 
@@ -33,6 +56,15 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			if (asset == null)
 				return;
+
+			if (!EditorUtility.IsPersistent(asset) &&
+			    PendingAssetsByInstanceId.TryGetValue(asset.GetInstanceID(), out PendingSettingsAsset pendingAsset))
+			{
+				if (!TryPersistPendingAsset(pendingAsset))
+					SchedulePersistPendingAssets();
+
+				return;
+			}
 
 			EditorUtility.SetDirty(asset);
 			AssetDatabase.SaveAssets();
@@ -153,6 +185,88 @@ namespace ParticleThumbnailAndPreview.Editor
 
 				current = next;
 			}
+		}
+
+		private static string MakeKey<T>(string assetPath) where T : ScriptableObject
+		{
+			return typeof(T).FullName + "|" + assetPath;
+		}
+
+		private static void SchedulePersistPendingAssets()
+		{
+			if (s_persistScheduled)
+				return;
+
+			s_persistScheduled = true;
+			EditorApplication.delayCall += PersistPendingAssets;
+		}
+
+		private static void PersistPendingAssets()
+		{
+			s_persistScheduled = false;
+			if (PendingAssetsByKey.Count == 0)
+				return;
+
+			PendingSettingsAsset[] pendingAssets = new PendingSettingsAsset[PendingAssetsByKey.Count];
+			PendingAssetsByKey.Values.CopyTo(pendingAssets, 0);
+			foreach (PendingSettingsAsset pendingAsset in pendingAssets)
+				TryPersistPendingAsset(pendingAsset);
+		}
+
+		private static bool TryPersistPendingAsset(PendingSettingsAsset pendingAsset)
+		{
+			if (pendingAsset == null)
+				return true;
+
+			if (pendingAsset.Asset == null)
+			{
+				RemovePendingAsset(pendingAsset);
+				return true;
+			}
+
+			if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+			{
+				SchedulePersistPendingAssets();
+				return false;
+			}
+
+			try
+			{
+				EnsureAssetFolder(Path.GetDirectoryName(pendingAsset.AssetPath)?.Replace('\\', '/'));
+				if (File.Exists(pendingAsset.AssetPath))
+					AssetDatabase.DeleteAsset(pendingAsset.AssetPath);
+
+				pendingAsset.Asset.hideFlags = HideFlags.None;
+				AssetDatabase.CreateAsset(pendingAsset.Asset, pendingAsset.AssetPath);
+				EditorUtility.SetDirty(pendingAsset.Asset);
+				AssetDatabase.SaveAssets();
+				RemovePendingAsset(pendingAsset);
+				return true;
+			}
+			catch (Exception exception)
+			{
+				pendingAsset.Asset.hideFlags = HideFlags.HideAndDontSave;
+				pendingAsset.Attempts++;
+				if (pendingAsset.Attempts < MaxPersistAttempts)
+				{
+					SchedulePersistPendingAssets();
+				}
+				else
+				{
+					Debug.LogWarning(
+						$"Could not create Particle Thumbnail & Preview settings asset at '{pendingAsset.AssetPath}'. " +
+						$"Settings will use in-memory defaults until Unity can create it. Last error: {exception.Message}");
+				}
+
+				return false;
+			}
+		}
+
+		private static void RemovePendingAsset(PendingSettingsAsset pendingAsset)
+		{
+			PendingAssetsByKey.Remove(pendingAsset.Key);
+			if (pendingAsset.Asset != null)
+				PendingAssetsByInstanceId.Remove(pendingAsset.Asset.GetInstanceID());
 		}
 
 		private static bool TryReadValue(string legacyPath, string key, out string value)

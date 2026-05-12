@@ -7,7 +7,6 @@ namespace ParticleThumbnailAndPreview.Editor
 	{
 		static ProjectSettingsAssetBootstrap()
 		{
-			EnsureSettingsAssets();
 			EditorApplication.delayCall += EnsureSettingsAssets;
 		}
 
