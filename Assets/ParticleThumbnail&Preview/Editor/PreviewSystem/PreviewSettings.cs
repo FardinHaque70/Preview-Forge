@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using UnityEditor;
 using UnityEngine;
 // Stores preview configuration and renders the settings UI that controls particle and model preview behavior in the editor.
@@ -12,123 +11,10 @@ namespace ParticleThumbnailAndPreview.Editor
 		Matcap02 = 1,
 		Matcap03 = 2,
 	}
-
-	[FilePath(SettingsPath, FilePathAttribute.Location.ProjectFolder)]
-	internal sealed class PreviewSettingsStorage : ScriptableSingleton<PreviewSettingsStorage>
-	{
-		private const string SettingsPath = "ProjectSettings/ParticleThumbnailAndPreview/ParticlePreviewSettings.asset";
-
-		[SerializeField] internal bool active = PreviewSettings.D_Active;
-		[SerializeField] internal int refreshFps = PreviewSettings.D_RefreshFps;
-		[SerializeField] internal float orbitSmoothing = PreviewSettings.D_OrbitSmoothing;
-		[SerializeField] internal float panSmoothing = PreviewSettings.D_PanSmoothing;
-		[SerializeField] internal float motionPadding = PreviewSettings.D_MotionPadding;
-		[SerializeField] internal float motionRadius = PreviewSettings.D_MotionRadius;
-		[SerializeField] internal float motionSpeed = PreviewSettings.D_MotionSpeed;
-		[SerializeField] internal Color backgroundColor = PreviewSettings.D_BackgroundColor;
-		[SerializeField] internal PreviewToolbarColorPreset toolbarColorPreset = PreviewSettings.D_ToolbarColorPreset;
-		[SerializeField] internal float toolbarHeight = PreviewSettings.D_ToolbarHeight;
-			[SerializeField] internal bool modelPreviewActive = PreviewSettings.D_ModelPreviewActive;
-			[SerializeField] internal bool spritePrefabPreviewActive = PreviewSettings.D_SpritePrefabPreviewActive;
-			[SerializeField] internal bool modelImporterPreviewActive = PreviewSettings.D_ModelImporterPreviewActive;
-			[SerializeField] internal bool modelDefaultTurntableEnabled = PreviewSettings.D_ModelDefaultTurntableEnabled;
-			[SerializeField] internal bool showStatsEnabled = PreviewSettings.D_ShowStatsEnabled;
-			[SerializeField] internal bool sharedBoundsRulerDefaultEnabled = PreviewSettings.D_SharedBoundsRulerDefaultEnabled;
-			[SerializeField] internal bool modelDefaultLightRotationGizmosEnabled = PreviewSettings.D_ModelDefaultLightRotationGizmosEnabled;
-			[SerializeField] internal bool modelDefaultSkyboxEnabled = PreviewSettings.D_ModelDefaultSkyboxEnabled;
-			[SerializeField] internal bool sharedGridDefaultEnabled = PreviewSettings.D_SharedGridDefaultEnabled;
-			[SerializeField] internal bool sharedGridAxisTextDefaultEnabled = PreviewSettings.D_SharedGridAxisTextDefaultEnabled;
-				[SerializeField] internal float sharedGridHalfSize = PreviewSettings.D_SharedGridHalfSize;
-				[SerializeField] internal float sharedGridStep = PreviewSettings.D_SharedGridStep;
-				[SerializeField] internal float sharedGridAlpha = PreviewSettings.D_SharedGridAlpha;
-				[SerializeField] internal float sharedGridFadeStartBoundsScale = PreviewSettings.D_SharedGridFadeStartBoundsScale;
-				[SerializeField] internal float sharedGridFadeStartBoundsPadding = PreviewSettings.D_SharedGridFadeStartBoundsPadding;
-			[SerializeField] internal PreviewGridStyle sharedGridStyle = PreviewSettings.D_SharedGridStyle;
-			[SerializeField] internal Cubemap modelSkyboxCubemap = PreviewSettings.D_ModelSkyboxCubemap;
-			[SerializeField] internal Material modelSkyboxMaterial;
-			[SerializeField] internal PreviewMatcapPreset modelMatcapPreset = PreviewSettings.D_ModelMatcapPreset;
-			[SerializeField] internal Cubemap modelReflectionCubemap = PreviewSettings.D_ModelReflectionCubemap;
-			[SerializeField] internal Color modelAmbientLightColor = PreviewSettings.D_ModelAmbientLightColor;
-			[SerializeField] internal bool modelSunLightEnabled = PreviewSettings.D_ModelSunLightEnabled;
-			[SerializeField] internal Color modelSunLightColor = PreviewSettings.D_ModelSunLightColor;
-		[SerializeField] internal float modelSunLightIntensity = PreviewSettings.D_ModelSunLightIntensity;
-		[SerializeField] internal float modelSunLightShadowStrength = PreviewSettings.D_ModelSunLightShadowStrength;
-		[SerializeField] internal Vector2 modelSunLightRotation = PreviewSettings.D_ModelSunLightRotation;
-		[SerializeField] internal bool modelKeyLightEnabled = PreviewSettings.D_ModelKeyLightEnabled;
-		[SerializeField] internal float modelKeyLightIntensity = PreviewSettings.D_ModelKeyLightIntensity;
-		[SerializeField] internal Vector2 modelKeyLightRotation = PreviewSettings.D_ModelKeyLightRotation;
-		[SerializeField] internal bool modelFillLightEnabled = PreviewSettings.D_ModelFillLightEnabled;
-		[SerializeField] internal float modelFillLightIntensity = PreviewSettings.D_ModelFillLightIntensity;
-		[SerializeField] internal Vector2 modelFillLightRotation = PreviewSettings.D_ModelFillLightRotation;
-		[SerializeField] internal bool modelRimLightEnabled = PreviewSettings.D_ModelRimLightEnabled;
-		[SerializeField] internal float modelRimLightIntensity = PreviewSettings.D_ModelRimLightIntensity;
-		[SerializeField] internal Vector2 modelRimLightRotation = PreviewSettings.D_ModelRimLightRotation;
-		[SerializeField] internal Color modelRimLightColor = PreviewSettings.D_ModelRimLightColor;
-		[SerializeField] internal bool enableDiagnostics = PreviewSettings.D_EnableDiagnostics;
-
-		internal void SaveStorage()
-		{
-			string directory = Path.GetDirectoryName(SettingsPath);
-			if (!string.IsNullOrEmpty(directory))
-				Directory.CreateDirectory(directory);
-
-			Save(true);
-		}
-
-		internal void ResetToDefaults()
-		{
-			active = PreviewSettings.D_Active;
-			refreshFps = PreviewSettings.D_RefreshFps;
-			orbitSmoothing = PreviewSettings.D_OrbitSmoothing;
-			panSmoothing = PreviewSettings.D_PanSmoothing;
-			motionPadding = PreviewSettings.D_MotionPadding;
-			motionRadius = PreviewSettings.D_MotionRadius;
-			motionSpeed = PreviewSettings.D_MotionSpeed;
-			backgroundColor = PreviewSettings.D_BackgroundColor;
-			toolbarColorPreset = PreviewSettings.D_ToolbarColorPreset;
-			toolbarHeight = PreviewSettings.D_ToolbarHeight;
-			modelPreviewActive = PreviewSettings.D_ModelPreviewActive;
-			spritePrefabPreviewActive = PreviewSettings.D_SpritePrefabPreviewActive;
-			modelImporterPreviewActive = PreviewSettings.D_ModelImporterPreviewActive;
-			modelDefaultTurntableEnabled = PreviewSettings.D_ModelDefaultTurntableEnabled;
-			showStatsEnabled = PreviewSettings.D_ShowStatsEnabled;
-			sharedBoundsRulerDefaultEnabled = PreviewSettings.D_SharedBoundsRulerDefaultEnabled;
-			modelDefaultLightRotationGizmosEnabled = PreviewSettings.D_ModelDefaultLightRotationGizmosEnabled;
-			modelDefaultSkyboxEnabled = PreviewSettings.D_ModelDefaultSkyboxEnabled;
-			sharedGridDefaultEnabled = PreviewSettings.D_SharedGridDefaultEnabled;
-			sharedGridAxisTextDefaultEnabled = PreviewSettings.D_SharedGridAxisTextDefaultEnabled;
-				sharedGridHalfSize = PreviewSettings.D_SharedGridHalfSize;
-				sharedGridStep = PreviewSettings.D_SharedGridStep;
-				sharedGridAlpha = PreviewSettings.D_SharedGridAlpha;
-				sharedGridFadeStartBoundsScale = PreviewSettings.D_SharedGridFadeStartBoundsScale;
-				sharedGridFadeStartBoundsPadding = PreviewSettings.D_SharedGridFadeStartBoundsPadding;
-				sharedGridStyle = PreviewSettings.D_SharedGridStyle;
-				modelSkyboxCubemap = PreviewSettings.D_ModelSkyboxCubemap;
-				modelSkyboxMaterial = null;
-				modelMatcapPreset = PreviewSettings.D_ModelMatcapPreset;
-				modelAmbientLightColor = PreviewSettings.D_ModelAmbientLightColor;
-				modelSunLightEnabled = PreviewSettings.D_ModelSunLightEnabled;
-				modelSunLightColor = PreviewSettings.D_ModelSunLightColor;
-			modelSunLightIntensity = PreviewSettings.D_ModelSunLightIntensity;
-			modelSunLightShadowStrength = PreviewSettings.D_ModelSunLightShadowStrength;
-			modelSunLightRotation = PreviewSettings.D_ModelSunLightRotation;
-			modelKeyLightEnabled = PreviewSettings.D_ModelKeyLightEnabled;
-			modelKeyLightIntensity = PreviewSettings.D_ModelKeyLightIntensity;
-			modelKeyLightRotation = PreviewSettings.D_ModelKeyLightRotation;
-			modelFillLightEnabled = PreviewSettings.D_ModelFillLightEnabled;
-			modelFillLightIntensity = PreviewSettings.D_ModelFillLightIntensity;
-			modelFillLightRotation = PreviewSettings.D_ModelFillLightRotation;
-			modelRimLightEnabled = PreviewSettings.D_ModelRimLightEnabled;
-			modelRimLightIntensity = PreviewSettings.D_ModelRimLightIntensity;
-			modelRimLightRotation = PreviewSettings.D_ModelRimLightRotation;
-			modelRimLightColor = PreviewSettings.D_ModelRimLightColor;
-			enableDiagnostics = PreviewSettings.D_EnableDiagnostics;
-		}
-	}
-
 	internal static class PreviewSettings
 	{
 		public const bool D_Active = true;
+		public const bool D_Enabled = true;
 		public const int D_RefreshFps = 45;
 		public const int MinRefreshFps = 15;
 		public const int MaxRefreshFps = 60;
@@ -207,8 +93,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private static PreviewSettingsStorage Storage => PreviewSettingsStorage.instance;
 
-		public static bool ParticlePrefabPreviewActive => Storage.active;
-		public static bool Active => ParticlePrefabPreviewActive;
+		public static bool Enabled => Storage.enabled;
+		public static bool Active => Enabled;
+		public static bool ParticlePrefabPreviewActive => Enabled && Storage.active;
 		public static bool AnyPrefabCustomPreviewActive => ParticlePrefabPreviewActive || ModelPreviewActive || SpritePrefabPreviewActive;
 		public static bool Autoplay => true;
 		public static int RefreshFps => Mathf.Clamp(Storage.refreshFps, MinRefreshFps, MaxRefreshFps);
@@ -232,9 +119,9 @@ namespace ParticleThumbnailAndPreview.Editor
 			public static float ToolbarHeight => Storage.toolbarHeight <= 0f
 				? D_ToolbarHeight
 				: Mathf.Clamp(Storage.toolbarHeight, MinToolbarHeight, MaxToolbarHeight);
-			public static bool ModelPreviewActive => Storage.modelPreviewActive;
-			public static bool SpritePrefabPreviewActive => Storage.spritePrefabPreviewActive;
-			public static bool ThreeDAssetPreviewActive => Storage.modelImporterPreviewActive;
+			public static bool ModelPreviewActive => Enabled && Storage.modelPreviewActive;
+			public static bool SpritePrefabPreviewActive => Enabled && Storage.spritePrefabPreviewActive;
+			public static bool ThreeDAssetPreviewActive => Enabled && Storage.modelImporterPreviewActive;
 			public static bool ModelImporterPreviewActive => ThreeDAssetPreviewActive;
 			public static bool ModelDefaultTurntableEnabled => Storage.modelDefaultTurntableEnabled;
 			public static bool ShowStatsEnabled => Storage.showStatsEnabled;
@@ -361,6 +248,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		};
 
 		#region Serialized Property Names
+		private const string EnabledPropertyName = "enabled";
 		private const string ActivePropertyName = "active";
 		private const string RefreshFpsPropertyName = "refreshFps";
 		private const string OrbitSmoothingPropertyName = "orbitSmoothing";
@@ -434,6 +322,13 @@ namespace ParticleThumbnailAndPreview.Editor
 			PreviewSettingsStorage storage = PreviewSettingsStorage.instance;
 			SerializedObject serializedObject = ProjectSettingsUndoUtility.CreateSerializedObject(storage, () => SaveAndNotify(storage));
 
+			DrawEnabledToggle(serializedObject);
+			if (!serializedObject.FindProperty(EnabledPropertyName).boolValue)
+			{
+				ProjectSettingsUndoUtility.ApplyModifiedProperties(serializedObject);
+				return;
+			}
+
 			SettingsScroll = EditorGUILayout.BeginScrollView(SettingsScroll, false, false);
 			DrawMainTabs();
 			EditorGUILayout.Space(6f);
@@ -465,6 +360,21 @@ namespace ParticleThumbnailAndPreview.Editor
 		#endregion
 
 		#region Tab Content
+		private static void DrawEnabledToggle(SerializedObject serializedObject)
+		{
+			using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
+			{
+				SerializedProperty activeProperty = serializedObject.FindProperty(EnabledPropertyName);
+				bool active = EditorGUILayout.Toggle(activeProperty.boolValue, GUILayout.Width(18f));
+				if (active != activeProperty.boolValue)
+					activeProperty.boolValue = active;
+
+				EditorGUILayout.LabelField(
+					new GUIContent("Enable Prefab Previews", "Turn all custom prefab and 3D asset previews on or off for this project."),
+					EditorStyles.boldLabel);
+			}
+		}
+
 		private static void DrawMainTabs()
 		{
 			int selected = GUILayout.Toolbar((int) SelectedTab, MainTabTitles);
