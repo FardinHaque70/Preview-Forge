@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.20] - 2026-05-12
+
+- Suspend thumbnail rendering queue work and persistent-cache fetch paths during unsafe editor transition windows (compile/update/playmode switching) to reduce transition-time churn.
+- Clear particle systems before assigning deterministic random seeds in particle preview and thumbnail rendering sessions for safer seed resets.
+
 ## [1.1.19] - 2026-05-08
 
 - Document the current URP limitation where particle shaders that require the camera opaque texture may render pink in thumbnails and prefab previews.
