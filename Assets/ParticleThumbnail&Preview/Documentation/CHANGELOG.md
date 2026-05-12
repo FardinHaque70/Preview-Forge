@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.22] - 2026-05-12
+
+- Sync UPM `Matcap_01/02/03.png` visual mode assets to the latest package state so Git UPM consumers receive the current matcap textures.
+
 ## [1.1.21] - 2026-05-12
 
 - Persist package settings as project assets.
