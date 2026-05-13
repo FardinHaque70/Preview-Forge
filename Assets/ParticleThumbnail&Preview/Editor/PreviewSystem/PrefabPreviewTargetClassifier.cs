@@ -11,12 +11,15 @@ namespace ParticleThumbnailAndPreview.Editor
         Particle = 1,
         Model = 2,
         Sprite = 3,
+        Ui = 4,
     }
 
     internal static class PrefabPreviewTargetClassifier
     {
         private static readonly System.Type TmpTextMeshProType = System.Type.GetType("TMPro.TextMeshPro, Unity.TextMeshPro");
         private static readonly System.Type TmpTextMeshProUiType = System.Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
+        private static readonly System.Type UiGraphicType = System.Type.GetType("UnityEngine.UI.Graphic, UnityEngine.UI");
+        private static readonly System.Type UiSelectableType = System.Type.GetType("UnityEngine.UI.Selectable, UnityEngine.UI");
         public static bool IsSupportedTarget(UnityObject[] targets)
         {
             return Classify(targets) != PrefabPreviewTargetKind.Unsupported;
@@ -36,11 +39,15 @@ namespace ParticleThumbnailAndPreview.Editor
                 return PrefabPreviewTargetKind.Unsupported;
 
             bool hasModelRenderer = HasSupportedModelRenderer(prefabAsset);
+            bool hasUiContent = HasSupportedUiContent(prefabAsset);
             bool hasSpriteRenderer = HasSupportedSpriteRenderer(prefabAsset);
             bool rootHasParticleSystem = prefabAsset.GetComponent<ParticleSystem>() != null;
 
             if (hasModelRenderer)
                 return PrefabPreviewTargetKind.Model;
+
+            if (hasUiContent)
+                return PrefabPreviewTargetKind.Ui;
 
             if (hasSpriteRenderer)
                 return PrefabPreviewTargetKind.Sprite;
@@ -156,6 +163,40 @@ namespace ParticleThumbnailAndPreview.Editor
                 return true;
 
             return false;
+        }
+
+        private static bool HasSupportedUiContent(GameObject prefab)
+        {
+            if (prefab == null)
+                return false;
+
+            if (prefab.GetComponentInChildren<RectTransform>(true) == null)
+                return false;
+
+            if (HasComponentInChildrenOfType(prefab, UiGraphicType))
+                return true;
+
+            if (HasComponentInChildrenOfType(prefab, UiSelectableType))
+                return true;
+
+            if (prefab.GetComponentInChildren<Canvas>(true) != null)
+                return true;
+
+            if (prefab.GetComponentInChildren<CanvasRenderer>(true) != null)
+                return true;
+
+            if (HasComponentInChildrenOfType(prefab, TmpTextMeshProUiType))
+                return true;
+
+            return true;
+        }
+
+        private static bool HasComponentInChildrenOfType(GameObject root, System.Type componentType)
+        {
+            if (root == null || componentType == null)
+                return false;
+
+            return root.GetComponentInChildren(componentType, true) != null;
         }
     }
 }

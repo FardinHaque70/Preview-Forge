@@ -205,6 +205,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 PrefabPreviewTargetKind.Particle => new ParticlePreviewParticleImplementation(),
                 PrefabPreviewTargetKind.Model => new ModelPrefabPreviewImplementation(),
                 PrefabPreviewTargetKind.Sprite => new SpritePrefabPreviewImplementation(),
+                PrefabPreviewTargetKind.Ui => new UiPrefabPreviewImplementation(),
                 _ => null,
             };
 
@@ -225,6 +226,9 @@ namespace ParticleThumbnailAndPreview.Editor
                 return null;
 
             if (kind == PrefabPreviewTargetKind.Sprite && !PreviewSettings.SpritePrefabPreviewActive)
+                return null;
+
+            if (kind == PrefabPreviewTargetKind.Ui && !PreviewSettings.UiPrefabPreviewActive)
                 return null;
 
             if (kind == PrefabPreviewTargetKind.Particle && !PreviewSettings.ParticlePrefabPreviewActive)

@@ -2,6 +2,13 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.23] - 2026-05-14
+
+- Add dedicated UI prefab preview routing for RectTransform-based prefabs (uGUI and TMP UGUI), including model-first precedence for mixed model+UI prefabs.
+- Add `UiPrefabPreviewImplementation` and `UiPrefabPreviewSession` with Canvas auto-wrapping, forced layout rebuild before render, and focused 2D camera framing/pan/zoom behavior.
+- Add project setting toggle `Draw UI Prefab Custom Preview` with persisted storage support and mirrored `Assets`/`upm` integration.
+- Add EditMode coverage for UI target classification and UI preview helper behavior.
+
 ## [1.1.22] - 2026-05-12
 
 - Sync UPM `Matcap_01/02/03.png` visual mode assets to the latest package state so Git UPM consumers receive the current matcap textures.
