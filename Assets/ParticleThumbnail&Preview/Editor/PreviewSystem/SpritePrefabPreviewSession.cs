@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
-// Builds an isolated sprite-prefab preview scene with switchable 2D/3D camera modes, pan/zoom-orbit interaction, and shared grid rendering.
+// Builds an isolated sprite-prefab preview scene with 3D camera orbit/pan/zoom interaction and shared grid rendering.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
@@ -16,13 +16,9 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float DistanceEpsilon = 0.001f;
         private const float PivotEpsilon = 0.0001f;
         private const float AngularVelocityEpsilon = 0.01f;
-        private const float MinOrthoSize = 0.1f;
-        private const float MaxOrthoSize = 500f;
         private const float MinDistance = 0.1f;
         private const float MaxDistance = 500f;
         private const float ZoomFactorPerScrollUnit = 0.1f;
-        private const float FramingPadding = 1.15f;
-        private const float CameraDepthOffset = 10f;
         private const float OrbitSensitivity = 1.2f;
         private const float PitchMin = -85f;
         private const float PitchMax = 85f;
@@ -64,12 +60,10 @@ namespace ParticleThumbnailAndPreview.Editor
         private bool _boundsOverlayEnabled = PreviewSettings.SharedBoundsRulerDefaultEnabled;
         private bool _colliderOverlayEnabled;
         private bool _hasParticles;
-        private PreviewModeOverride _modeOverride = PreviewModeOverride.Force2D;
+        private PreviewModeOverride _modeOverride = PreviewModeOverride.Force3D;
         private double _lastInteractionUpdateTime = -1d;
         private Vector3 _pivot;
         private Vector3 _targetPivot;
-        private float _orthoSize = 5f;
-        private float _targetOrthoSize = 5f;
         private Vector2 _orbit = Vector2.zero;
         private Vector2 _targetOrbit = Vector2.zero;
         private Vector2 _orbitAngularVelocity = Vector2.zero;
@@ -82,8 +76,6 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             internal Vector3 Pivot;
             internal Vector3 TargetPivot;
-            internal float OrthoSize;
-            internal float TargetOrthoSize;
             internal Vector2 Orbit;
             internal Vector2 TargetOrbit;
             internal float Distance;
@@ -108,7 +100,7 @@ namespace ParticleThumbnailAndPreview.Editor
         internal Vector3 BoundsSize => _hasFramedBounds ? _framedBounds.size : Vector3.zero;
         internal PreviewModeOverride ModeOverride => _modeOverride;
         internal PreviewModeContext ModeContext => PreviewModeResolver.Resolve(_modeOverride);
-        internal string ModeLabel => ModeContext.CameraIs2D ? "2D" : "3D";
+        internal string ModeLabel => "3D";
 
         internal static Color ComputeColliderPreviewTintForTests(Color source)
         {
@@ -177,7 +169,7 @@ namespace ParticleThumbnailAndPreview.Editor
             CollectPreviewContent();
             PrepareParticleSystems();
 
-            _modeOverride = PreviewModeOverride.Force2D;
+            _modeOverride = PreviewModeOverride.Force3D;
             _gridEnabled = PreviewSettings.SharedGridDefaultEnabled;
             _boundsOverlayEnabled = PreviewSettings.SharedBoundsRulerDefaultEnabled;
             _colliderOverlayEnabled = false;
@@ -188,8 +180,6 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 _pivot = restored.Pivot;
                 _targetPivot = restored.TargetPivot;
-                _orthoSize = Mathf.Clamp(restored.OrthoSize, MinOrthoSize, MaxOrthoSize);
-                _targetOrthoSize = Mathf.Clamp(restored.TargetOrthoSize, MinOrthoSize, MaxOrthoSize);
                 _orbit = restored.Orbit;
                 _targetOrbit = restored.TargetOrbit;
                 _distance = Mathf.Clamp(restored.Distance, MinDistance, MaxDistance);
@@ -198,11 +188,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 _gridEnabled = restored.GridEnabled;
                 _boundsOverlayEnabled = restored.BoundsOverlayEnabled;
                 _colliderOverlayEnabled = restored.ColliderOverlayEnabled;
-                if (ModeContext.CameraIs2D)
-                {
-                    _orbit = Vector2.zero;
-                    _targetOrbit = Vector2.zero;
-                }
             }
 
             _prefabInstanceId = instanceId;
@@ -255,30 +240,22 @@ namespace ParticleThumbnailAndPreview.Editor
             if (GUIUtility.hotControl != 0)
                 return false;
 
-            bool effective2D = ModeContext.CameraIs2D;
             bool pointerInPreview = previewRect.Contains(evt.mousePosition);
             bool changed = false;
             double now = EditorApplication.timeSinceStartup;
 
-            bool isPanDrag = evt.type == EventType.MouseDrag && (evt.button == 2 || (evt.button == 0 && evt.command) || (effective2D && evt.button == 0));
+            bool isPanDrag = evt.type == EventType.MouseDrag && (evt.button == 2 || (evt.button == 0 && evt.command));
             if (isPanDrag && pointerInPreview)
             {
-                PanPreviewTarget(evt.delta, previewRect, effective2D);
-                if (effective2D)
-                    evt.Use();
-                else
-                {
-                    evt.Use();
-                    changed = true;
-                }
-
+                PanPreviewTarget(evt.delta, previewRect);
+                evt.Use();
                 return true;
             }
 
             switch (evt.type)
             {
                 case EventType.MouseDown:
-                    if (!effective2D && evt.button == 0 && pointerInPreview)
+                    if (evt.button == 0 && pointerInPreview)
                     {
                         _isOrbitDragging = true;
                         _orbitAngularVelocity = Vector2.zero;
@@ -289,7 +266,7 @@ namespace ParticleThumbnailAndPreview.Editor
                     break;
 
                 case EventType.MouseDrag:
-                    if (!effective2D && evt.button == 0 && _isOrbitDragging)
+                    if (evt.button == 0 && _isOrbitDragging)
                     {
                         Vector2 delta = evt.delta * OrbitSensitivity;
                         if (delta.sqrMagnitude > OrbitDragDeltaDeadzoneSqr)
@@ -315,7 +292,7 @@ namespace ParticleThumbnailAndPreview.Editor
                     break;
 
                 case EventType.MouseUp:
-                    if (!effective2D && evt.button == 0 && _isOrbitDragging)
+                    if (evt.button == 0 && _isOrbitDragging)
                     {
                         double idleSinceLastMove = _lastOrbitInputTime >= 0d ? now - _lastOrbitInputTime : double.MaxValue;
                         if (idleSinceLastMove > OrbitHoldStillResetSeconds)
@@ -341,16 +318,8 @@ namespace ParticleThumbnailAndPreview.Editor
                 case EventType.ScrollWheel:
                     if (pointerInPreview)
                     {
-                        if (effective2D)
-                        {
-                            float nextSize = _targetOrthoSize * (1f + evt.delta.y * ZoomFactorPerScrollUnit);
-                            _targetOrthoSize = Mathf.Clamp(nextSize, MinOrthoSize, MaxOrthoSize);
-                        }
-                        else
-                        {
-                            float nextDistance = _targetDistance * (1f + evt.delta.y * ZoomFactorPerScrollUnit);
-                            _targetDistance = Mathf.Clamp(nextDistance, MinDistance, MaxDistance);
-                        }
+                        float nextDistance = _targetDistance * (1f + evt.delta.y * ZoomFactorPerScrollUnit);
+                        _targetDistance = Mathf.Clamp(nextDistance, MinDistance, MaxDistance);
 
                         evt.Use();
                         changed = true;
@@ -369,7 +338,6 @@ namespace ParticleThumbnailAndPreview.Editor
 
             float orbitSmoothing = Mathf.Max(0.0001f, PreviewSettings.OrbitSmoothing);
             float panSmoothing = Mathf.Max(0.0001f, PreviewSettings.PanSmoothing);
-            bool effective2D = ModeContext.CameraIs2D;
             double now = EditorApplication.timeSinceStartup;
 
             var state = new PreviewCameraInteractionState
@@ -377,8 +345,8 @@ namespace ParticleThumbnailAndPreview.Editor
                 Orbit = _orbit,
                 TargetOrbit = _targetOrbit,
                 OrbitAngularVelocity = _orbitAngularVelocity,
-                Distance = effective2D ? _orthoSize : _distance,
-                TargetDistance = effective2D ? _targetOrthoSize : _targetDistance,
+                Distance = _distance,
+                TargetDistance = _targetDistance,
                 Pivot = _pivot,
                 TargetPivot = _targetPivot,
                 IsOrbitDragging = _isOrbitDragging,
@@ -391,7 +359,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 now,
                 orbitSmoothing,
                 panSmoothing,
-                effective2D,
+                false,
                 CameraInteractionConfig);
 
             _orbit = state.Orbit;
@@ -401,19 +369,8 @@ namespace ParticleThumbnailAndPreview.Editor
             _targetPivot = state.TargetPivot;
             _isOrbitDragging = state.IsOrbitDragging;
             _lastOrbitInputTime = state.LastOrbitInputTime;
-
-            if (effective2D)
-            {
-                _orthoSize = state.Distance;
-                _targetOrthoSize = state.TargetDistance;
-                _orbit = Vector2.zero;
-                _targetOrbit = Vector2.zero;
-            }
-            else
-            {
-                _distance = state.Distance;
-                _targetDistance = state.TargetDistance;
-            }
+            _distance = state.Distance;
+            _targetDistance = state.TargetDistance;
 
             return pending;
         }
@@ -424,7 +381,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 return;
 
             _preview.camera.backgroundColor = PreviewSettings.BackgroundColor;
-            UpdateCameraTransform(previewRect);
+            UpdateCameraTransform();
 
             _preview.BeginPreview(previewRect, background ?? GUIStyle.none);
             DrawGrid();
@@ -465,31 +422,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
         internal void CycleModeOverride()
         {
-            bool wasEffective2D = ModeContext.CameraIs2D;
-            _modeOverride = _modeOverride == PreviewModeOverride.Force2D
-                ? PreviewModeOverride.Force3D
-                : PreviewModeOverride.Force2D;
-
-            bool isEffective2D = ModeContext.CameraIs2D;
-            if (isEffective2D)
-            {
-                _orbit = Vector2.zero;
-                _targetOrbit = Vector2.zero;
-                _orbitAngularVelocity = Vector2.zero;
-                _isOrbitDragging = false;
-                _lastOrbitInputTime = -1d;
-            }
-
-            if (isEffective2D != wasEffective2D)
-                FrameCameraToContent();
-        }
-
-        internal static float ComputeInitialOrthoSizeForBoundsForTests(Bounds bounds, float aspect)
-        {
-            float safeAspect = Mathf.Max(0.0001f, aspect);
-            float vertical = Mathf.Max(bounds.extents.y, 0.1f);
-            float horizontal = Mathf.Max(bounds.extents.x / safeAspect, 0.1f);
-            return Mathf.Max(vertical, horizontal) * FramingPadding;
+            _modeOverride = PreviewModeOverride.Force3D;
         }
 
         internal static float ComputeInitialDistanceForBoundsForTests(Bounds bounds, float cameraFov)
@@ -606,19 +539,10 @@ namespace ParticleThumbnailAndPreview.Editor
             _hasFramedBounds = true;
             _pivot = bounds.center;
             _targetPivot = _pivot;
-
-            if (ModeContext.CameraIs2D)
-            {
-                _orthoSize = Mathf.Clamp(ComputeInitialOrthoSizeForBoundsForTests(bounds, 1f), MinOrthoSize, MaxOrthoSize);
-                _targetOrthoSize = _orthoSize;
-            }
-            else
-            {
-                _distance = Mathf.Clamp(ComputeInitialDistanceForBoundsForTests(bounds, _preview.camera.fieldOfView), MinDistance, MaxDistance);
-                _targetDistance = _distance;
-                _orbit = new Vector2(35f, 18f);
-                _targetOrbit = _orbit;
-            }
+            _distance = Mathf.Clamp(ComputeInitialDistanceForBoundsForTests(bounds, _preview.camera.fieldOfView), MinDistance, MaxDistance);
+            _targetDistance = _distance;
+            _orbit = new Vector2(35f, 18f);
+            _targetOrbit = _orbit;
         }
 
         private bool TryComputeFramingBounds(out Bounds bounds)
@@ -646,25 +570,9 @@ namespace ParticleThumbnailAndPreview.Editor
             return hasBounds;
         }
 
-        private void UpdateCameraTransform(Rect previewRect)
+        private void UpdateCameraTransform()
         {
             Camera camera = _preview.camera;
-            if (ModeContext.CameraIs2D)
-            {
-                float aspect = previewRect.height > 0.0001f ? previewRect.width / previewRect.height : 1f;
-                float minSize = Mathf.Clamp(ComputeInitialOrthoSizeForBoundsForTests(_framedBounds, aspect), MinOrthoSize, MaxOrthoSize) * 0.35f;
-                _orthoSize = Mathf.Max(_orthoSize, minSize);
-                _targetOrthoSize = Mathf.Max(_targetOrthoSize, minSize);
-
-                camera.orthographic = true;
-                camera.orthographicSize = _orthoSize;
-                camera.transform.position = new Vector3(_pivot.x, _pivot.y, _pivot.z - CameraDepthOffset);
-                camera.transform.rotation = Quaternion.identity;
-                camera.nearClipPlane = 0.01f;
-                camera.farClipPlane = Mathf.Max(100f, CameraDepthOffset * 20f);
-                return;
-            }
-
             camera.orthographic = false;
             Quaternion rotation = Quaternion.Euler(_orbit.y, _orbit.x, 0f);
             Vector3 forward = rotation * Vector3.forward;
@@ -679,46 +587,38 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             var request = new PreviewGridDrawRequest(
                 _preview,
-                ModeContext.CameraIs2D ? PreviewGridSpace.Plane2D : PreviewGridSpace.Plane3D,
+                PreviewGridSpace.Plane3D,
                 _gridEnabled,
                 gridTransformOverride: Matrix4x4.identity);
             PreviewGridSystem.Draw(request);
         }
 
-        private void PanPreviewTarget(Vector2 delta, Rect previewRect, bool effective2D)
+        private void PanPreviewTarget(Vector2 delta, Rect previewRect)
         {
-            if (effective2D)
-            {
-                float safeHeight = Mathf.Max(1f, previewRect.height);
-                float aspect = previewRect.height > 0.0001f ? previewRect.width / previewRect.height : 1f;
-                float unitsPerPixelY = (_targetOrthoSize * 2f) / safeHeight;
-                float unitsPerPixelX = unitsPerPixelY * aspect;
-                _targetPivot += new Vector3(-delta.x * unitsPerPixelX, delta.y * unitsPerPixelY, 0f);
-                return;
-            }
-
             Camera camera = _preview != null ? _preview.camera : null;
             if (camera == null)
                 return;
 
-            float safeHeight3D = Mathf.Max(1f, previewRect.height);
-            float distanceScale = Mathf.Max(_targetDistance, MinDistance);
-            float worldPerPixel = 2f * distanceScale * Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * 0.5f) / safeHeight3D;
-            Vector3 right = camera.transform.right;
-            Vector3 up = camera.transform.up;
-            _targetPivot += (-right * delta.x + -up * delta.y) * worldPerPixel;
+            float width = Mathf.Max(1f, previewRect.width);
+            float height = Mathf.Max(1f, previewRect.height);
+            float fovRadians = camera.fieldOfView * Mathf.Deg2Rad;
+            float verticalWorldSize = 2f * Mathf.Tan(fovRadians * 0.5f) * Mathf.Max(_targetDistance, MinDistance);
+            float horizontalWorldSize = verticalWorldSize * (width / height);
+            float panRight = -delta.x / width * horizontalWorldSize;
+            float panUp = delta.y / height * verticalWorldSize;
+            Vector3 worldPan = camera.transform.right * panRight + camera.transform.up * panUp;
+            _targetPivot += worldPan;
         }
 
         private bool ComputeHasPendingCameraMotion()
         {
-            bool effective2D = ModeContext.CameraIs2D;
             var state = new PreviewCameraInteractionState
             {
                 Orbit = _orbit,
                 TargetOrbit = _targetOrbit,
                 OrbitAngularVelocity = _orbitAngularVelocity,
-                Distance = effective2D ? _orthoSize : _distance,
-                TargetDistance = effective2D ? _targetOrthoSize : _targetDistance,
+                Distance = _distance,
+                TargetDistance = _targetDistance,
                 Pivot = _pivot,
                 TargetPivot = _targetPivot,
                 IsOrbitDragging = _isOrbitDragging,
@@ -737,8 +637,6 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 Pivot = _pivot,
                 TargetPivot = _targetPivot,
-                OrthoSize = _orthoSize,
-                TargetOrthoSize = _targetOrthoSize,
                 Orbit = _orbit,
                 TargetOrbit = _targetOrbit,
                 Distance = _distance,
@@ -783,11 +681,9 @@ namespace ParticleThumbnailAndPreview.Editor
             return false;
         }
 
-        private static PreviewModeOverride NormalizeModeOverride(PreviewModeOverride modeOverride)
+        private static PreviewModeOverride NormalizeModeOverride(PreviewModeOverride _)
         {
-            return modeOverride == PreviewModeOverride.Force3D
-                ? PreviewModeOverride.Force3D
-                : PreviewModeOverride.Force2D;
+            return PreviewModeOverride.Force3D;
         }
 
         internal static void ClearSessionStateCache()

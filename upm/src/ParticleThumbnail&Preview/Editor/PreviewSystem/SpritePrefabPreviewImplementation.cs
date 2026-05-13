@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-// Connects the prefab preview host to the dedicated sprite preview session and exposes a lean 2D-first toolbar.
+// Connects the prefab preview host to the dedicated sprite preview session and exposes a lean sprite toolbar.
 
 namespace ParticleThumbnailAndPreview.Editor
 {
@@ -16,7 +16,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private readonly List<PreviewToolbarItem> _toolbarItems = new();
         private readonly PreviewToolbarCommonFeatureBinding _boundsFeature;
         private readonly PreviewToolbarCommonFeatureBinding _colliderFeature;
-        private readonly PreviewToolbarCommonFeatureBinding _modeFeature;
         private readonly PreviewToolbarCommonFeatureBinding _gridFeature;
         private Action _requestRepaint;
         private bool _updateRegistered;
@@ -27,7 +26,6 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             _boundsFeature = PreviewToolbarCommonFeatures.CreateBoundsToggle(_session, RequestPreviewRepaint, BoundsIcons, PreviewToolbarItemGroup.Right);
             _colliderFeature = PreviewToolbarCommonFeatures.CreateColliderToggle(_session, RequestPreviewRepaint, ColliderIcons, PreviewToolbarItemGroup.Right);
-            _modeFeature = PreviewToolbarCommonFeatures.CreateModeButton(_session, RequestPreviewRepaint, PreviewToolbarItemGroup.Right);
             _gridFeature = PreviewToolbarCommonFeatures.CreateGridToggle(_session, RequestPreviewRepaint, GridIcons, PreviewToolbarItemGroup.Right);
         }
 
@@ -98,7 +96,6 @@ namespace ParticleThumbnailAndPreview.Editor
 
             _toolbarItems.Add(_boundsFeature.Item);
             _toolbarItems.Add(_colliderFeature.Item);
-            _toolbarItems.Add(_modeFeature.Item);
             _toolbarItems.Add(_gridFeature.Item);
         }
 
@@ -106,7 +103,6 @@ namespace ParticleThumbnailAndPreview.Editor
         {
             PreviewToolbarCommonFeatures.Refresh(_session, _boundsFeature);
             PreviewToolbarCommonFeatures.Refresh(_session, _colliderFeature);
-            PreviewToolbarCommonFeatures.Refresh(_session, _modeFeature);
             PreviewToolbarCommonFeatures.Refresh(_session, _gridFeature);
         }
 
