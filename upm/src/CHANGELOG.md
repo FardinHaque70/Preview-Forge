@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.24] - 2026-05-14
+
+- Fix UPM `UiPreviewChecker.shader.meta` GUID alignment so the package uses the expected shader asset mapping in `upm/src`.
+
 ## [1.1.23] - 2026-05-14
 
 - Add dedicated UI prefab preview routing for RectTransform-based prefabs (uGUI and TMP UGUI), including model-first precedence for mixed model+UI prefabs.
