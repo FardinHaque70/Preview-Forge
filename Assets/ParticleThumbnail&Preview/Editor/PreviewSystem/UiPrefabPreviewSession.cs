@@ -18,6 +18,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private const float DefaultCameraDistance = 10f;
         private const float BoundsPaddingFactor = 1.15f;
         private const float SizeEpsilon = 0.0001f;
+        private const float UiPlaneEpsilon = 0.0001f;
         private const float CheckerTileWorldSize = 40f;
         private const float CheckerDepthOffset = 50f;
         private const string CheckerTextureRelativePath = "Editor/Common/PreviewAssets/Checkerboard.png";
@@ -162,6 +163,7 @@ namespace ParticleThumbnailAndPreview.Editor
 
             BuildPreviewRoot(prefab);
             CollectPreviewContent();
+            NormalizeRectTransformsToUiPlane();
             ConfigureCanvases();
             ForceUiLayoutUpdate();
             CenterPreviewRootToContent();
@@ -366,6 +368,23 @@ namespace ParticleThumbnailAndPreview.Editor
                 canvas.worldCamera = _preview.camera;
                 if (canvas.planeDistance <= 0f)
                     canvas.planeDistance = 1f;
+            }
+        }
+
+        private void NormalizeRectTransformsToUiPlane()
+        {
+            for (int i = 0; i < _rectTransforms.Count; i++)
+            {
+                RectTransform rectTransform = _rectTransforms[i];
+                if (rectTransform == null)
+                    continue;
+
+                Vector3 localPosition = rectTransform.localPosition;
+                if (Mathf.Abs(localPosition.z) <= UiPlaneEpsilon)
+                    continue;
+
+                localPosition.z = 0f;
+                rectTransform.localPosition = localPosition;
             }
         }
 
@@ -680,50 +699,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 snapped = 10f;
 
             return snapped * magnitude;
-        }
-
-        private bool TryComputePrimaryCanvasBounds(out Bounds bounds)
-        {
-            bounds = default;
-            bool hasBounds = false;
-            float largestArea = -1f;
-
-            for (int i = 0; i < _canvases.Count; i++)
-            {
-                Canvas canvas = _canvases[i];
-                if (canvas == null || !canvas.gameObject.activeInHierarchy)
-                    continue;
-                if (_canvasWrapper != null && canvas.gameObject == _canvasWrapper)
-                    continue;
-
-                RectTransform rectTransform = canvas.transform as RectTransform;
-                if (rectTransform == null)
-                    continue;
-
-                rectTransform.GetWorldCorners(RectWorldCorners);
-                Bounds candidate = new Bounds(RectWorldCorners[0], Vector3.zero);
-                for (int c = 1; c < RectWorldCorners.Length; c++)
-                    candidate.Encapsulate(RectWorldCorners[c]);
-
-                float area = Mathf.Abs(candidate.size.x * candidate.size.y);
-                if (area <= SizeEpsilon)
-                    continue;
-
-                if (!hasBounds || area > largestArea)
-                {
-                    bounds = candidate;
-                    largestArea = area;
-                    hasBounds = true;
-                }
-            }
-
-            if (!hasBounds && _hasFramedBounds)
-            {
-                bounds = _framedBounds;
-                return true;
-            }
-
-            return hasBounds;
         }
 
         private static void EnsureCheckerResources()

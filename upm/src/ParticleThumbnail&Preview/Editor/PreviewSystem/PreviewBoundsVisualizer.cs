@@ -13,7 +13,6 @@ namespace ParticleThumbnailAndPreview.Editor
         private static readonly Color HeightColor = new(0.44f, 0.86f, 0.44f, 1f);
         private static readonly Color DepthColor = new(0.4f, 0.7f, 0.97f, 1f);
         private static Mesh s_wireCubeMesh;
-        private static Mesh s_wireRectMesh;
         private static Material s_wireMaterial;
         private static GUIStyle s_labelStyle;
         private static bool s_cleanupRegistered;
@@ -90,26 +89,6 @@ namespace ParticleThumbnailAndPreview.Editor
 
             Handles.color = previous;
             Handles.EndGUI();
-        }
-
-        internal static void DrawFlatWire(PreviewRenderUtility preview, Bounds bounds, Color color)
-        {
-            if (preview == null)
-                return;
-
-            EnsureResources();
-            if (s_wireRectMesh == null || s_wireMaterial == null)
-                return;
-
-            Color previousColor = s_wireMaterial.GetColor("_Color");
-            s_wireMaterial.SetColor("_Color", color);
-            Vector3 scale = new Vector3(
-                Mathf.Max(bounds.size.x, 0.0001f),
-                Mathf.Max(bounds.size.y, 0.0001f),
-                1f);
-            Matrix4x4 matrix = Matrix4x4.TRS(bounds.center, Quaternion.identity, scale);
-            preview.DrawMesh(s_wireRectMesh, matrix, s_wireMaterial, 0);
-            s_wireMaterial.SetColor("_Color", previousColor);
         }
 
         internal static string FormatDimensionLabelForTests(char prefix, float value)
@@ -293,12 +272,6 @@ namespace ParticleThumbnailAndPreview.Editor
                 BuildWireCubeMesh(s_wireCubeMesh);
             }
 
-            if (s_wireRectMesh == null)
-            {
-                s_wireRectMesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
-                BuildWireRectMesh(s_wireRectMesh);
-            }
-
             if (s_labelStyle == null)
             {
                 s_labelStyle = new GUIStyle(PreviewToolbarTheme.InfoValueStyle)
@@ -329,7 +302,6 @@ namespace ParticleThumbnailAndPreview.Editor
             }
 
             DestroyOwnedObject(ref s_wireCubeMesh);
-            DestroyOwnedObject(ref s_wireRectMesh);
             DestroyOwnedObject(ref s_wireMaterial);
             s_labelStyle = null;
         }
@@ -395,24 +367,5 @@ namespace ParticleThumbnailAndPreview.Editor
             mesh.RecalculateBounds();
         }
 
-        private static void BuildWireRectMesh(Mesh mesh)
-        {
-            mesh.Clear();
-            mesh.vertices = new[]
-            {
-                new Vector3(-0.5f, -0.5f, 0f),
-                new Vector3(0.5f, -0.5f, 0f),
-                new Vector3(0.5f, 0.5f, 0f),
-                new Vector3(-0.5f, 0.5f, 0f),
-            };
-
-            Color[] colors = new Color[4];
-            for (int i = 0; i < colors.Length; i++)
-                colors[i] = Color.white;
-            mesh.colors = colors;
-
-            mesh.SetIndices(new[] { 0, 1, 1, 2, 2, 3, 3, 0 }, MeshTopology.Lines, 0);
-            mesh.RecalculateBounds();
-        }
     }
 }

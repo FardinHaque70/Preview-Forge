@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.25] - 2026-05-14
+
+- Normalize UI prefab `RectTransform` local Z positions to the preview UI plane before layout/render so layered UI cards stay visually consistent in custom preview.
+- Remove unused flat-wire bounds mesh resources from `PreviewBoundsVisualizer` to simplify preview bounds rendering internals.
+
 ## [1.1.24] - 2026-05-14
 
 - Fix UPM `UiPreviewChecker.shader.meta` GUID alignment so the package uses the expected shader asset mapping in `upm/src`.
