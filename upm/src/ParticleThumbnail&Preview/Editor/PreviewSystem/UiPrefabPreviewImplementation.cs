@@ -10,7 +10,7 @@ namespace ParticleThumbnailAndPreview.Editor
     {
         private static readonly string[] BoundsIcons = PreviewToolbarIconUtility.BuildIconNames("Model_Bounds_Round_White.png", "d_ScaleTool", "ScaleTool");
         private static readonly string[] GridIcons = PreviewToolbarIconUtility.BuildIconNames("Particle_GridOn_Round_White.png", "d_Grid.BoxTool", "Grid.BoxTool");
-        private const int SetupWarmupRepaintFrames = 6;
+        private const double SetupWarmupDurationSeconds = 3.0d;
 
         private readonly UiPrefabPreviewSession _session = new();
         private readonly List<PreviewToolbarItem> _toolbarItems = new();
@@ -18,7 +18,7 @@ namespace ParticleThumbnailAndPreview.Editor
         private readonly PreviewToolbarCommonFeatureBinding _gridFeature;
         private Action _requestRepaint;
         private bool _updateRegistered;
-        private int _warmupRepaintFramesRemaining;
+        private double _warmupRepaintUntilTime = -1d;
         private int _lastPrefabInstanceId;
         private string _lastPrefabAssetPath;
 
@@ -42,7 +42,8 @@ namespace ParticleThumbnailAndPreview.Editor
             bool ready = _session.IsReady;
             if (ready && isNewTarget)
             {
-                _warmupRepaintFramesRemaining = SetupWarmupRepaintFrames;
+                _warmupRepaintUntilTime = EditorApplication.timeSinceStartup + SetupWarmupDurationSeconds;
+                EnableUpdate();
                 RequestRepaint();
             }
 
@@ -60,7 +61,7 @@ namespace ParticleThumbnailAndPreview.Editor
             {
                 _lastPrefabInstanceId = 0;
                 _lastPrefabAssetPath = null;
-                _warmupRepaintFramesRemaining = 0;
+                _warmupRepaintUntilTime = -1d;
             }
         }
 
@@ -83,13 +84,10 @@ namespace ParticleThumbnailAndPreview.Editor
             if (inputChanged || cameraChanged)
                 RequestRepaint();
 
-            if (_warmupRepaintFramesRemaining > 0)
-            {
-                _warmupRepaintFramesRemaining--;
+            if (IsWarmupActive())
                 RequestRepaint();
-            }
 
-            if (_session.HasPendingCameraMotion || _warmupRepaintFramesRemaining > 0)
+            if (_session.HasPendingCameraMotion || IsWarmupActive())
                 EnableUpdate();
             else
                 DisableUpdate();
@@ -137,12 +135,30 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private void OnUpdate()
         {
-            RequestRepaint();
+            if (IsWarmupActive() || _session.HasPendingCameraMotion)
+            {
+                RequestRepaint();
+                return;
+            }
+
+            DisableUpdate();
         }
 
         private void RequestRepaint()
         {
             _requestRepaint?.Invoke();
+        }
+
+        private bool IsWarmupActive()
+        {
+            if (_warmupRepaintUntilTime < 0d)
+                return false;
+
+            if (EditorApplication.timeSinceStartup <= _warmupRepaintUntilTime)
+                return true;
+
+            _warmupRepaintUntilTime = -1d;
+            return false;
         }
 
         private bool IsNewTarget(GameObject prefab)

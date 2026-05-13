@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.27] - 2026-05-14
+
+- Replace fixed-frame UI preview warm-up repaints with a time-based warm-up window (3 seconds) for more consistent first-load stabilization across editor frame rates.
+- Stop editor update callbacks automatically once both warm-up and camera motion settle to reduce idle preview repaint churn.
+
 ## [1.1.26] - 2026-05-14
 
 - Add short warm-up repaint scheduling for new UI prefab preview targets so first-frame UI card previews settle consistently after setup.
