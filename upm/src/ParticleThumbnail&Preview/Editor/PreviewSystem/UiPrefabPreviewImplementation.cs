@@ -10,6 +10,7 @@ namespace ParticleThumbnailAndPreview.Editor
     {
         private static readonly string[] BoundsIcons = PreviewToolbarIconUtility.BuildIconNames("Model_Bounds_Round_White.png", "d_ScaleTool", "ScaleTool");
         private static readonly string[] GridIcons = PreviewToolbarIconUtility.BuildIconNames("Particle_GridOn_Round_White.png", "d_Grid.BoxTool", "Grid.BoxTool");
+        private const int SetupWarmupRepaintFrames = 6;
 
         private readonly UiPrefabPreviewSession _session = new();
         private readonly List<PreviewToolbarItem> _toolbarItems = new();
@@ -17,6 +18,9 @@ namespace ParticleThumbnailAndPreview.Editor
         private readonly PreviewToolbarCommonFeatureBinding _gridFeature;
         private Action _requestRepaint;
         private bool _updateRegistered;
+        private int _warmupRepaintFramesRemaining;
+        private int _lastPrefabInstanceId;
+        private string _lastPrefabAssetPath;
 
         public PrefabPreviewTargetKind Kind => PrefabPreviewTargetKind.Ui;
 
@@ -33,8 +37,16 @@ namespace ParticleThumbnailAndPreview.Editor
 
         public bool EnsureReady(GameObject prefab)
         {
+            bool isNewTarget = IsNewTarget(prefab);
             _session.Setup(prefab);
-            return _session.IsReady;
+            bool ready = _session.IsReady;
+            if (ready && isNewTarget)
+            {
+                _warmupRepaintFramesRemaining = SetupWarmupRepaintFrames;
+                RequestRepaint();
+            }
+
+            return ready;
         }
 
         public void Cleanup(bool selectionIsEmpty)
@@ -44,6 +56,12 @@ namespace ParticleThumbnailAndPreview.Editor
                 UiPrefabPreviewSession.ClearSessionStateCache();
 
             _session.Cleanup(cacheState: !selectionIsEmpty);
+            if (selectionIsEmpty)
+            {
+                _lastPrefabInstanceId = 0;
+                _lastPrefabAssetPath = null;
+                _warmupRepaintFramesRemaining = 0;
+            }
         }
 
         public void Draw(Rect rect, GUIStyle background, bool isInteractive)
@@ -65,7 +83,13 @@ namespace ParticleThumbnailAndPreview.Editor
             if (inputChanged || cameraChanged)
                 RequestRepaint();
 
-            if (_session.HasPendingCameraMotion)
+            if (_warmupRepaintFramesRemaining > 0)
+            {
+                _warmupRepaintFramesRemaining--;
+                RequestRepaint();
+            }
+
+            if (_session.HasPendingCameraMotion || _warmupRepaintFramesRemaining > 0)
                 EnableUpdate();
             else
                 DisableUpdate();
@@ -119,6 +143,17 @@ namespace ParticleThumbnailAndPreview.Editor
         private void RequestRepaint()
         {
             _requestRepaint?.Invoke();
+        }
+
+        private bool IsNewTarget(GameObject prefab)
+        {
+            int instanceId = prefab != null ? prefab.GetInstanceID() : 0;
+            string assetPath = prefab != null ? AssetDatabase.GetAssetPath(prefab) : null;
+            bool changed = instanceId != _lastPrefabInstanceId
+                           || !string.Equals(assetPath, _lastPrefabAssetPath, StringComparison.Ordinal);
+            _lastPrefabInstanceId = instanceId;
+            _lastPrefabAssetPath = assetPath;
+            return changed;
         }
 
         private void DrawInfoPanel(Rect previewRect)

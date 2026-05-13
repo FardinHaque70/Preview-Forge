@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.26] - 2026-05-14
+
+- Add short warm-up repaint scheduling for new UI prefab preview targets so first-frame UI card previews settle consistently after setup.
+- Track last UI preview target identity and reset warm-up state on cleanup to avoid stale repaint carryover between selections.
+
 ## [1.1.25] - 2026-05-14
 
 - Normalize UI prefab `RectTransform` local Z positions to the preview UI plane before layout/render so layered UI cards stay visually consistent in custom preview.
