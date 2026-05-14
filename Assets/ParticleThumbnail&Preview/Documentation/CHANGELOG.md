@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.28] - 2026-05-14
+
+- Keep particle intensity-profile analysis renderers hidden throughout setup and simulation so analysis helper objects do not leak into visible preview output.
+- Track and clear analysis renderer lists alongside particle analysis state for safer teardown between preview sessions.
+
 ## [1.1.27] - 2026-05-14
 
 - Replace fixed-frame UI preview warm-up repaints with a time-based warm-up window (3 seconds) for more consistent first-load stabilization across editor frame rates.

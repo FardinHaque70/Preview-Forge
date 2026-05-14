@@ -107,6 +107,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		private float _intensityProfileMaxAliveCount;
 		private GameObject _analysisRoot;
 		private readonly List<ParticleSystem> _analysisParticleSystems = new();
+		private readonly List<Renderer> _analysisRenderers = new();
 		private int _peakVisibleParticleCount;
 		private int _subParticleSystemCount;
 
@@ -899,6 +900,8 @@ namespace ParticleThumbnailAndPreview.Editor
 				}
 			}
 
+			EnsureAnalysisRenderersHidden();
+
 			int samplesBuilt = 0;
 			float duration = Mathf.Max(0.0001f, _maxPlaybackTime);
 			while (_intensityProfileNextSampleIndex < IntensityProfileSampleCount
@@ -942,7 +945,10 @@ namespace ParticleThumbnailAndPreview.Editor
 			_analysisRoot = UnityEngine.Object.Instantiate(sourcePrefab);
 			_analysisRoot.name = "ParticlePreviewAnalysisRoot";
 			_analysisRoot.hideFlags = HideFlags.HideAndDontSave;
+			CollectAnalysisRenderers();
+			EnsureAnalysisRenderersHidden();
 			PreviewHierarchyUtility.ForceActivateHierarchy(_analysisRoot);
+			EnsureAnalysisRenderersHidden();
 			_analysisRoot.transform.position = _authoredRootPosition;
 			_analysisRoot.transform.rotation = _authoredRootRotation;
 			_analysisRoot.GetComponentsInChildren(true, _analysisParticleSystems);
@@ -971,6 +977,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			_intensityProfileSimulationTime = 0f;
 			ApplyRootPoseAtTime(_analysisRoot, 0f);
+			EnsureAnalysisRenderersHidden();
 
 			for (int i = 0; i < _analysisParticleSystems.Count; i++)
 			{
@@ -988,6 +995,8 @@ namespace ParticleThumbnailAndPreview.Editor
 		{
 			if (dt <= 0f)
 				return;
+
+			EnsureAnalysisRenderersHidden();
 
 			float nextTime = _intensityProfileSimulationTime + dt;
 			ApplyRootPoseAtTime(_analysisRoot, nextTime);
@@ -1015,11 +1024,29 @@ namespace ParticleThumbnailAndPreview.Editor
 		private void CancelAnalysisObjects()
 		{
 			_analysisParticleSystems.Clear();
+			_analysisRenderers.Clear();
 			if (_analysisRoot == null)
 				return;
 
 			UnityEngine.Object.DestroyImmediate(_analysisRoot);
 			_analysisRoot = null;
+		}
+
+		private void CollectAnalysisRenderers()
+		{
+			_analysisRenderers.Clear();
+			if (_analysisRoot == null)
+				return;
+
+			_analysisRoot.GetComponentsInChildren(true, _analysisRenderers);
+		}
+
+		private void EnsureAnalysisRenderersHidden()
+		{
+			if (_analysisRenderers.Count == 0)
+				return;
+
+			PreviewRenderCompatibilityUtility.SetRenderersEnabled(_analysisRenderers, false);
 		}
 
 		private float GetAliveParticleCount()
