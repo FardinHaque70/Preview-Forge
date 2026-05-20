@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.29] - 2026-05-20
+
+- Skip custom inspector redraw intervention during unsafe editor transitions and fall back to Unity native redraw for safety.
+- Harden inspector rebuild reflection calls to classify recoverable null-target exceptions and gracefully fall back instead of propagating failures.
+
 ## [1.1.28] - 2026-05-14
 
 - Keep particle intensity-profile analysis renderers hidden throughout setup and simulation so analysis helper objects do not leak into visible preview output.

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Runtime.ExceptionServices;
 using System.Runtime.CompilerServices;
 using UnityEditor;
 using UnityEngine;
@@ -590,6 +589,9 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private static bool InspectorWindowRedrawFromNativePrefix()
         {
+            if (PreviewEditorTransitionGuard.IsUnsafeTransition())
+                return true;
+
             EditorWindow[] snapshot;
             try
             {
@@ -616,7 +618,23 @@ namespace ParticleThumbnailAndPreview.Editor
                 if (_propertyEditorType == null || !_propertyEditorType.IsInstanceOfType(editorWindow))
                     continue;
 
-                InvokePropertyEditorRebuild(editorWindow);
+                if (TryInvokePropertyEditorRebuild(editorWindow, out Exception rebuildException))
+                    continue;
+
+                if (IsRecoverableInspectorRebuildException(rebuildException))
+                {
+                    LogWarningOnce(
+                        "inspector-redraw-recoverable-fallback",
+                        $"[ParticleThumbnailPreview] Inspector redraw hit a transient null-target rebuild state during editor transition. Falling back to Unity native redraw path for safety. Details: {DescribeException(rebuildException)}");
+                }
+                else
+                {
+                    LogWarningOnce(
+                        "inspector-redraw-rebuild-failed",
+                        $"[ParticleThumbnailPreview] Inspector redraw rebuild failed. Falling back to Unity native redraw path for safety. Details: {DescribeException(rebuildException)}");
+                }
+
+                return true;
             }
 
             int afterCount = GetActiveEditorWindowCount();
@@ -630,16 +648,50 @@ namespace ParticleThumbnailAndPreview.Editor
             return false;
         }
 
-        private static void InvokePropertyEditorRebuild(EditorWindow editorWindow)
+        private static bool TryInvokePropertyEditorRebuild(EditorWindow editorWindow, out Exception exception)
         {
+            exception = null;
             try
             {
                 _propertyEditorRebuildContentsContainersMethod.Invoke(editorWindow, null);
+                return true;
             }
-            catch (TargetInvocationException exception) when (exception.InnerException != null)
+            catch (TargetInvocationException invocationException) when (invocationException.InnerException != null)
             {
-                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+                exception = invocationException.InnerException;
+                return false;
             }
+            catch (Exception caught)
+            {
+                exception = caught;
+                return false;
+            }
+        }
+
+        private static bool IsRecoverableInspectorRebuildException(Exception exception)
+        {
+            Exception current = exception;
+            while (current != null)
+            {
+                if (current is ArgumentNullException || current is NullReferenceException)
+                    return true;
+
+                Type currentType = current.GetType();
+                string fullTypeName = currentType.FullName ?? string.Empty;
+                if (fullTypeName.IndexOf("SerializedObjectNotCreatableException", StringComparison.Ordinal) >= 0)
+                    return true;
+
+                string message = current.Message ?? string.Empty;
+                if (message.IndexOf("Object at index 0 is null", StringComparison.OrdinalIgnoreCase) >= 0
+                    || message.IndexOf("componentOrGameObject", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+
+                current = current.InnerException;
+            }
+
+            return false;
         }
 
         private static EditorWindow[] GetActiveEditorWindowsSnapshot()
