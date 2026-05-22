@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.31] - 2026-05-22
+
+- In SRP preview modes, use full rendering-layer coverage for preview lights and apply URP additional light rendering/shadow layer fields via guarded reflection.
+- Keep built-in pipeline behavior on default rendering-layer masks while preserving safe fallback behavior when URP reflection bindings are unavailable.
+
 ## [1.1.30] - 2026-05-22
 
 - Propagate preview light rendering layer masks from model and particle preview sessions into `PreviewLightingSystem` so preview lights target the same rendering layers as preview content.

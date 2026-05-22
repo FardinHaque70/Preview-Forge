@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -72,6 +74,38 @@ namespace ParticleThumbnailAndPreview.Editor
 
         private const float SunShadowBias = 0.05f;
         private const float SunShadowNormalBias = 0.4f;
+        private const uint AllRenderingLayersMask = 0xFFFFFFFFu;
+        private const string UniversalLightExtensionsTypeName = "UnityEngine.Rendering.Universal.LightExtensions, Unity.RenderPipelines.Universal.Runtime";
+        private const string UniversalAdditionalLightDataTypeName = "UnityEngine.Rendering.Universal.UniversalAdditionalLightData, Unity.RenderPipelines.Universal.Runtime";
+        private const string GetUniversalAdditionalLightDataMethodName = "GetUniversalAdditionalLightData";
+        private const string RenderingLayersPropertyName = "renderingLayers";
+        private const string ShadowRenderingLayersPropertyName = "shadowRenderingLayers";
+        private const string CustomShadowLayersPropertyName = "customShadowLayers";
+
+        private static readonly Type UniversalLightExtensionsType = Type.GetType(UniversalLightExtensionsTypeName);
+        private static readonly Type UniversalAdditionalLightDataType = Type.GetType(UniversalAdditionalLightDataTypeName);
+        private static readonly MethodInfo GetUniversalAdditionalLightDataMethod = UniversalLightExtensionsType?.GetMethod(
+            GetUniversalAdditionalLightDataMethodName,
+            BindingFlags.Public | BindingFlags.Static,
+            null,
+            new[] { typeof(Light) },
+            null);
+        private static readonly PropertyInfo UniversalRenderingLayersProperty = UniversalAdditionalLightDataType?.GetProperty(
+            RenderingLayersPropertyName,
+            BindingFlags.Public | BindingFlags.Instance);
+        private static readonly PropertyInfo UniversalShadowRenderingLayersProperty = UniversalAdditionalLightDataType?.GetProperty(
+            ShadowRenderingLayersPropertyName,
+            BindingFlags.Public | BindingFlags.Instance);
+        private static readonly PropertyInfo UniversalCustomShadowLayersProperty = UniversalAdditionalLightDataType?.GetProperty(
+            CustomShadowLayersPropertyName,
+            BindingFlags.Public | BindingFlags.Instance);
+        private static readonly MethodInfo RenderingLayerMaskImplicitFromUintMethod =
+            UniversalRenderingLayersProperty?.PropertyType.GetMethod(
+                "op_Implicit",
+                BindingFlags.Public | BindingFlags.Static,
+                null,
+                new[] { typeof(uint) },
+                null);
 
         #endregion
 
@@ -91,23 +125,9 @@ namespace ParticleThumbnailAndPreview.Editor
             IReadOnlyList<Renderer> renderers,
             PreviewRenderPipelineKind pipelineKind)
         {
-            uint fallbackMask = GraphicsSettings.defaultRenderingLayerMask;
-            if (pipelineKind == PreviewRenderPipelineKind.BuiltIn || renderers == null || renderers.Count == 0)
-                return fallbackMask;
-
-            uint combinedMask = 0u;
-            bool foundRenderer = false;
-            for (int i = 0; i < renderers.Count; i++)
-            {
-                Renderer renderer = renderers[i];
-                if (renderer == null)
-                    continue;
-
-                combinedMask |= renderer.renderingLayerMask;
-                foundRenderer = true;
-            }
-
-            return foundRenderer ? combinedMask : fallbackMask;
+            return pipelineKind == PreviewRenderPipelineKind.BuiltIn
+                ? GraphicsSettings.defaultRenderingLayerMask
+                : AllRenderingLayersMask;
         }
 
         #endregion
@@ -229,9 +249,40 @@ namespace ParticleThumbnailAndPreview.Editor
             light.intensity = enabled ? intensity : 0f;
             light.color = color;
             light.renderingLayerMask = unchecked((int) renderingLayerMask);
+            ApplyUniversalRenderingLayers(light, renderingLayerMask);
             light.transform.rotation = worldRotation;
             if (shadows != LightShadows.None)
                 light.shadowStrength = enabled ? shadowStrength : 0f;
+        }
+
+        private static void ApplyUniversalRenderingLayers(Light light, uint renderingLayerMask)
+        {
+            if (light == null || GetUniversalAdditionalLightDataMethod == null)
+                return;
+
+            try
+            {
+                object additionalLightData = GetUniversalAdditionalLightDataMethod.Invoke(null, new object[] { light });
+                if (additionalLightData == null)
+                    return;
+
+                object boxedMask = ConvertRenderingLayerMaskValue(renderingLayerMask);
+                UniversalRenderingLayersProperty?.SetValue(additionalLightData, boxedMask);
+                UniversalShadowRenderingLayersProperty?.SetValue(additionalLightData, boxedMask);
+                UniversalCustomShadowLayersProperty?.SetValue(additionalLightData, false);
+            }
+            catch
+            {
+                // Ignore reflection failures so preview lighting stays functional outside URP.
+            }
+        }
+
+        private static object ConvertRenderingLayerMaskValue(uint renderingLayerMask)
+        {
+            if (RenderingLayerMaskImplicitFromUintMethod != null)
+                return RenderingLayerMaskImplicitFromUintMethod.Invoke(null, new object[] { renderingLayerMask });
+
+            return renderingLayerMask;
         }
 
         #endregion
