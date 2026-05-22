@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace ParticleThumbnailAndPreview.Editor
 {
@@ -85,6 +87,29 @@ namespace ParticleThumbnailAndPreview.Editor
             return Quaternion.Euler(yawPitch.y, yawPitch.x, 0f);
         }
 
+        internal static uint ResolvePreviewLightRenderingLayerMask(
+            IReadOnlyList<Renderer> renderers,
+            PreviewRenderPipelineKind pipelineKind)
+        {
+            uint fallbackMask = GraphicsSettings.defaultRenderingLayerMask;
+            if (pipelineKind == PreviewRenderPipelineKind.BuiltIn || renderers == null || renderers.Count == 0)
+                return fallbackMask;
+
+            uint combinedMask = 0u;
+            bool foundRenderer = false;
+            for (int i = 0; i < renderers.Count; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null)
+                    continue;
+
+                combinedMask |= renderer.renderingLayerMask;
+                foundRenderer = true;
+            }
+
+            return foundRenderer ? combinedMask : fallbackMask;
+        }
+
         #endregion
 
         #region Light Setup
@@ -125,6 +150,7 @@ namespace ParticleThumbnailAndPreview.Editor
             Light rimLight,
             in SharedPreviewLightingProfile profile,
             bool lightingEnabled,
+            uint renderingLayerMask,
             Quaternion sunRotation,
             Quaternion keyRotation,
             Quaternion fillRotation,
@@ -145,6 +171,7 @@ namespace ParticleThumbnailAndPreview.Editor
                     profile.KeyIntensity,
                     keyRotation,
                     Color.white,
+                    renderingLayerMask,
                     LightShadows.None,
                     0f);
             }
@@ -157,6 +184,7 @@ namespace ParticleThumbnailAndPreview.Editor
                     profile.FillIntensity,
                     fillRotation,
                     Color.white,
+                    renderingLayerMask,
                     LightShadows.None,
                     0f);
             }
@@ -167,6 +195,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 profile.SunIntensity,
                 sunRotation,
                 profile.SunColor,
+                renderingLayerMask,
                 LightShadows.Soft,
                 profile.SunShadowStrength);
 
@@ -176,6 +205,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 profile.RimIntensity,
                 rimRotation,
                 profile.RimColor,
+                renderingLayerMask,
                 LightShadows.None,
                 0f);
         }
@@ -186,6 +216,7 @@ namespace ParticleThumbnailAndPreview.Editor
             float intensity,
             Quaternion worldRotation,
             Color color,
+            uint renderingLayerMask,
             LightShadows shadows,
             float shadowStrength)
         {
@@ -197,6 +228,7 @@ namespace ParticleThumbnailAndPreview.Editor
             light.shadows = shadows;
             light.intensity = enabled ? intensity : 0f;
             light.color = color;
+            light.renderingLayerMask = unchecked((int) renderingLayerMask);
             light.transform.rotation = worldRotation;
             if (shadows != LightShadows.None)
                 light.shadowStrength = enabled ? shadowStrength : 0f;

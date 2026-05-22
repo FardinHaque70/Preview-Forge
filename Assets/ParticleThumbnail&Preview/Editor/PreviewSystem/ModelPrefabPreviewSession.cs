@@ -1079,20 +1079,23 @@ namespace ParticleThumbnailAndPreview.Editor
 
 		private void ApplyEnvironmentState()
 		{
-			bool lightingEnabled = ComputeLightingEnabledForTests(_lightsEnabled, ModeContext.IsUrp2DRenderer);
+			PreviewModeContext modeContext = ModeContext;
+			bool lightingEnabled = ComputeLightingEnabledForTests(_lightsEnabled, modeContext.IsUrp2DRenderer);
 			bool skyboxEnabled = ComputeSkyboxEnabledForTests(
 				_skyboxEnabled,
 				PreviewSettings.ModelSkyboxMaterial != null,
-				ModeContext.IsUrp2DRenderer);
+				modeContext.IsUrp2DRenderer);
 			PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
 			PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
 			SharedPreviewLightingProfile lightingProfile = PreviewLightingSystem.CreateProfileFromSettings();
+			uint previewLightRenderingLayerMask = PreviewLightingSystem.ResolvePreviewLightRenderingLayerMask(_renderers, modeContext.PipelineKind);
 			PreviewLightingSystem.ApplyLighting(
 				_preview,
 				_sunLight,
 				_rimLight,
 				in lightingProfile,
 				lightingEnabled,
+				previewLightRenderingLayerMask,
 				GetRiggedLightRotation(PreviewSettings.ModelSunLightRotation),
 				GetRiggedLightRotation(PreviewSettings.ModelKeyLightRotation),
 				GetRiggedLightRotation(PreviewSettings.ModelFillLightRotation),

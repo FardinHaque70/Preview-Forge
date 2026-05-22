@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.30] - 2026-05-22
+
+- Propagate preview light rendering layer masks from model and particle preview sessions into `PreviewLightingSystem` so preview lights target the same rendering layers as preview content.
+- Add rendering-layer-aware light setup in preview lighting application to keep lit output consistent across SRP rendering layer configurations.
+
 ## [1.1.29] - 2026-05-20
 
 - Skip custom inspector redraw intervention during unsafe editor transitions and fall back to Unity native redraw for safety.
