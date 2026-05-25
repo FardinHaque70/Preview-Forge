@@ -709,14 +709,13 @@ namespace ParticleThumbnailAndPreview.Editor
 			PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
 			PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
 			SharedPreviewLightingProfile lightingProfile = PreviewLightingSystem.CreateProfileFromSettings();
-			uint previewLightRenderingLayerMask = PreviewLightingSystem.ResolvePreviewLightRenderingLayerMask(_renderers, pipelineKind);
 			PreviewLightingSystem.ApplyLighting(
 				_preview,
 				_sunLight,
 				_rimLight,
 				in lightingProfile,
 				_lightsEnabled && ComputeLightingSupportedForTests(pipelineKind),
-				previewLightRenderingLayerMask,
+				pipelineKind,
 				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelSunLightRotation),
 				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelKeyLightRotation),
 				PreviewLightingSystem.RotationFromYawPitch(PreviewSettings.ModelFillLightRotation),

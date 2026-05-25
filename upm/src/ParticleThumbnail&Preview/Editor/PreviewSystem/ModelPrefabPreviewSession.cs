@@ -1088,14 +1088,13 @@ namespace ParticleThumbnailAndPreview.Editor
 			PreviewLightingSystem.EnsureSunLight(_preview, ref _sunLight);
 			PreviewLightingSystem.EnsureRimLight(_preview, ref _rimLight);
 			SharedPreviewLightingProfile lightingProfile = PreviewLightingSystem.CreateProfileFromSettings();
-			uint previewLightRenderingLayerMask = PreviewLightingSystem.ResolvePreviewLightRenderingLayerMask(_renderers, modeContext.PipelineKind);
 			PreviewLightingSystem.ApplyLighting(
 				_preview,
 				_sunLight,
 				_rimLight,
 				in lightingProfile,
 				lightingEnabled,
-				previewLightRenderingLayerMask,
+				modeContext.PipelineKind,
 				GetRiggedLightRotation(PreviewSettings.ModelSunLightRotation),
 				GetRiggedLightRotation(PreviewSettings.ModelKeyLightRotation),
 				GetRiggedLightRotation(PreviewSettings.ModelFillLightRotation),

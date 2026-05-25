@@ -1,0 +1,27 @@
+{
+  "name": "ParticleThumbnailAndPreview.Editor.HDRP",
+  "rootNamespace": "ParticleThumbnailAndPreview.Editor",
+  "references": [
+    "ParticleThumbnailAndPreview.Editor",
+    "Unity.RenderPipelines.HighDefinition.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "PARTICLE_THUMBNAIL_PREVIEW_HAS_HDRP"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.unity.render-pipelines.high-definition",
+      "expression": "",
+      "define": "PARTICLE_THUMBNAIL_PREVIEW_HAS_HDRP"
+    }
+  ],
+  "noEngineReferences": false
+}

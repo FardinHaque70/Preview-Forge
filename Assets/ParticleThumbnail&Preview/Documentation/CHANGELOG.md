@@ -2,9 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
-## [Unreleased]
+## [1.1.32] - 2026-05-25
 
 - Remove custom UI prefab preview support so `RectTransform`-based prefabs fall back to Unity's native preview path.
+- Replace reflection-based SRP light-layer handling with pipeline bridge registration, including package-scoped URP and HDRP bridge implementations.
+- Add preview light-layer support tests and normalize text-file line endings with repository `.editorconfig`/`.gitattributes` rules.
 
 ## [1.1.31] - 2026-05-22
 
