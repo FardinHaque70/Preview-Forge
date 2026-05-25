@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented in this file.
 
+## [Unreleased]
+
+- Remove custom UI prefab preview support so `RectTransform`-based prefabs fall back to Unity's native preview path.
+
 ## [1.1.31] - 2026-05-22
 
 - In SRP preview modes, use full rendering-layer coverage for preview lights and apply URP additional light rendering/shadow layer fields via guarded reflection.
@@ -60,9 +64,20 @@ All notable changes to this package are documented in this file.
 - Harden inspector redraw preview patch behavior.
 - Additional minor preview and thumbnail maintenance updates.
 
+## [1.1.20] - 2026-05-12
+
+- Suspend thumbnail rendering queue work and persistent-cache fetch paths during unsafe editor transition windows (compile/update/playmode switching) to reduce transition-time churn.
+- Clear particle systems before assigning deterministic random seeds in particle preview and thumbnail rendering sessions for safer seed resets.
+
 ## [1.1.19] - 2026-05-08
 
 - Document the current URP limitation where particle shaders that require the camera opaque texture may render pink in thumbnails and prefab previews.
+
+## [1.1.18] - 2026-05-07
+
+- Add `PreviewEditorTransitionGuard` and gate preview auto-select, inspector repaint, and Harmony preview suppression logic during unsafe compile/update/playmode transitions.
+- Harden preview target suppression and property-editor inspection checks to avoid fallback mis-targeting and transition-time reflection failures.
+- Add `PreviewHookSafetyTests` coverage for transition guard behavior and preview target-gate fallback rules.
 
 ## [1.1.17] - 2026-05-06
 

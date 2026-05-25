@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented in this file.
 
+## [Unreleased]
+
+- Remove custom UI prefab preview support so `RectTransform`-based prefabs fall back to Unity's native preview path.
+
 ## [1.1.31] - 2026-05-22
 
 - In SRP preview modes, use full rendering-layer coverage for preview lights and apply URP additional light rendering/shadow layer fields via guarded reflection.

@@ -25,7 +25,6 @@ MonoBehaviour:
   toolbarHeight: 35
   modelPreviewActive: 1
   spritePrefabPreviewActive: 1
-  uiPrefabPreviewActive: 1
   modelImporterPreviewActive: 1
   modelDefaultTurntableEnabled: 1
   showStatsEnabled: 1

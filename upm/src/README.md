@@ -10,7 +10,6 @@ Editor-only Unity tools for rendered particle thumbnails and a workflow-focused 
 - `Particle Preview`
   - Custom prefab preview for particle prefabs with playback controls and timeline scrubbing.
   - Model prefab preview (mesh and skinned mesh) with auto-framing, orbit, pan, zoom, and default `3D` view mode.
-  - UI prefab preview for RectTransform-based prefabs (Canvas, Image, Text, Button, and TMP UGUI) with automatic Canvas wrapping when needed.
 - `Editor Safety`
   - Editor-only assemblies with no runtime/player build dependency.
   - Scoped preview-hook patching with bounded retries and compatibility fallbacks.

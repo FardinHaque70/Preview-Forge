@@ -30,7 +30,6 @@ namespace ParticleThumbnailAndPreview.Editor
 		[SerializeField] internal float toolbarHeight = PreviewSettings.D_ToolbarHeight;
 		[SerializeField] internal bool modelPreviewActive = PreviewSettings.D_ModelPreviewActive;
 		[SerializeField] internal bool spritePrefabPreviewActive = PreviewSettings.D_SpritePrefabPreviewActive;
-		[SerializeField] internal bool uiPrefabPreviewActive = PreviewSettings.D_UiPrefabPreviewActive;
 		[SerializeField] internal bool modelImporterPreviewActive = PreviewSettings.D_ModelImporterPreviewActive;
 		[SerializeField] internal bool modelDefaultTurntableEnabled = PreviewSettings.D_ModelDefaultTurntableEnabled;
 		[SerializeField] internal bool showStatsEnabled = PreviewSettings.D_ShowStatsEnabled;
@@ -87,7 +86,6 @@ namespace ParticleThumbnailAndPreview.Editor
 			toolbarHeight = PreviewSettings.D_ToolbarHeight;
 			modelPreviewActive = PreviewSettings.D_ModelPreviewActive;
 			spritePrefabPreviewActive = PreviewSettings.D_SpritePrefabPreviewActive;
-			uiPrefabPreviewActive = PreviewSettings.D_UiPrefabPreviewActive;
 			modelImporterPreviewActive = PreviewSettings.D_ModelImporterPreviewActive;
 			modelDefaultTurntableEnabled = PreviewSettings.D_ModelDefaultTurntableEnabled;
 			showStatsEnabled = PreviewSettings.D_ShowStatsEnabled;
@@ -158,8 +156,6 @@ namespace ParticleThumbnailAndPreview.Editor
 				modelPreviewActive = boolValue;
 			if (ProjectSettingsAssetUtility.TryReadBool(settingsPath, nameof(spritePrefabPreviewActive), out boolValue))
 				spritePrefabPreviewActive = boolValue;
-			if (ProjectSettingsAssetUtility.TryReadBool(settingsPath, nameof(uiPrefabPreviewActive), out boolValue))
-				uiPrefabPreviewActive = boolValue;
 			if (ProjectSettingsAssetUtility.TryReadBool(settingsPath, nameof(modelImporterPreviewActive), out boolValue))
 				modelImporterPreviewActive = boolValue;
 			if (ProjectSettingsAssetUtility.TryReadBool(settingsPath, nameof(modelDefaultTurntableEnabled), out boolValue))

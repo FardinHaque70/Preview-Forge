@@ -40,7 +40,6 @@ namespace ParticleThumbnailAndPreview.Editor
 		public const float MaxToolbarHeight = 40f;
 		public const bool D_ModelPreviewActive = true;
 		public const bool D_SpritePrefabPreviewActive = true;
-		public const bool D_UiPrefabPreviewActive = true;
 		public const bool D_ModelImporterPreviewActive = true;
 			public const bool D_ModelDefaultTurntableEnabled = true;
 			public const bool D_ShowStatsEnabled = true;
@@ -97,7 +96,7 @@ namespace ParticleThumbnailAndPreview.Editor
 		public static bool Enabled => Storage.enabled;
 		public static bool Active => Enabled;
 		public static bool ParticlePrefabPreviewActive => Enabled && Storage.active;
-		public static bool AnyPrefabCustomPreviewActive => ParticlePrefabPreviewActive || ModelPreviewActive || SpritePrefabPreviewActive || UiPrefabPreviewActive;
+		public static bool AnyPrefabCustomPreviewActive => ParticlePrefabPreviewActive || ModelPreviewActive || SpritePrefabPreviewActive;
 		public static bool Autoplay => true;
 		public static int RefreshFps => Mathf.Clamp(Storage.refreshFps, MinRefreshFps, MaxRefreshFps);
 
@@ -122,7 +121,6 @@ namespace ParticleThumbnailAndPreview.Editor
 				: Mathf.Clamp(Storage.toolbarHeight, MinToolbarHeight, MaxToolbarHeight);
 			public static bool ModelPreviewActive => Enabled && Storage.modelPreviewActive;
 			public static bool SpritePrefabPreviewActive => Enabled && Storage.spritePrefabPreviewActive;
-			public static bool UiPrefabPreviewActive => Enabled && Storage.uiPrefabPreviewActive;
 			public static bool ThreeDAssetPreviewActive => Enabled && Storage.modelImporterPreviewActive;
 			public static bool ModelImporterPreviewActive => ThreeDAssetPreviewActive;
 			public static bool ModelDefaultTurntableEnabled => Storage.modelDefaultTurntableEnabled;
@@ -243,11 +241,6 @@ namespace ParticleThumbnailAndPreview.Editor
 			"d_SpriteRenderer Icon",
 			"SpriteRenderer Icon",
 		};
-		private static readonly string[] UiPrefabPreviewSystemIcons =
-		{
-			"d_Canvas Icon",
-			"Canvas Icon",
-		};
 		private static readonly string[] ModelImporterPreviewSystemIcons =
 		{
 			"d_Mesh Icon",
@@ -265,7 +258,6 @@ namespace ParticleThumbnailAndPreview.Editor
 		private const string ToolbarHeightPropertyName = "toolbarHeight";
 		private const string ModelPreviewActivePropertyName = "modelPreviewActive";
 		private const string SpritePrefabPreviewActivePropertyName = "spritePrefabPreviewActive";
-		private const string UiPrefabPreviewActivePropertyName = "uiPrefabPreviewActive";
 		private const string ModelImporterPreviewActivePropertyName = "modelImporterPreviewActive";
 		private const string ModelDefaultTurntableEnabledPropertyName = "modelDefaultTurntableEnabled";
 		private const string ShowStatsEnabledPropertyName = "showStatsEnabled";
@@ -434,11 +426,6 @@ namespace ParticleThumbnailAndPreview.Editor
 					"Draw Sprite Prefab Custom Preview",
 					"Enable custom preview rendering for sprite-based world-space prefabs.",
 					SpritePrefabPreviewSystemIcons);
-				DrawIconToggleLeft(
-					serializedObject.FindProperty(UiPrefabPreviewActivePropertyName),
-					"Draw UI Prefab Custom Preview",
-					"Enable custom preview rendering for RectTransform-based UI prefabs (uGUI and TMP UGUI).",
-					UiPrefabPreviewSystemIcons);
 				DrawIconToggleLeft(
 					serializedObject.FindProperty(ModelImporterPreviewActivePropertyName),
 					"Draw 3D File (FBX/BLEND) Asset Custom Preview",

@@ -64,7 +64,6 @@ Prefabs with 3D models, along with 3D asset files such as FBX and Blend, get a m
 - Better camera control with orbit, pan, zoom, and auto-framing controls
 - View mode toggles like Normal, UV, Vertex Color, Matcap, and Overdraw
 - Visualize box and sphere colliders
-- Dedicated UI prefab preview support for RectTransform-based prefabs (Canvas, Image, Text, Button, TMP UGUI)
 
 ### Particle Preview
 
