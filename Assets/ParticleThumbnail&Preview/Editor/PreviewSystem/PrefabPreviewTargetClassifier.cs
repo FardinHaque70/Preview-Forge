@@ -61,11 +61,7 @@ namespace ParticleThumbnailAndPreview.Editor
             if (go == null)
                 return null;
 
-            if (IsPersistentPrefabAsset(go))
-                return go;
-
-            GameObject source = PrefabUtility.GetCorrespondingObjectFromSource(go);
-            return IsPersistentPrefabAsset(source) ? source : null;
+            return IsPersistentPrefabAsset(go) ? go : null;
         }
 
         private static bool IsPersistentPrefabAsset(GameObject prefab)

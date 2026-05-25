@@ -21,6 +21,11 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
         private static readonly Type TargetGateType =
             Type.GetType($"ParticleThumbnailAndPreview.Editor.PrefabPreviewTargetGate, {AssemblyName}");
 
+        private static readonly Type AutoSelectorType =
+            Type.GetType($"ParticleThumbnailAndPreview.Editor.CustomPreviewAutoSelector, {AssemblyName}");
+
+        private const string PrefabPreviewTypeName = "ParticleThumbnailAndPreview.Editor.PrefabPreviewEditor";
+
         [TearDown]
         public void TearDown()
         {
@@ -74,6 +79,76 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
             Assert.That(shouldSuppress, Is.False);
         }
 
+        [Test]
+        public void ShouldSuppressCompetingPreview_ParticlePrefabAsset_ReturnsTrueWhenPreviewActive()
+        {
+            GameObject particlePrefab = LoadPrefab(ParticlePrefabPath);
+            bool shouldSuppress = ShouldSuppressCompetingPreview(new UnityEngine.Object[] { particlePrefab }, previewActive: true);
+
+            Assert.That(shouldSuppress, Is.True);
+        }
+
+        [Test]
+        public void ShouldSuppressCompetingPreview_ParticlePrefabSceneInstance_ReturnsFalseWhenPreviewActive()
+        {
+            GameObject particlePrefab = LoadPrefab(ParticlePrefabPath);
+            GameObject instance = PrefabUtility.InstantiatePrefab(particlePrefab) as GameObject;
+            Assert.That(instance, Is.Not.Null);
+
+            try
+            {
+                bool shouldSuppress = ShouldSuppressCompetingPreview(new UnityEngine.Object[] { instance }, previewActive: true);
+                Assert.That(shouldSuppress, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
+        public void ShouldSuppressCompetingPreview_ParticlePrefabSceneComponent_ReturnsFalseWhenPreviewActive()
+        {
+            GameObject particlePrefab = LoadPrefab(ParticlePrefabPath);
+            GameObject instance = PrefabUtility.InstantiatePrefab(particlePrefab) as GameObject;
+            Assert.That(instance, Is.Not.Null);
+
+            try
+            {
+                ParticleSystem particleSystem = instance.GetComponent<ParticleSystem>();
+                Assert.That(particleSystem, Is.Not.Null);
+
+                bool shouldSuppress = ShouldSuppressCompetingPreview(new UnityEngine.Object[] { particleSystem }, previewActive: true);
+                Assert.That(shouldSuppress, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
+        public void IsTargetCompatibleWithPreviewType_ParticlePrefabSceneInstance_ReturnsFalse()
+        {
+            GameObject particlePrefab = LoadPrefab(ParticlePrefabPath);
+            GameObject instance = PrefabUtility.InstantiatePrefab(particlePrefab) as GameObject;
+            Assert.That(instance, Is.Not.Null);
+
+            try
+            {
+                bool isCompatible = (bool)InvokeMethod(
+                    AutoSelectorType,
+                    "IsTargetCompatibleWithPreviewType",
+                    new object[] { instance, PrefabPreviewTypeName });
+
+                Assert.That(isCompatible, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
         private static GameObject CreateMixedModelAndUiPrefab()
         {
             AssetDatabase.DeleteAsset(GeneratedMixedPrefabPath);
@@ -101,6 +176,11 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
         private static bool IsSupportedTarget(GameObject prefab)
         {
             return (bool)InvokeMethod(TargetClassifierType, "IsSupportedTarget", new object[] { new UnityEngine.Object[] { prefab } });
+        }
+
+        private static bool ShouldSuppressCompetingPreview(UnityEngine.Object[] targets, bool previewActive)
+        {
+            return (bool)InvokeMethod(TargetGateType, "ShouldSuppressCompetingPreview", new object[] { targets, previewActive });
         }
 
         private static string ClassifyName(GameObject prefab)

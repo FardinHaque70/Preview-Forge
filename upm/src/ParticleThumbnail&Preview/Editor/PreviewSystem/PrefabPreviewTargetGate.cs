@@ -41,15 +41,7 @@ namespace ParticleThumbnailAndPreview.Editor
                 return false;
 
             PrefabPreviewTargetKind kind = GetTargetKind(targets);
-            if (kind != PrefabPreviewTargetKind.Unsupported)
-                return IsKindEnabled(kind);
-
-            if (!IsInspectorSourceBackedSupportedPrefab(targets))
-                return false;
-
-            GameObject resolved = PrefabPreviewTargetClassifier.ResolvePrefabAsset(targets != null && targets.Length > 0 ? targets[0] : null);
-            PrefabPreviewTargetKind sourceKind = GetTargetKind(resolved);
-            return IsKindEnabled(sourceKind);
+            return kind != PrefabPreviewTargetKind.Unsupported && IsKindEnabled(kind);
         }
 
         public static UnityObject[] TryGetObjectPreviewTargets(object objectPreviewInstance)
@@ -77,20 +69,6 @@ namespace ParticleThumbnailAndPreview.Editor
             }
 
             return null;
-        }
-
-        private static bool IsInspectorSourceBackedSupportedPrefab(UnityObject[] targets)
-        {
-            if (targets == null || targets.Length != 1)
-                return false;
-
-            return TryResolveSourceSupportedPrefab(targets[0], out _);
-        }
-
-        private static bool TryResolveSourceSupportedPrefab(UnityObject target, out GameObject prefabAsset)
-        {
-            prefabAsset = PrefabPreviewTargetClassifier.ResolvePrefabAsset(target);
-            return prefabAsset != null && IsSupportedTarget(prefabAsset);
         }
 
         private static bool IsKindEnabled(PrefabPreviewTargetKind kind)

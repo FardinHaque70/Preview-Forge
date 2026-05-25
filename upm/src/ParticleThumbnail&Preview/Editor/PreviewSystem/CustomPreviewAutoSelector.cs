@@ -466,26 +466,11 @@ namespace ParticleThumbnailAndPreview.Editor
         private static bool TryGetPrefabAssetPath(UnityObject target, out string assetPath)
         {
             assetPath = null;
-            if (target == null)
+            GameObject prefabAsset = PrefabPreviewTargetClassifier.ResolvePrefabAsset(target);
+            if (!PrefabPreviewTargetGate.IsSupportedTarget(prefabAsset))
                 return false;
 
-            GameObject go = target as GameObject;
-            if (go == null && target is Component component)
-                go = component.gameObject;
-            if (go == null)
-                return false;
-
-            if (PrefabPreviewTargetGate.IsSupportedTarget(go))
-            {
-                assetPath = AssetDatabase.GetAssetPath(go);
-                return !string.IsNullOrEmpty(assetPath);
-            }
-
-            GameObject source = PrefabUtility.GetCorrespondingObjectFromSource(go);
-            if (!PrefabPreviewTargetGate.IsSupportedTarget(source))
-                return false;
-
-            assetPath = AssetDatabase.GetAssetPath(source);
+            assetPath = AssetDatabase.GetAssetPath(prefabAsset);
             return !string.IsNullOrEmpty(assetPath);
         }
 
