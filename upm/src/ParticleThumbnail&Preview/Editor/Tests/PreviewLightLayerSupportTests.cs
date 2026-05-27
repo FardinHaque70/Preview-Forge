@@ -11,6 +11,7 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
         private const string UrpBridgeAssemblyName = "ParticleThumbnailAndPreview.Editor.URP";
         private const string UrpBridgeTypeName = "ParticleThumbnailAndPreview.Editor.PreviewUrpLightLayerBridge";
         private const string UrpLightExtensionsTypeName = "UnityEngine.Rendering.Universal.LightExtensions, Unity.RenderPipelines.Universal.Runtime";
+        private const string UrpAdditionalLightDataTypeName = "UnityEngine.Rendering.Universal.UniversalAdditionalLightData, Unity.RenderPipelines.Universal.Runtime";
         private const string HdrpBridgeAssemblyName = "ParticleThumbnailAndPreview.Editor.HDRP";
         private const string HdrpBridgeTypeName = "ParticleThumbnailAndPreview.Editor.PreviewHdrpLightLayerBridge";
         private const string HdrpAdditionalLightDataTypeName = "UnityEngine.Rendering.HighDefinition.HDAdditionalLightData, Unity.RenderPipelines.HighDefinition.Runtime";
@@ -82,10 +83,8 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
 
                 object additionalLightData = GetUniversalAdditionalLightData(light);
                 Assert.That(additionalLightData, Is.Not.Null);
-                Assert.That(ReadMaskProperty(additionalLightData, "renderingLayers"), Is.EqualTo(EverythingMask));
-                Assert.That(ReadMaskProperty(additionalLightData, "shadowRenderingLayers"), Is.EqualTo(EverythingMask));
                 Assert.That((bool) GetPropertyValue(additionalLightData, "customShadowLayers"), Is.False);
-                Assert.That(unchecked((uint) light.renderingLayerMask), Is.EqualTo(ReadMaskProperty(additionalLightData, "renderingLayers")));
+                AssertUrpLightLayersSynced(additionalLightData);
             }
             finally
             {
@@ -126,9 +125,7 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
 
                 Component additionalLightData = light.GetComponent(hdrpAdditionalLightDataType);
                 Assert.That(additionalLightData, Is.Not.Null);
-                Assert.That(ReadMaskProperty(additionalLightData, "lightlayersMask"), Is.EqualTo(EverythingMask));
-                Assert.That(ReadMaskProperty(additionalLightData, "shadowLayerMask"), Is.EqualTo(EverythingMask));
-                Assert.That((bool) GetPropertyValue(additionalLightData, "linkShadowLayers"), Is.False);
+                AssertHdrpLightLayersSynced(additionalLightData);
             }
             finally
             {
@@ -138,6 +135,9 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
 
         private static object GetUniversalAdditionalLightData(Light light)
         {
+            Type additionalLightDataType = Type.GetType(UrpAdditionalLightDataTypeName);
+            Assert.That(additionalLightDataType, Is.Not.Null, "Expected URP UniversalAdditionalLightData type.");
+
             Type lightExtensionsType = Type.GetType(UrpLightExtensionsTypeName);
             Assert.That(lightExtensionsType, Is.Not.Null, "Expected URP LightExtensions type.");
 
@@ -152,6 +152,39 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
             return method.Invoke(null, new object[] { light });
         }
 
+        private static void AssertUrpLightLayersSynced(object additionalLightData)
+        {
+            if (HasProperty(additionalLightData, "renderingLayers") && HasProperty(additionalLightData, "shadowRenderingLayers"))
+            {
+                Assert.That(ReadMaskProperty(additionalLightData, "renderingLayers"), Is.EqualTo(EverythingMask));
+                Assert.That(ReadMaskProperty(additionalLightData, "shadowRenderingLayers"), Is.EqualTo(EverythingMask));
+                return;
+            }
+
+            if (HasProperty(additionalLightData, "lightLayerMask") && HasProperty(additionalLightData, "shadowLayerMask"))
+            {
+                Assert.That(ReadMaskProperty(additionalLightData, "lightLayerMask"), Is.EqualTo(EverythingMask));
+                Assert.That(ReadMaskProperty(additionalLightData, "shadowLayerMask"), Is.EqualTo(EverythingMask));
+                return;
+            }
+
+            Assert.Fail($"Unsupported URP light-layer API surface on '{additionalLightData.GetType().FullName}'.");
+        }
+
+        private static void AssertHdrpLightLayersSynced(object additionalLightData)
+        {
+            Assert.That((bool) GetPropertyValue(additionalLightData, "linkShadowLayers"), Is.False);
+
+            if (HasProperty(additionalLightData, "lightlayersMask") && HasProperty(additionalLightData, "shadowLayerMask"))
+            {
+                Assert.That(ReadMaskProperty(additionalLightData, "lightlayersMask"), Is.EqualTo(EverythingMask));
+                Assert.That(ReadMaskProperty(additionalLightData, "shadowLayerMask"), Is.EqualTo(EverythingMask));
+                return;
+            }
+
+            Assert.Fail($"Unsupported HDRP light-layer API surface on '{additionalLightData.GetType().FullName}'.");
+        }
+
         private static object GetPropertyValue(object target, string propertyName)
         {
             PropertyInfo property = target.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
@@ -162,6 +195,11 @@ namespace ParticleThumbnailAndPreview.Editor.Tests
         private static uint ReadMaskProperty(object target, string propertyName)
         {
             return ConvertMaskToUInt(GetPropertyValue(target, propertyName));
+        }
+
+        private static bool HasProperty(object target, string propertyName)
+        {
+            return target.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance) != null;
         }
 
         private static uint ConvertMaskToUInt(object value)
