@@ -1658,20 +1658,12 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: '<size=122%><color=#A9D8FF><b>Particle Thumbnail & Preview Demo</b></color></size>
-
-
-    <color=#F4F7FB><b>1.</b>
-    Select a sample asset in the Project window
-
-    <b>2.</b> Verify the Project
-    thumbnail
-
-    <b>3.</b> Inspect the preview controls
-
-
-    Adjust options in
-    <b><color=#D7ECFF>Project Settings > Particle Thumbnail & Preview</color></b>.</color>'
+  m_text: "<size=122%><color=#A9D8FF><b>Particle Thumbnail & Preview Demo</b></color></size>\n\n<color=#F4F7FB><b>1.</b>
+    Select a sample asset in the Project window\n<b>2.</b> You should see thumbnails
+    for particle prefabs\n<b>3.</b> Select any prefab from the demo folder and see
+    their custom preview window in Inspector window\n\n[Note : Custom preview will
+    not show up in Play Mode] \n\nAdjust options in <b><color=#D7ECFF>Project Settings
+    > Particle Thumbnail & Preview</color></b>.</color>"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

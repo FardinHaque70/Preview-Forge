@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.34] - 2026-06-07
+
+- Move the URP and HDRP preview bridge modules under `Editor/PreviewSystem` to keep the preview pipeline package layout consolidated.
+- Remove the packaged editor test payload from the release trees so the Asset Store and Git UPM distributions stay aligned.
+- Refresh the demo scene instructions to match the current thumbnail and custom preview workflow.
+
 ## [1.1.33] - 2026-06-07
 
 - Harden URP and HDRP preview light-layer bridge behavior and expand light-layer support tests for safer SRP compatibility across editor variations.
