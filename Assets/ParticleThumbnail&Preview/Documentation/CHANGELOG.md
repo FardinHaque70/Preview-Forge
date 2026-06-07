@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.33] - 2026-06-07
+
+- Harden URP and HDRP preview light-layer bridge behavior and expand light-layer support tests for safer SRP compatibility across editor variations.
+- Add demo scene materials plus new 2D, 3D, local-motion, and travel-motion showcase prefabs for clearer thumbnail and preview examples.
+- Retune the local and motion particle demo prefabs to better present playback and framing behavior in the included demo content.
+
 ## [1.1.32] - 2026-05-25
 
 - Remove custom UI prefab preview support so `RectTransform`-based prefabs fall back to Unity's native preview path.
