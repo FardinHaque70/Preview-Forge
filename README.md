@@ -1,6 +1,8 @@
 <div align="center">
 
-# Preview Forge: Thumbnails and Custom Previews for Unity
+<h1>Preview Forge</h1>
+
+<p><sub>Thumbnails and Custom Previews for Unity</sub></p>
 
 Editor-only Unity tools for asset thumbnails and custom previews, currently focused on particle prefabs and 3D assets.
 
