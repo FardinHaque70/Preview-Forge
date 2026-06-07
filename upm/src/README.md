@@ -1,4 +1,4 @@
-# Preview Forge
+# Preview Forge: Thumbnails and Custom Previews for Unity
 
 Editor-only Unity tools for asset thumbnails and custom previews, currently focused on particle prefabs and 3D assets.
 

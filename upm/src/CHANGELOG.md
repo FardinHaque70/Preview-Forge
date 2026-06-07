@@ -7,6 +7,7 @@ All notable changes to this package are documented in this file.
 - Move the URP and HDRP preview bridge modules under `Editor/PreviewSystem` to keep the preview pipeline package layout consolidated.
 - Remove the packaged editor test payload from the release trees so the Asset Store and Git UPM distributions stay aligned.
 - Refresh the demo scene instructions to match the current thumbnail and custom preview workflow.
+- Update the package readme title to `Preview Forge: Thumbnails and Custom Previews for Unity` for clearer storefront and Git documentation branding.
 
 ## [1.1.33] - 2026-06-07
 
