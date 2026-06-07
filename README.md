@@ -2,9 +2,7 @@
 
 <h1>Preview Forge</h1>
 
-<h2>Thumbnails and Custom Previews for Unity</h2>
-
-Editor-only Unity tools for asset thumbnails and custom previews, currently focused on particle prefabs and 3D assets.
+Thumbnails and Custom Previews for Unity.
 
 [![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-black?style=flat-square&logo=unity)](#compatibility)
 [![Editor Only](https://img.shields.io/badge/Editor-Only-1f6feb?style=flat-square)](#notes)
