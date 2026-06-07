@@ -58,7 +58,7 @@ Prefabs with 3D models, along with 3D asset files such as FBX and Blend, get a m
 
 - Static rendered thumbnails for particle prefabs
 - Motion-aware framing for effects that emit over traveled distance
-- Thumbnails are cached inside `Library/ParticleThumbnailCache`
+- Thumbnails are cached inside `Library/Noodle Hammer/Preview Forge/ParticleThumbnailCache`
 
 ### Prefab Preview
 

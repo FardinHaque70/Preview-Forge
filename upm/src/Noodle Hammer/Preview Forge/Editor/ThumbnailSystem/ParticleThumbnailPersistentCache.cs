@@ -9,10 +9,13 @@ namespace NoodleHammer.PreviewForge.Editor
     internal static class ParticleThumbnailPersistentCache
     {
         private const int CacheFormatVersion = 2;
-        private const string CacheFolderName = "ParticleThumbnailCache";
+        private const string LegacyCacheFolderName = "ParticleThumbnailCache";
+        private const string StudioFolderName = "Noodle Hammer";
+        private const string ProductFolderName = "Preview Forge";
         private static bool s_diskStatsInitialized;
         private static int s_cachedDiskFileCount;
         private static long s_cachedDiskBytes;
+        private static bool s_legacyCacheMigrationAttempted;
         private static string s_cacheDirectoryOverrideForTests;
 
         public static bool TryLoadTexture(ParticleThumbnailRequest request, string dependencyToken, out Texture2D texture)
@@ -175,6 +178,7 @@ namespace NoodleHammer.PreviewForge.Editor
             s_diskStatsInitialized = false;
             s_cachedDiskFileCount = 0;
             s_cachedDiskBytes = 0L;
+            s_legacyCacheMigrationAttempted = false;
         }
 
         private static string GetCacheFilePath(ParticleThumbnailRequest request, string dependencyToken)
@@ -189,8 +193,54 @@ namespace NoodleHammer.PreviewForge.Editor
             if (!string.IsNullOrEmpty(s_cacheDirectoryOverrideForTests))
                 return s_cacheDirectoryOverrideForTests;
 
-            string projectRoot = Path.GetDirectoryName(Application.dataPath);
-            return Path.Combine(projectRoot ?? string.Empty, "Library", CacheFolderName);
+            string projectRoot = Path.GetDirectoryName(Application.dataPath) ?? string.Empty;
+            string libraryDirectory = Path.Combine(projectRoot, "Library");
+            string cacheDirectory = Path.Combine(libraryDirectory, StudioFolderName, ProductFolderName, LegacyCacheFolderName);
+            TryMigrateLegacyCacheDirectory(libraryDirectory, cacheDirectory);
+            return cacheDirectory;
+        }
+
+        private static void TryMigrateLegacyCacheDirectory(string libraryDirectory, string cacheDirectory)
+        {
+            if (s_legacyCacheMigrationAttempted)
+                return;
+
+            s_legacyCacheMigrationAttempted = true;
+
+            string legacyCacheDirectory = Path.Combine(libraryDirectory, LegacyCacheFolderName);
+            if (!Directory.Exists(legacyCacheDirectory) || string.Equals(legacyCacheDirectory, cacheDirectory, StringComparison.Ordinal))
+                return;
+
+            try
+            {
+                string parentDirectory = Path.GetDirectoryName(cacheDirectory);
+                if (string.IsNullOrEmpty(parentDirectory))
+                    return;
+
+                Directory.CreateDirectory(parentDirectory);
+                if (!Directory.Exists(cacheDirectory))
+                {
+                    Directory.Move(legacyCacheDirectory, cacheDirectory);
+                    return;
+                }
+
+                string[] legacyFiles = Directory.GetFiles(legacyCacheDirectory, "*", SearchOption.TopDirectoryOnly);
+                for (int i = 0; i < legacyFiles.Length; i++)
+                {
+                    string destinationPath = Path.Combine(cacheDirectory, Path.GetFileName(legacyFiles[i]));
+                    if (File.Exists(destinationPath))
+                        continue;
+
+                    File.Move(legacyFiles[i], destinationPath);
+                }
+
+                if (Directory.GetFileSystemEntries(legacyCacheDirectory).Length == 0)
+                    Directory.Delete(legacyCacheDirectory, false);
+            }
+            catch (Exception)
+            {
+                // Best effort migration keeps old caches usable when possible.
+            }
         }
 
         private static void WriteAllBytesAtomic(string path, byte[] bytes)
