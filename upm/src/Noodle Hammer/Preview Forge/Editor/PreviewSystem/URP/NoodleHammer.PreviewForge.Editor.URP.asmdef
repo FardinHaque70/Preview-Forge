@@ -1,0 +1,27 @@
+{
+  "name": "NoodleHammer.PreviewForge.Editor.URP",
+  "rootNamespace": "NoodleHammer.PreviewForge.Editor",
+  "references": [
+    "NoodleHammer.PreviewForge.Editor",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "PARTICLE_THUMBNAIL_PREVIEW_HAS_URP"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.unity.render-pipelines.universal",
+      "expression": "",
+      "define": "PARTICLE_THUMBNAIL_PREVIEW_HAS_URP"
+    }
+  ],
+  "noEngineReferences": false
+}

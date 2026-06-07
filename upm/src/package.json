@@ -1,22 +1,23 @@
 {
-  "name": "com.fardinhaque.particle-thumbnail-preview",
+  "name": "com.noodlehammer.preview-forge",
   "version": "1.1.34",
-  "displayName": "Particle Thumbnail & Preview",
-  "description": "Editor-only Unity tools for rendered particle prefab thumbnails and an enhanced particle preview workflow.",
+  "displayName": "Preview Forge",
+  "description": "Editor-only Unity tools for asset thumbnails and custom previews, currently focused on particle prefabs and 3D assets.",
   "unity": "2021.3",
   "keywords": [
     "unity",
     "editor",
-    "particle",
+    "asset",
     "thumbnail",
     "preview",
-    "prefab"
+    "prefab",
+    "model"
   ],
   "author": {
-    "name": "Fardin Haque",
-    "url": "https://github.com/FardinHaque70/Particle-Thumbnail-And-Preview"
+    "name": "Noodle Hammer",
+    "url": "https://github.com/FardinHaque70/Preview-Forge"
   },
-  "documentationUrl": "https://github.com/FardinHaque70/Particle-Thumbnail-And-Preview/tree/main/upm/src",
-  "changelogUrl": "https://github.com/FardinHaque70/Particle-Thumbnail-And-Preview/blob/main/upm/src/CHANGELOG.md",
-  "licensesUrl": "https://github.com/FardinHaque70/Particle-Thumbnail-And-Preview/blob/main/upm/src/THIRD_PARTY_NOTICES.md"
+  "documentationUrl": "https://github.com/FardinHaque70/Preview-Forge/tree/main/upm/src",
+  "changelogUrl": "https://github.com/FardinHaque70/Preview-Forge/blob/main/upm/src/CHANGELOG.md",
+  "licensesUrl": "https://github.com/FardinHaque70/Preview-Forge/blob/main/upm/src/THIRD_PARTY_NOTICES.md"
 }

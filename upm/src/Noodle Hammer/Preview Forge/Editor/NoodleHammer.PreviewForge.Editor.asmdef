@@ -1,0 +1,16 @@
+{
+  "name": "NoodleHammer.PreviewForge.Editor",
+  "rootNamespace": "NoodleHammer.PreviewForge.Editor",
+  "references": [],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

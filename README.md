@@ -1,8 +1,8 @@
 <div align="center">
 
-# Particle Thumbnail & Preview
+# Preview Forge
 
-Editor-only Unity tools for clearer particle thumbnails and a more useful prefab preview workflow.
+Editor-only Unity tools for asset thumbnails and custom previews, currently focused on particle prefabs and 3D assets.
 
 [![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-black?style=flat-square&logo=unity)](#compatibility)
 [![Editor Only](https://img.shields.io/badge/Editor-Only-1f6feb?style=flat-square)](#notes)
@@ -92,7 +92,7 @@ Best for package-based installs and versioned repository usage.
 4. Paste:
 
 ```text
-https://github.com/FardinHaque70/Particle-Thumbnail-And-Preview.git?path=upm/src#main
+https://github.com/FardinHaque70/Preview-Forge.git?path=upm/src#main
 ```
 
 Or add it directly to `Packages/manifest.json`:
@@ -100,7 +100,7 @@ Or add it directly to `Packages/manifest.json`:
 ```json
 {
   "dependencies": {
-    "com.fardinhaque.particle-thumbnail-preview": "https://github.com/FardinHaque70/Particle-Thumbnail-And-Preview.git?path=upm/src#main"
+    "com.noodlehammer.preview-forge": "https://github.com/FardinHaque70/Preview-Forge.git?path=upm/src#main"
   }
 }
 ```
