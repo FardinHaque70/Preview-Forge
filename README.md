@@ -108,8 +108,7 @@ Restarting the Unity Editor once after first install is recommended so the previ
 
 ## Notes
 
-- This is an editor-only package.
-- The preview integration uses a scoped Harmony patcher designed to coexist with other editor tools like Odin Inspector.
+- The preview integration uses a scoped Harmony patcher designed to coexist with other editor tools like Odin Inspector but if you encounter any issue please report.
 
 ## Known Limitations
 
