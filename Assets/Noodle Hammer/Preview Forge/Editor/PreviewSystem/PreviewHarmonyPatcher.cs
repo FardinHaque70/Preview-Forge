@@ -621,6 +621,9 @@ namespace NoodleHammer.PreviewForge.Editor
                 if (TryInvokePropertyEditorRebuild(editorWindow, out Exception rebuildException))
                     continue;
 
+                if (IsNoCurrentImGuiEventException(rebuildException))
+                    return false;
+
                 if (IsRecoverableInspectorRebuildException(rebuildException))
                 {
                     LogWarningOnce(
@@ -651,6 +654,12 @@ namespace NoodleHammer.PreviewForge.Editor
         private static bool TryInvokePropertyEditorRebuild(EditorWindow editorWindow, out Exception exception)
         {
             exception = null;
+            if (Event.current == null)
+            {
+                exception = new InvalidOperationException("Skipped PropertyEditor rebuild because no current IMGUI event is active.");
+                return false;
+            }
+
             try
             {
                 _propertyEditorRebuildContentsContainersMethod.Invoke(editorWindow, null);
@@ -666,6 +675,21 @@ namespace NoodleHammer.PreviewForge.Editor
                 exception = caught;
                 return false;
             }
+        }
+
+        private static bool IsNoCurrentImGuiEventException(Exception exception)
+        {
+            Exception current = exception;
+            while (current != null)
+            {
+                string message = current.Message ?? string.Empty;
+                if (message.IndexOf("no current IMGUI event is active", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+
+                current = current.InnerException;
+            }
+
+            return false;
         }
 
         private static bool IsRecoverableInspectorRebuildException(Exception exception)

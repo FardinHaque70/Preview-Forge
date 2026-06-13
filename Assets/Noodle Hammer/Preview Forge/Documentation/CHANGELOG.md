@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.35] - 2026-06-13
+
+- Skip forced inspector rebuild attempts when Unity is outside a valid IMGUI event and consume that transient redraw instead of falling back into Unity's native path.
+- Improve compatibility with custom material editors and `ShaderGUI` inspectors that initialize GUI styles during normal IMGUI redraw timing.
+
 ## [1.1.34] - 2026-06-07
 
 - Move the URP and HDRP preview bridge modules under `Editor/PreviewSystem` to keep the preview pipeline package layout consolidated.
