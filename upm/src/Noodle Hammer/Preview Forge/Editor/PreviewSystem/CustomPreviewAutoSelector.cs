@@ -12,43 +12,49 @@ namespace NoodleHammer.PreviewForge.Editor
     [InitializeOnLoad]
     internal static class CustomPreviewAutoSelector
     {
+        private enum PreviewSelectionState
+        {
+            Unknown,
+            Selected,
+            NotSelected,
+        }
+
         private const string PrefabPreviewTypeName = "NoodleHammer.PreviewForge.Editor.PrefabPreviewEditor";
         private const string ModelImporterPreviewTypeName = "NoodleHammer.PreviewForge.Editor.ModelImporterPreviewEditor";
-        private const int MaxRetryFrames = 30;
-        private const int ModelImporterRearmFrames = 12;
+        private const int MaxRetryFrames = 3;
+        private const int ModelImporterRearmFrames = 2;
+        private const int PostApplyVerificationFrames = 20;
+        private const int MaxApplyAttemptsPerSelection = 2;
 
-        private static readonly string[] EditorAssemblyPreferenceOrder =
-        {
-            "UnityEditor.CoreModule",
-            "UnityEditor",
-        };
-
-        private static readonly Type PropertyEditorType = ResolveEditorTypeAcrossAssemblies("UnityEditor.PropertyEditor");
+        private static readonly Type PropertyEditorType = PreviewForgeEditorCompatibility.ResolveEditorType("UnityEditor.PropertyEditor");
 
         // Prefer the internal method Unity uses to select previews; this also
         // routes internal input/cursor ownership correctly instead of just
         // flipping the backing field.
         private static readonly MethodInfo SelectPreviewMethod =
-            GetInstanceMethod(PropertyEditorType, "SelectPreview")          // Unity 6+
-            ?? GetInstanceMethod(PropertyEditorType, "SetSelectedPreview")  // older spellings
-            ?? GetInstanceMethod(PropertyEditorType, "OnPreviewSelected");
+            PreviewForgeEditorCompatibility.GetInstanceMethod(PropertyEditorType, "SelectPreview")          // Unity 6+
+            ?? PreviewForgeEditorCompatibility.GetInstanceMethod(PropertyEditorType, "SetSelectedPreview")  // older spellings
+            ?? PreviewForgeEditorCompatibility.GetInstanceMethod(PropertyEditorType, "OnPreviewSelected");
 
-        private static readonly MethodInfo GetInspectedObjectMethod = GetInstanceMethod(PropertyEditorType, "GetInspectedObject");
-        private static readonly FieldInfo PreviewsField = GetInstanceField(PropertyEditorType, "m_Previews");
-        private static readonly FieldInfo PropertyEditorTrackerField = GetInstanceField(PropertyEditorType, "m_Tracker");
+        private static readonly MethodInfo GetInspectedObjectMethod = PreviewForgeEditorCompatibility.GetInstanceMethod(PropertyEditorType, "GetInspectedObject");
+        private static readonly FieldInfo PreviewsField = PreviewForgeEditorCompatibility.GetInstanceField(PropertyEditorType, "m_Previews");
+        private static readonly FieldInfo PropertyEditorTrackerField = PreviewForgeEditorCompatibility.GetInstanceField(PropertyEditorType, "m_Tracker");
         // Only used as a last-resort fallback when the internal method is absent.
-        private static readonly FieldInfo SelectedPreviewField = GetInstanceField(PropertyEditorType, "m_SelectedPreview");
+        private static readonly FieldInfo SelectedPreviewField = PreviewForgeEditorCompatibility.GetInstanceField(PropertyEditorType, "m_SelectedPreview");
         private static readonly PropertyInfo ActiveEditorTrackerActiveEditorsProperty =
             typeof(ActiveEditorTracker).GetProperty("activeEditors", BindingFlags.Instance | BindingFlags.Public);
         private static readonly Type AssetImporterEditorType =
-            ResolveEditorTypeAcrossAssemblies("UnityEditor.AssetImporters.AssetImporterEditor");
+            PreviewForgeEditorCompatibility.ResolveEditorType("UnityEditor.AssetImporters.AssetImporterEditor");
         private static readonly PropertyInfo AssetImporterEditorShowImportedObjectProperty =
             AssetImporterEditorType?.GetProperty(
                 "showImportedObject",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         private static int _framesRemaining;
+        private static int _postApplyVerificationFramesRemaining;
+        private static int _applyAttemptsForSelection;
         private static bool _autoSelectPending;
+        private static string _activeSelectionKey;
         private static string _appliedSelectionKey;
         private static int _modelImporterRearmFramesRemaining;
         private static string _modelImporterRearmSelectionKey;
@@ -89,11 +95,15 @@ namespace NoodleHammer.PreviewForge.Editor
 
             if (!TryResolveAutoSelectRequest(Selection.objects, out AutoSelectRequest request))
             {
+                ClearParticleSessionStateIfSelectionChanged(null);
                 ResetPendingAutoSelectState();
                 return;
             }
 
             string selectionKey = request.SelectionKey;
+            TrackSelectionKey(selectionKey);
+            if (string.Equals(request.PreviewTypeName, PrefabPreviewTypeName, StringComparison.Ordinal))
+                PreviewParticleTrace.Log("AutoSelector", $"schedule key='{selectionKey}' frames={MaxRetryFrames} attempts={_applyAttemptsForSelection}");
             if (string.Equals(request.PreviewTypeName, ModelImporterPreviewTypeName, StringComparison.Ordinal))
             {
                 _modelImporterRearmSelectionKey = selectionKey;
@@ -162,11 +172,28 @@ namespace NoodleHammer.PreviewForge.Editor
                 ResetPendingAutoSelectState();
                 return;
             }
+            TrackSelectionKey(request.SelectionKey);
 
             bool isModelImporterRequest = string.Equals(request.PreviewTypeName, ModelImporterPreviewTypeName, StringComparison.Ordinal);
-            bool keepPassiveModelImporterWatch = isModelImporterRequest;
+            bool isParticlePrefabRequest = string.Equals(request.PreviewTypeName, PrefabPreviewTypeName, StringComparison.Ordinal);
 
             bool shouldRearmModelImporter = ShouldRearmModelImporterSelection(request);
+            PreviewSelectionState previewSelectionState = GetPreviewSelectionStateInOpenPropertyEditors(request.PreviewTypeName, propertyEditors);
+            if (isParticlePrefabRequest)
+            {
+                PreviewParticleTrace.Log(
+                    "AutoSelector",
+                    $"update key='{request.SelectionKey}' state={previewSelectionState} pending={_autoSelectPending} frames={_framesRemaining} verify={_postApplyVerificationFramesRemaining} attempts={_applyAttemptsForSelection}");
+            }
+
+            if (_postApplyVerificationFramesRemaining > 0
+                && previewSelectionState == PreviewSelectionState.NotSelected
+                && _applyAttemptsForSelection < MaxApplyAttemptsPerSelection)
+            {
+                _autoSelectPending = true;
+                _framesRemaining = Math.Max(_framesRemaining, 1);
+            }
+
             bool modelTabActive = true;
             if (isModelImporterRequest)
             {
@@ -175,37 +202,76 @@ namespace NoodleHammer.PreviewForge.Editor
                 {
                     _autoSelectPending = false;
                     _framesRemaining = 0;
-                    EnsureUpdateHook(shouldSubscribe: keepPassiveModelImporterWatch);
+                    EnsureUpdateHook(shouldSubscribe: _modelImporterRearmFramesRemaining > 0);
                     return;
                 }
             }
 
             if ((shouldRearmModelImporter || isModelImporterRequest)
-                && !HasSelectedPreviewInOpenPropertyEditors(ModelImporterPreviewTypeName, propertyEditors))
+                && previewSelectionState == PreviewSelectionState.NotSelected)
             {
                 _autoSelectPending = true;
                 _framesRemaining = Math.Max(_framesRemaining, MaxRetryFrames / 2);
             }
 
             bool applied = false;
-            if (_autoSelectPending)
+            if (_autoSelectPending && _applyAttemptsForSelection < MaxApplyAttemptsPerSelection)
                 applied = TrySelectInOpenPropertyEditors(request.PreviewTypeName, propertyEditors);
             if (_autoSelectPending)
                 _framesRemaining--;
 
-            if (applied || _framesRemaining <= 0)
+            if (applied)
             {
-                if (applied)
-                {
-                    _appliedSelectionKey = request.SelectionKey;
-                    if (!string.IsNullOrEmpty(_appliedSelectionKey) && LoggedAppliedSelectionKeys.Add(_appliedSelectionKey))
-                        LogDiagnostic($"Applied preview auto-select for: {_appliedSelectionKey} type={request.PreviewTypeName}");
-                }
+                _appliedSelectionKey = request.SelectionKey;
+                _applyAttemptsForSelection++;
+                _postApplyVerificationFramesRemaining = PostApplyVerificationFrames;
+                if (isParticlePrefabRequest)
+                    PreviewParticleTrace.Log("AutoSelector", $"applied key='{_appliedSelectionKey}' attempts={_applyAttemptsForSelection} verify={_postApplyVerificationFramesRemaining}");
+                if (!string.IsNullOrEmpty(_appliedSelectionKey) && LoggedAppliedSelectionKeys.Add(_appliedSelectionKey))
+                    LogDiagnostic($"Applied preview auto-select for: {_appliedSelectionKey} type={request.PreviewTypeName}");
 
                 _autoSelectPending = false;
                 _framesRemaining = 0;
-                EnsureUpdateHook(shouldSubscribe: keepPassiveModelImporterWatch || _modelImporterRearmFramesRemaining > 0);
+                EnsureUpdateHook(shouldSubscribe:
+                    _postApplyVerificationFramesRemaining > 0
+                    || _modelImporterRearmFramesRemaining > 0);
+                return;
             }
+
+            if (_postApplyVerificationFramesRemaining > 0)
+                _postApplyVerificationFramesRemaining--;
+
+            if (_framesRemaining <= 0 || _applyAttemptsForSelection >= MaxApplyAttemptsPerSelection)
+            {
+                if (isParticlePrefabRequest && _autoSelectPending)
+                    PreviewParticleTrace.Log("AutoSelector", $"stop key='{request.SelectionKey}' frames={_framesRemaining} attempts={_applyAttemptsForSelection} state={previewSelectionState}");
+                _autoSelectPending = false;
+                _framesRemaining = 0;
+            }
+
+            EnsureUpdateHook(shouldSubscribe:
+                _autoSelectPending
+                || _postApplyVerificationFramesRemaining > 0
+                || _modelImporterRearmFramesRemaining > 0);
+        }
+
+        private static void TrackSelectionKey(string selectionKey)
+        {
+            if (string.Equals(_activeSelectionKey, selectionKey, StringComparison.Ordinal))
+                return;
+
+            ClearParticleSessionStateIfSelectionChanged(selectionKey);
+            _activeSelectionKey = selectionKey;
+            _applyAttemptsForSelection = 0;
+            _postApplyVerificationFramesRemaining = 0;
+        }
+
+        private static void ClearParticleSessionStateIfSelectionChanged(string nextSelectionKey)
+        {
+            if (string.Equals(_activeSelectionKey, nextSelectionKey, StringComparison.Ordinal))
+                return;
+
+            ParticlePrefabPreviewSession.ClearSessionStateCache();
         }
 
         private static bool ShouldRearmModelImporterSelection(AutoSelectRequest request)
@@ -255,6 +321,9 @@ namespace NoodleHammer.PreviewForge.Editor
         {
             _autoSelectPending = false;
             _framesRemaining = 0;
+            _postApplyVerificationFramesRemaining = 0;
+            _applyAttemptsForSelection = 0;
+            _activeSelectionKey = null;
             _appliedSelectionKey = null;
             _modelImporterRearmFramesRemaining = 0;
             _modelImporterRearmSelectionKey = null;
@@ -362,13 +431,20 @@ namespace NoodleHammer.PreviewForge.Editor
 
         private static bool HasSelectedPreviewInOpenPropertyEditors(string previewTypeName, UnityObject[] propertyEditors = null)
         {
+            return GetPreviewSelectionStateInOpenPropertyEditors(previewTypeName, propertyEditors) == PreviewSelectionState.Selected;
+        }
+
+        private static PreviewSelectionState GetPreviewSelectionStateInOpenPropertyEditors(string previewTypeName, UnityObject[] propertyEditors = null)
+        {
             if (PreviewEditorTransitionGuard.IsUnsafeTransition())
-                return false;
+                return PreviewSelectionState.Unknown;
 
             if (PropertyEditorType == null || PreviewsField == null || string.IsNullOrEmpty(previewTypeName))
-                return false;
+                return PreviewSelectionState.Unknown;
 
             propertyEditors ??= GetOpenPropertyEditors();
+            bool foundSupportedPropertyEditor = false;
+            bool foundPreview = false;
             for (int i = 0; i < propertyEditors.Length; i++)
             {
                 UnityObject propertyEditor = propertyEditors[i];
@@ -380,13 +456,19 @@ namespace NoodleHammer.PreviewForge.Editor
                     if (!TryGetInspectedObject(propertyEditor, out UnityObject _))
                         continue;
 
+                    foundSupportedPropertyEditor = true;
                     IList previews = PreviewsField.GetValue(propertyEditor) as IList;
                     object ourPreview = FindPreviewByTypeName(previews, previewTypeName);
                     if (ourPreview == null)
                         continue;
 
-                    if (IsPreviewAlreadySelected(propertyEditor, ourPreview))
-                        return true;
+                    foundPreview = true;
+                    PreviewSelectionState selectionState = GetPreviewSelectionState(propertyEditor, ourPreview);
+                    if (selectionState == PreviewSelectionState.Selected)
+                        return PreviewSelectionState.Selected;
+
+                    if (selectionState == PreviewSelectionState.Unknown)
+                        return PreviewSelectionState.Unknown;
                 }
                 catch
                 {
@@ -394,29 +476,39 @@ namespace NoodleHammer.PreviewForge.Editor
                 }
             }
 
-            return false;
+            if (!foundSupportedPropertyEditor || !foundPreview)
+                return PreviewSelectionState.Unknown;
+
+            return PreviewSelectionState.NotSelected;
         }
 
         private static bool IsPreviewAlreadySelected(UnityObject propertyEditor, object preview)
         {
+            return GetPreviewSelectionState(propertyEditor, preview) == PreviewSelectionState.Selected;
+        }
+
+        private static PreviewSelectionState GetPreviewSelectionState(UnityObject propertyEditor, object preview)
+        {
             if (propertyEditor == null || preview == null || SelectedPreviewField == null)
-                return false;
+                return PreviewSelectionState.Unknown;
 
             try
             {
                 object current = SelectedPreviewField.GetValue(propertyEditor);
                 if (ReferenceEquals(current, preview))
-                    return true;
+                    return PreviewSelectionState.Selected;
 
                 Type currentType = current?.GetType();
                 Type previewType = preview.GetType();
-                return currentType != null
+                bool typeMatches = currentType != null
                     && previewType != null
                     && string.Equals(currentType.FullName, previewType.FullName, StringComparison.Ordinal);
+
+                return typeMatches ? PreviewSelectionState.Selected : PreviewSelectionState.NotSelected;
             }
             catch
             {
-                return false;
+                return PreviewSelectionState.Unknown;
             }
         }
 
@@ -724,41 +816,5 @@ namespace NoodleHammer.PreviewForge.Editor
             Debug.Log("[PreviewForge][AutoSelector] " + message);
         }
 
-        private static Type ResolveEditorTypeAcrossAssemblies(string fullTypeName)
-        {
-            if (string.IsNullOrEmpty(fullTypeName))
-                return null;
-
-            for (int i = 0; i < EditorAssemblyPreferenceOrder.Length; i++)
-            {
-                Type type = Type.GetType(fullTypeName + ", " + EditorAssemblyPreferenceOrder[i], false);
-                if (type != null)
-                    return type;
-            }
-
-            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (int i = 0; i < assemblies.Length; i++)
-            {
-                Type type = assemblies[i].GetType(fullTypeName, false);
-                if (type != null)
-                    return type;
-            }
-
-            return null;
-        }
-
-        private static MethodInfo GetInstanceMethod(Type type, string name)
-        {
-            if (type == null || string.IsNullOrEmpty(name))
-                return null;
-            return type.GetMethod(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        }
-
-        private static FieldInfo GetInstanceField(Type type, string name)
-        {
-            if (type == null || string.IsNullOrEmpty(name))
-                return null;
-            return type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        }
     }
 }

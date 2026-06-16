@@ -65,6 +65,9 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		#region Runtime State
 
+		private static int s_nextTraceId;
+		private static int s_selectionGeneration;
+
 		private readonly List<ParticleSystem> _particleSystems = new();
 		private readonly List<Renderer> _renderers = new();
 		private readonly List<bool> _rendererInitialStates = new();
@@ -117,6 +120,8 @@ namespace NoodleHammer.PreviewForge.Editor
 			private float _playbackTime;
 			private static readonly Dictionary<string, SessionStateSnapshot> SessionStateByAssetPath = new();
 			private static string s_lastSetupAssetPath;
+			private readonly int _traceId = GetNextTraceId();
+			private int _selectionGeneration;
 		private static readonly PreviewCameraInteractionConfig CameraInteractionConfig = new(
 			PitchMin,
 			PitchMax,
@@ -142,6 +147,15 @@ namespace NoodleHammer.PreviewForge.Editor
 				internal float Distance;
 				internal float TargetDistance;
 				internal Vector3 Pivot;
+				internal float[] IntensityProfile;
+				internal float[] RawIntensitySamples;
+				internal int IntensityProfileReadySampleCount;
+				internal int IntensityProfileNextSampleIndex;
+				internal IntensityProfileStatus IntensityProfileStatus;
+				internal float IntensityProfileSimulationTime;
+				internal float IntensityProfileMaxAliveCount;
+				internal int PeakVisibleParticleCount;
+				internal int SelectionGeneration;
 				internal double SavedAt;
 			}
 
@@ -149,6 +163,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		#region Read-Only Surface
 
+		internal int TraceId => _traceId;
 		internal bool IsReady => _preview != null && _previewRoot != null;
 		internal bool IsPlaying => _playing;
 		internal bool NeedsMotion => _needsMotion;
@@ -197,6 +212,9 @@ namespace NoodleHammer.PreviewForge.Editor
 				return;
 			}
 
+			PreviewParticleTrace.Log(
+				"ParticleSession",
+				$"session=#{_traceId} Setup rebuild asset='{assetPath}' wasReady={IsReady} previous='{_prefabAssetPath}' transientSameSelection={isTransientRebuildOfSameSelection} switching={isSwitchingToDifferentPrefab}");
 			Cleanup(cacheState: !isSwitchingToDifferentPrefab);
 
 			_preview = new PreviewRenderUtility(true);
@@ -242,6 +260,9 @@ namespace NoodleHammer.PreviewForge.Editor
 			EnsureDeterministicSeeds();
 			ComputePlaybackRangeAndLoopingMode();
 			FrameCameraToContent();
+			_prefabInstanceId = instanceId;
+			_prefabAssetPath = assetPath;
+			_selectionGeneration = s_selectionGeneration;
 			ScheduleIntensityProfileBuild();
 			RestartInternal();
 
@@ -270,25 +291,30 @@ namespace NoodleHammer.PreviewForge.Editor
 					_playing = restored.Playing;
 					_gridEnabled = restored.GridEnabled;
 					_lightsEnabled = restored.LightsEnabled;
+					RestoreIntensityProfile(restored);
 				}
 				else
 				{
 					_playing = PreviewSettings.Autoplay;
 					_lightsEnabled = false;
 				}
+				PreviewParticleTrace.Log(
+					"ParticleSession",
+					$"session=#{_traceId} Setup ready asset='{assetPath}' restore={shouldRestoreState} restored={shouldRestoreState && SessionStateByAssetPath.ContainsKey(assetPath)} playing={_playing} maxTime={_maxPlaybackTime:F3} systems={_particleSystems.Count}");
 
 				_lightsEnabled = LightingSupported && _lightsEnabled;
 
 				_lastUpdateTime = -1d;
 				_playbackAccumulatorSeconds = 0d;
 				_lastInteractionUpdateTime = -1d;
-				_prefabInstanceId = instanceId;
-				_prefabAssetPath = assetPath;
 				s_lastSetupAssetPath = assetPath;
 			}
 
 		internal void Cleanup(bool cacheState = true)
 		{
+			PreviewParticleTrace.Log(
+				"ParticleSession",
+				$"session=#{_traceId} Cleanup cacheState={cacheState} ready={IsReady} asset='{_prefabAssetPath}' intensity={_intensityProfileStatus} readySamples={_intensityProfileReadySampleCount}");
 			if (cacheState)
 				CacheCurrentSessionState();
 
@@ -343,6 +369,8 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		internal static void ClearSessionStateCache()
 		{
+			PreviewParticleTrace.Log("ParticleSession", "clear-session-state-cache");
+			s_selectionGeneration++;
 			SessionStateByAssetPath.Clear();
 			s_lastSetupAssetPath = null;
 		}
@@ -365,21 +393,76 @@ namespace NoodleHammer.PreviewForge.Editor
 						Distance = Mathf.Clamp(_distance, MinDistance, MaxDistance),
 						TargetDistance = Mathf.Clamp(_targetDistance, MinDistance, MaxDistance),
 						Pivot = _pivot,
+						IntensityProfile = CloneIntensityProfileForCache(_intensityProfile),
+						RawIntensitySamples = CloneIntensityProfileForCache(_rawIntensitySamples),
+						IntensityProfileReadySampleCount = _intensityProfileStatus == IntensityProfileStatus.Ready
+							? IntensityProfileSampleCount
+							: Mathf.Clamp(_intensityProfileReadySampleCount, 0, IntensityProfileSampleCount),
+						IntensityProfileNextSampleIndex = Mathf.Clamp(_intensityProfileNextSampleIndex, 0, IntensityProfileSampleCount),
+						IntensityProfileStatus = _intensityProfileStatus,
+						IntensityProfileSimulationTime = Mathf.Max(0f, _intensityProfileSimulationTime),
+						IntensityProfileMaxAliveCount = Mathf.Max(0f, _intensityProfileMaxAliveCount),
+						PeakVisibleParticleCount = _peakVisibleParticleCount,
+						SelectionGeneration = _selectionGeneration,
 						SavedAt = EditorApplication.timeSinceStartup,
 					},
 				MaxCachedSessionStates,
 				static snapshot => snapshot.SavedAt);
 		}
 
+		private void RestoreIntensityProfile(SessionStateSnapshot restored)
+		{
+			if (restored.IntensityProfile == null
+			    || restored.IntensityProfile.Length != IntensityProfileSampleCount
+			    || restored.IntensityProfileReadySampleCount < 2)
+			{
+				return;
+			}
+
+			CancelIntensityProfileBuild();
+			_intensityProfile = CloneIntensityProfileForCache(restored.IntensityProfile);
+			_rawIntensitySamples = restored.RawIntensitySamples != null && restored.RawIntensitySamples.Length == IntensityProfileSampleCount
+				? CloneIntensityProfileForCache(restored.RawIntensitySamples)
+				: new float[IntensityProfileSampleCount];
+			_intensityProfileReadySampleCount = Mathf.Clamp(restored.IntensityProfileReadySampleCount, 0, IntensityProfileSampleCount);
+			_intensityProfileNextSampleIndex = Mathf.Clamp(
+				restored.IntensityProfileNextSampleIndex > 0 ? restored.IntensityProfileNextSampleIndex : _intensityProfileReadySampleCount,
+				_intensityProfileReadySampleCount,
+				IntensityProfileSampleCount);
+			_intensityProfileSimulationTime = Mathf.Max(0f, restored.IntensityProfileSimulationTime);
+			_intensityProfileMaxAliveCount = Mathf.Max(0f, restored.IntensityProfileMaxAliveCount);
+			_intensityProfileStatus = _intensityProfileReadySampleCount >= IntensityProfileSampleCount
+				|| restored.IntensityProfileStatus == IntensityProfileStatus.Ready
+					? IntensityProfileStatus.Ready
+					: IntensityProfileStatus.Building;
+			_peakVisibleParticleCount = restored.PeakVisibleParticleCount;
+			PreviewParticleTrace.LogIntensityMap($"event=restore session=#{_traceId} asset='{_prefabAssetPath}' status={_intensityProfileStatus} samples={_intensityProfileReadySampleCount} peak={_peakVisibleParticleCount}");
+		}
+
+		private static float[] CloneIntensityProfileForCache(float[] source)
+		{
+			if (source == null || source.Length == 0)
+				return Array.Empty<float>();
+
+			float[] clone = new float[source.Length];
+			Array.Copy(source, clone, source.Length);
+			return clone;
+		}
+
 		private static bool TryRestoreSessionState(string assetPath, out SessionStateSnapshot snapshot)
 		{
-			return PreviewSessionStateCache.TryRestore(
+			if (!PreviewSessionStateCache.TryRestore(
 				SessionStateByAssetPath,
 				assetPath,
 				EditorApplication.timeSinceStartup,
 				SessionRestoreWindowSeconds,
 				static restored => restored.SavedAt,
-				out snapshot);
+				out snapshot))
+			{
+				return false;
+			}
+
+			return snapshot.SelectionGeneration == s_selectionGeneration;
 		}
 
 		#endregion
@@ -865,6 +948,9 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		private void ScheduleIntensityProfileBuild()
 		{
+			PreviewParticleTrace.Log(
+				"ParticleSession",
+				$"session=#{_traceId} intensity-schedule asset='{_prefabAssetPath}' systems={_particleSystems.Count} maxTime={_maxPlaybackTime:F3} previousStatus={_intensityProfileStatus}");
 			CancelIntensityProfileBuild();
 			_peakVisibleParticleCount = 0;
 			_intensityProfileReadySampleCount = 0;
@@ -901,6 +987,14 @@ namespace NoodleHammer.PreviewForge.Editor
 					return true;
 				}
 			}
+			else if (_intensityProfileStatus == IntensityProfileStatus.Building && _analysisRoot == null)
+			{
+				if (!BeginIntensityProfileBuild(resumeExistingSamples: true))
+				{
+					_intensityProfileStatus = IntensityProfileStatus.Ready;
+					return true;
+				}
+			}
 
 			EnsureAnalysisRenderersHidden();
 
@@ -930,13 +1024,14 @@ namespace NoodleHammer.PreviewForge.Editor
 			if (_intensityProfileNextSampleIndex >= IntensityProfileSampleCount)
 			{
 				_intensityProfileStatus = IntensityProfileStatus.Ready;
+				PreviewParticleTrace.LogIntensityMap($"event=complete session=#{_traceId} asset='{_prefabAssetPath}' samples={_intensityProfileReadySampleCount} peak={_peakVisibleParticleCount}");
 				CancelAnalysisObjects();
 			}
 
 			return samplesBuilt > 0;
 		}
 
-		private bool BeginIntensityProfileBuild()
+		private bool BeginIntensityProfileBuild(bool resumeExistingSamples = false)
 		{
 			GameObject sourcePrefab = !string.IsNullOrEmpty(_prefabAssetPath)
 				? AssetDatabase.LoadAssetAtPath<GameObject>(_prefabAssetPath)
@@ -944,6 +1039,11 @@ namespace NoodleHammer.PreviewForge.Editor
 			if (sourcePrefab == null)
 				return false;
 
+			float resumeTime = resumeExistingSamples ? Mathf.Max(0f, _intensityProfileSimulationTime) : 0f;
+			PreviewParticleTrace.LogIntensityMap(
+				resumeExistingSamples
+					? $"event=resume session=#{_traceId} asset='{_prefabAssetPath}' samples={_intensityProfileReadySampleCount} resumeTime={resumeTime:F3}"
+					: $"event=begin session=#{_traceId} asset='{_prefabAssetPath}'");
 			_analysisRoot = UnityEngine.Object.Instantiate(sourcePrefab);
 			_analysisRoot.name = "ParticlePreviewAnalysisRoot";
 			_analysisRoot.hideFlags = HideFlags.HideAndDontSave;
@@ -957,6 +1057,8 @@ namespace NoodleHammer.PreviewForge.Editor
 			SanitizeCustomSimulationSpaces(_analysisParticleSystems, _analysisRoot);
 			EnsureDeterministicSeeds(_analysisParticleSystems);
 			RestartAnalysis();
+			if (resumeTime > 0f)
+				SimulateAnalysisStep(resumeTime);
 			_intensityProfileStatus = IntensityProfileStatus.Building;
 			if (_analysisParticleSystems.Count > 0)
 				return true;
@@ -1015,12 +1117,26 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		private void CancelIntensityProfileBuild()
 		{
+			if (_intensityProfileStatus == IntensityProfileStatus.Building
+			    || (_intensityProfileStatus != IntensityProfileStatus.Ready
+			        && (_intensityProfileReadySampleCount > 0 || _analysisRoot != null)))
+			{
+				PreviewParticleTrace.LogIntensityMap(
+					$"event=cancel session=#{_traceId} asset='{_prefabAssetPath}' status={_intensityProfileStatus} readySamples={_intensityProfileReadySampleCount} hasAnalysisRoot={_analysisRoot != null}");
+			}
+
 			CancelAnalysisObjects();
 			_intensityProfileStatus = IntensityProfileStatus.NotStarted;
 			_intensityProfileReadySampleCount = 0;
 			_intensityProfileNextSampleIndex = 0;
 			_intensityProfileSimulationTime = 0f;
 			_intensityProfileMaxAliveCount = 0f;
+		}
+
+		private static int GetNextTraceId()
+		{
+			s_nextTraceId++;
+			return s_nextTraceId;
 		}
 
 		private void CancelAnalysisObjects()

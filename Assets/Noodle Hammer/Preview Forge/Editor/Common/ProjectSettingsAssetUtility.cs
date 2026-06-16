@@ -47,7 +47,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			};
 			PendingAssetsByKey[key] = pendingAsset;
 			PendingAssetsByInstanceId[asset.GetInstanceID()] = pendingAsset;
-			SchedulePersistPendingAssets();
+			// Keep default settings transient until the user changes them so package import never dirties the project.
 
 			return asset;
 		}

@@ -22,8 +22,10 @@ namespace NoodleHammer.PreviewForge.Editor
 
         private ParticlePrefabPreviewSession _session;
         private readonly List<PreviewToolbarItem> _toolbarItems = new(7);
+        private readonly int _implementationId = GetNextImplementationId();
         private bool _playbackUpdateRegistered;
         private Action _requestRepaint;
+        private static int s_nextImplementationId;
 
         public PrefabPreviewTargetKind Kind => PrefabPreviewTargetKind.Particle;
 
@@ -38,12 +40,14 @@ namespace NoodleHammer.PreviewForge.Editor
                 return false;
 
             EnsureSession();
+            PreviewParticleTrace.Log("ParticleImplementation", $"impl=#{_implementationId} EnsureReady asset='{PreviewParticleTrace.Asset(prefab)}' sessionReady={_session.IsReady}");
             _session.Setup(prefab);
             return _session.IsReady;
         }
 
         public void Cleanup(bool selectionIsEmpty)
         {
+            PreviewParticleTrace.Log("ParticleImplementation", $"impl=#{_implementationId} Cleanup selectionIsEmpty={selectionIsEmpty} hasSession={_session != null}");
             DisablePlaybackUpdate();
             if (_session == null)
                 return;
@@ -90,7 +94,17 @@ namespace NoodleHammer.PreviewForge.Editor
 
         private void EnsureSession()
         {
-            _session ??= new ParticlePrefabPreviewSession();
+            if (_session != null)
+                return;
+
+            _session = new ParticlePrefabPreviewSession();
+            PreviewParticleTrace.Log("ParticleImplementation", $"impl=#{_implementationId} create-session session=#{_session.TraceId}");
+        }
+
+        private static int GetNextImplementationId()
+        {
+            s_nextImplementationId++;
+            return s_nextImplementationId;
         }
 
         #region Toolbar
@@ -470,6 +484,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 return;
 
             PreviewUpdateLoop.EnsureRegistered(ref _playbackUpdateRegistered, OnPlaybackUpdate);
+            PreviewParticleTrace.Log("ParticleImplementation", $"impl=#{_implementationId} enable-update session=#{_session?.TraceId ?? 0}");
         }
 
         private void DisablePlaybackUpdate()
@@ -478,6 +493,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 return;
 
             PreviewUpdateLoop.EnsureUnregistered(ref _playbackUpdateRegistered, OnPlaybackUpdate);
+            PreviewParticleTrace.Log("ParticleImplementation", $"impl=#{_implementationId} disable-update session=#{_session?.TraceId ?? 0}");
         }
 
         private void OnPlaybackUpdate()

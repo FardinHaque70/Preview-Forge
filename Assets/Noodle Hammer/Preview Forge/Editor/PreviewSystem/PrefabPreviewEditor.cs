@@ -11,20 +11,14 @@ namespace NoodleHammer.PreviewForge.Editor
     [CanEditMultipleObjects]
     public sealed class PrefabPreviewEditor : ObjectPreview
     {
-        private static readonly string[] EditorAssemblyPreferenceOrder =
-        {
-            "UnityEditor.CoreModule",
-            "UnityEditor",
-        };
-
         private static readonly System.Reflection.MethodInfo ObjectPreviewRepaintMethod =
             typeof(ObjectPreview).GetMethod(
                 "Repaint",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
 
-        private static readonly Type PropertyEditorType = ResolveEditorTypeAcrossAssemblies("UnityEditor.PropertyEditor");
+        private static readonly Type PropertyEditorType = PreviewForgeEditorCompatibility.ResolveEditorType("UnityEditor.PropertyEditor");
         private static readonly System.Reflection.MethodInfo PropertyEditorGetInspectedObjectMethod =
-            GetInstanceMethod(PropertyEditorType, "GetInspectedObject");
+            PreviewForgeEditorCompatibility.GetInstanceMethod(PropertyEditorType, "GetInspectedObject");
 
         private readonly Dictionary<PrefabPreviewTargetKind, IPrefabPreviewImplementation> _implementations = new();
         private IPrefabPreviewImplementation _activeImplementation;
@@ -37,6 +31,7 @@ namespace NoodleHammer.PreviewForge.Editor
         private bool _cachedSelectionSupported;
         private GameObject _cachedSelectionPrefab;
         private PrefabPreviewTargetKind _cachedSelectionKind = PrefabPreviewTargetKind.Unsupported;
+        private Object _cachedOwningPropertyEditor;
         private int _cachedSelectionCount = -1;
         private int _cachedSelectionActiveInstanceId;
         private string _lastResolveLogKey;
@@ -51,11 +46,13 @@ namespace NoodleHammer.PreviewForge.Editor
             base.Initialize(targets);
             RegisterEventHandlers();
             MarkTargetSupportCacheDirty();
+            PreviewParticleTrace.Log("PrefabHost", $"host=#{_hostId} Initialize targets={targets?.Length ?? 0} target='{DescribeTargetForTrace(target)}'");
             PreviewDiagnostics.Log("Host", $"#{_hostId} Initialize targets={targets?.Length ?? 0}");
         }
 
         public override void Cleanup()
         {
+            PreviewParticleTrace.Log("PrefabHost", $"host=#{_hostId} Cleanup activeKind={_activeKind} asset='{_activePrefabAssetPath}' target='{DescribeTargetForTrace(target)}'");
             CleanupActiveImplementation();
             _activeImplementation = null;
             _activeKind = PrefabPreviewTargetKind.Unsupported;
@@ -111,6 +108,8 @@ namespace NoodleHammer.PreviewForge.Editor
 
             if (_activeKind != kind || !ReferenceEquals(_activeImplementation, implementation))
             {
+                if (kind == PrefabPreviewTargetKind.Particle || _activeKind == PrefabPreviewTargetKind.Particle)
+                    PreviewParticleTrace.Log("PrefabHost", $"host=#{_hostId} switch {_activeKind}->{kind} prefab='{PreviewParticleTrace.Asset(prefab)}'");
                 LogResolveState($"switch {_activeKind} -> {kind} prefab='{prefab.name}'", force: true);
                 CleanupActiveImplementation();
                 _activeImplementation = implementation;
@@ -213,6 +212,8 @@ namespace NoodleHammer.PreviewForge.Editor
 
             implementation.SetRepaintCallback(RequestPreviewRepaint);
             _implementations[kind] = implementation;
+            if (kind == PrefabPreviewTargetKind.Particle)
+                PreviewParticleTrace.Log("PrefabHost", $"host=#{_hostId} create-implementation kind={kind}");
         }
 
         private IPrefabPreviewImplementation ResolveImplementation(PrefabPreviewTargetKind kind)
@@ -318,7 +319,13 @@ namespace NoodleHammer.PreviewForge.Editor
             if (_activeImplementation == null)
                 return;
 
-            bool selectionIsEmpty = clearSessionCache || IsSelectionEmpty();
+            bool selectionIsEmpty = clearSessionCache;
+            if (_activeKind == PrefabPreviewTargetKind.Particle)
+            {
+                PreviewParticleTrace.Log(
+                    "PrefabHost",
+                    $"host=#{_hostId} cleanup-active kind={_activeKind} selectionEmpty={IsSelectionEmpty()} clearSessionCache={clearSessionCache} clearSessionState={selectionIsEmpty} asset='{_activePrefabAssetPath}'");
+            }
             _activeImplementation.Cleanup(selectionIsEmpty);
             PreviewDiagnostics.Log(
                 "Host",
@@ -333,6 +340,15 @@ namespace NoodleHammer.PreviewForge.Editor
         {
             Object[] selection = Selection.objects;
             return selection == null || selection.Length == 0;
+        }
+
+        private static string DescribeTargetForTrace(Object obj)
+        {
+            if (obj == null)
+                return "<null>";
+
+            string path = AssetDatabase.GetAssetPath(obj);
+            return string.IsNullOrEmpty(path) ? $"{obj.GetType().Name}:{obj.name}" : path;
         }
 
         private static bool TryResolveFromTargets(Object[] targets, out GameObject prefab, out PrefabPreviewTargetKind kind)
@@ -448,6 +464,7 @@ namespace NoodleHammer.PreviewForge.Editor
         private void MarkTargetSupportCacheDirty()
         {
             _targetSupportCacheDirty = true;
+            _cachedOwningPropertyEditor = null;
         }
 
         private void ClearTargetSupportCache()
@@ -456,6 +473,7 @@ namespace NoodleHammer.PreviewForge.Editor
             _cachedSelectionSupported = false;
             _cachedSelectionPrefab = null;
             _cachedSelectionKind = PrefabPreviewTargetKind.Unsupported;
+            _cachedOwningPropertyEditor = null;
             _cachedSelectionCount = -1;
             _cachedSelectionActiveInstanceId = 0;
         }
@@ -514,6 +532,13 @@ namespace NoodleHammer.PreviewForge.Editor
             if (targetObject == null)
                 return false;
 
+            if (TryGetCachedOwningPropertyEditor(targetObject, out Object cachedPropertyEditor)
+                && cachedPropertyEditor is EditorWindow cachedWindow)
+            {
+                cachedWindow.Repaint();
+                return true;
+            }
+
             Object[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
             bool repainted = false;
             for (int i = 0; i < propertyEditors.Length; i++)
@@ -524,12 +549,27 @@ namespace NoodleHammer.PreviewForge.Editor
 
                 if (propertyEditor is EditorWindow window)
                 {
+                    _cachedOwningPropertyEditor = propertyEditor;
                     window.Repaint();
                     repainted = true;
                 }
             }
 
             return repainted;
+        }
+
+        private bool TryGetCachedOwningPropertyEditor(Object targetObject, out Object propertyEditor)
+        {
+            propertyEditor = _cachedOwningPropertyEditor;
+            if (propertyEditor == null)
+                return false;
+
+            if (ShouldRepaintPropertyEditor(propertyEditor, targetObject))
+                return true;
+
+            _cachedOwningPropertyEditor = null;
+            propertyEditor = null;
+            return false;
         }
 
         private static bool ShouldRepaintPropertyEditor(Object propertyEditor, Object targetObject)
@@ -573,35 +613,5 @@ namespace NoodleHammer.PreviewForge.Editor
             return false;
         }
 
-        private static Type ResolveEditorTypeAcrossAssemblies(string fullTypeName)
-        {
-            if (string.IsNullOrEmpty(fullTypeName))
-                return null;
-
-            for (int i = 0; i < EditorAssemblyPreferenceOrder.Length; i++)
-            {
-                Type preferred = Type.GetType(fullTypeName + ", " + EditorAssemblyPreferenceOrder[i], false);
-                if (preferred != null)
-                    return preferred;
-            }
-
-            System.Reflection.Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (int i = 0; i < assemblies.Length; i++)
-            {
-                Type resolved = assemblies[i].GetType(fullTypeName, false);
-                if (resolved != null)
-                    return resolved;
-            }
-
-            return null;
-        }
-
-        private static System.Reflection.MethodInfo GetInstanceMethod(Type type, string name)
-        {
-            if (type == null || string.IsNullOrEmpty(name))
-                return null;
-
-            return type.GetMethod(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-        }
     }
 }

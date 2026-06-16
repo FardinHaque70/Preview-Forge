@@ -12,28 +12,22 @@ namespace NoodleHammer.PreviewForge.Editor
     [CanEditMultipleObjects]
     public sealed class ModelImporterPreviewEditor : ObjectPreview
     {
-        private static readonly string[] EditorAssemblyPreferenceOrder =
-        {
-            "UnityEditor.CoreModule",
-            "UnityEditor",
-        };
-
         private static readonly System.Reflection.MethodInfo ObjectPreviewRepaintMethod =
             typeof(ObjectPreview).GetMethod(
                 "Repaint",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
 
-        private static readonly Type PropertyEditorType = ResolveEditorTypeAcrossAssemblies("UnityEditor.PropertyEditor");
+        private static readonly Type PropertyEditorType = PreviewForgeEditorCompatibility.ResolveEditorType("UnityEditor.PropertyEditor");
         private static readonly System.Reflection.MethodInfo PropertyEditorGetInspectedObjectMethod =
-            GetInstanceMethod(PropertyEditorType, "GetInspectedObject");
+            PreviewForgeEditorCompatibility.GetInstanceMethod(PropertyEditorType, "GetInspectedObject");
         private static readonly System.Reflection.FieldInfo PropertyEditorPreviewsField =
-            GetInstanceField(PropertyEditorType, "m_Previews");
+            PreviewForgeEditorCompatibility.GetInstanceField(PropertyEditorType, "m_Previews");
         private static readonly System.Reflection.FieldInfo PropertyEditorTrackerField =
-            GetInstanceField(PropertyEditorType, "m_Tracker");
+            PreviewForgeEditorCompatibility.GetInstanceField(PropertyEditorType, "m_Tracker");
         private static readonly System.Reflection.PropertyInfo ActiveEditorTrackerActiveEditorsProperty =
             typeof(ActiveEditorTracker).GetProperty("activeEditors", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
         private static readonly Type AssetImporterEditorType =
-            ResolveEditorTypeAcrossAssemblies("UnityEditor.AssetImporters.AssetImporterEditor");
+            PreviewForgeEditorCompatibility.ResolveEditorType("UnityEditor.AssetImporters.AssetImporterEditor");
         private static readonly System.Reflection.PropertyInfo AssetImporterEditorShowImportedObjectProperty =
             AssetImporterEditorType?.GetProperty(
                 "showImportedObject",
@@ -683,22 +677,19 @@ namespace NoodleHammer.PreviewForge.Editor
             if (PreviewEditorTransitionGuard.IsUnsafeTransition() || PropertyEditorType == null)
                 return false;
 
-            Object[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
-            bool repainted = false;
-            for (int i = 0; i < propertyEditors.Length; i++)
-            {
-                Object propertyEditor = propertyEditors[i];
-                if (!ShouldRepaintPropertyEditor(propertyEditor))
-                    continue;
+            if (!TryGetOwningPropertyEditor(out Object propertyEditor))
+                return false;
 
-                if (propertyEditor is EditorWindow window)
-                {
-                    window.Repaint();
-                    repainted = true;
-                }
+            if (!ShouldRepaintPropertyEditor(propertyEditor))
+                return false;
+
+            if (propertyEditor is EditorWindow window)
+            {
+                window.Repaint();
+                return true;
             }
 
-            return repainted;
+            return false;
         }
 
         private bool ShouldRepaintPropertyEditor(Object propertyEditor)
@@ -842,44 +833,6 @@ namespace NoodleHammer.PreviewForge.Editor
         #endregion
 
         #region Reflection
-        private static Type ResolveEditorTypeAcrossAssemblies(string fullTypeName)
-        {
-            if (string.IsNullOrEmpty(fullTypeName))
-                return null;
-
-            for (int i = 0; i < EditorAssemblyPreferenceOrder.Length; i++)
-            {
-                Type preferred = Type.GetType(fullTypeName + ", " + EditorAssemblyPreferenceOrder[i], false);
-                if (preferred != null)
-                    return preferred;
-            }
-
-            System.Reflection.Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (int i = 0; i < assemblies.Length; i++)
-            {
-                Type resolved = assemblies[i].GetType(fullTypeName, false);
-                if (resolved != null)
-                    return resolved;
-            }
-
-            return null;
-        }
-
-        private static System.Reflection.MethodInfo GetInstanceMethod(Type type, string name)
-        {
-            if (type == null || string.IsNullOrEmpty(name))
-                return null;
-
-            return type.GetMethod(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-        }
-
-        private static System.Reflection.FieldInfo GetInstanceField(Type type, string name)
-        {
-            if (type == null || string.IsNullOrEmpty(name))
-                return null;
-
-            return type.GetField(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-        }
         #endregion
     }
 }
