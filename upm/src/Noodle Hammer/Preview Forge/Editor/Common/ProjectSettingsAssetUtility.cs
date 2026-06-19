@@ -22,7 +22,7 @@ namespace NoodleHammer.PreviewForge.Editor
 		}
 
 		private static readonly Dictionary<string, PendingSettingsAsset> PendingAssetsByKey = new Dictionary<string, PendingSettingsAsset>();
-		private static readonly Dictionary<int, PendingSettingsAsset> PendingAssetsByInstanceId = new Dictionary<int, PendingSettingsAsset>();
+		private static readonly Dictionary<ulong, PendingSettingsAsset> PendingAssetsByInstanceId = new Dictionary<ulong, PendingSettingsAsset>();
 		private static bool s_persistScheduled;
 
 		internal static T LoadOrCreate<T>(string assetPath, Action<T> initialize) where T : ScriptableObject
@@ -46,7 +46,7 @@ namespace NoodleHammer.PreviewForge.Editor
 				Asset = asset,
 			};
 			PendingAssetsByKey[key] = pendingAsset;
-			PendingAssetsByInstanceId[asset.GetInstanceID()] = pendingAsset;
+			PendingAssetsByInstanceId[PreviewForgeEditorCompatibility.GetObjectId(asset)] = pendingAsset;
 			// Keep default settings transient until the user changes them so package import never dirties the project.
 
 			return asset;
@@ -58,7 +58,7 @@ namespace NoodleHammer.PreviewForge.Editor
 				return;
 
 			if (!EditorUtility.IsPersistent(asset) &&
-			    PendingAssetsByInstanceId.TryGetValue(asset.GetInstanceID(), out PendingSettingsAsset pendingAsset))
+			    PendingAssetsByInstanceId.TryGetValue(PreviewForgeEditorCompatibility.GetObjectId(asset), out PendingSettingsAsset pendingAsset))
 			{
 				if (!TryPersistPendingAsset(pendingAsset))
 					SchedulePersistPendingAssets();
@@ -233,8 +233,21 @@ namespace NoodleHammer.PreviewForge.Editor
 			try
 			{
 				EnsureAssetFolder(Path.GetDirectoryName(pendingAsset.AssetPath)?.Replace('\\', '/'));
+				ScriptableObject existingAsset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(pendingAsset.AssetPath);
+				if (existingAsset != null)
+				{
+					RemovePendingAsset(pendingAsset);
+					return true;
+				}
+
 				if (File.Exists(pendingAsset.AssetPath))
-					AssetDatabase.DeleteAsset(pendingAsset.AssetPath);
+				{
+					Debug.LogWarning(
+						$"Could not create Preview Forge settings asset at '{pendingAsset.AssetPath}' because the path is already occupied. " +
+						"Settings will use in-memory defaults until the path is available.");
+					RemovePendingAsset(pendingAsset);
+					return false;
+				}
 
 				pendingAsset.Asset.hideFlags = HideFlags.None;
 				AssetDatabase.CreateAsset(pendingAsset.Asset, pendingAsset.AssetPath);
@@ -266,7 +279,7 @@ namespace NoodleHammer.PreviewForge.Editor
 		{
 			PendingAssetsByKey.Remove(pendingAsset.Key);
 			if (pendingAsset.Asset != null)
-				PendingAssetsByInstanceId.Remove(pendingAsset.Asset.GetInstanceID());
+				PendingAssetsByInstanceId.Remove(PreviewForgeEditorCompatibility.GetObjectId(pendingAsset.Asset));
 		}
 
 		private static bool TryReadValue(string legacyPath, string key, out string value)

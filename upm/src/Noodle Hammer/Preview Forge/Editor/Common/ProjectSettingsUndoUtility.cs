@@ -15,7 +15,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			internal string LastSnapshot;
 		}
 
-		private static readonly Dictionary<int, TrackedSettingsAsset> TrackedAssets = new Dictionary<int, TrackedSettingsAsset>();
+		private static readonly Dictionary<ulong, TrackedSettingsAsset> TrackedAssets = new Dictionary<ulong, TrackedSettingsAsset>();
 		private static bool s_callbacksRegistered;
 
 		internal static SerializedObject CreateSerializedObject(ScriptableObject storage, Action persistAndNotify)
@@ -62,7 +62,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
 			RegisterCallbacks();
 
-			int instanceId = storage.GetInstanceID();
+			ulong instanceId = PreviewForgeEditorCompatibility.GetObjectId(storage);
 			if (TrackedAssets.TryGetValue(instanceId, out TrackedSettingsAsset trackedAsset))
 			{
 				trackedAsset.PersistAndNotify = persistAndNotify;
@@ -103,14 +103,14 @@ namespace NoodleHammer.PreviewForge.Editor
 			if (TrackedAssets.Count == 0)
 				return;
 
-			List<int> staleKeys = null;
-			foreach (KeyValuePair<int, TrackedSettingsAsset> entry in TrackedAssets)
+			List<ulong> staleKeys = null;
+			foreach (KeyValuePair<ulong, TrackedSettingsAsset> entry in TrackedAssets)
 			{
 				TrackedSettingsAsset trackedAsset = entry.Value;
 				if (trackedAsset.Storage == null)
 				{
 					if (staleKeys == null)
-						staleKeys = new List<int>();
+						staleKeys = new List<ulong>();
 
 					staleKeys.Add(entry.Key);
 					continue;
@@ -133,7 +133,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		private static void PersistAndNotify(ScriptableObject storage)
 		{
-			int instanceId = storage.GetInstanceID();
+			ulong instanceId = PreviewForgeEditorCompatibility.GetObjectId(storage);
 			if (!TrackedAssets.TryGetValue(instanceId, out TrackedSettingsAsset trackedAsset))
 				return;
 

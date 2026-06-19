@@ -19,6 +19,7 @@ namespace NoodleHammer.PreviewForge.Editor
 		[SerializeField] internal bool active = PreviewSettings.D_Active;
 		[SerializeField] internal int refreshFps = PreviewSettings.D_RefreshFps;
 		[SerializeField] internal float orbitSmoothing = PreviewSettings.D_OrbitSmoothing;
+		[SerializeField] internal float zoomSmoothing = PreviewSettings.D_ZoomSmoothing;
 		[SerializeField] internal float panSmoothing = PreviewSettings.D_PanSmoothing;
 		[SerializeField] internal float motionPadding = PreviewSettings.D_MotionPadding;
 		[SerializeField] internal float motionRadius = PreviewSettings.D_MotionRadius;
@@ -75,6 +76,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			active = PreviewSettings.D_Active;
 			refreshFps = PreviewSettings.D_RefreshFps;
 			orbitSmoothing = PreviewSettings.D_OrbitSmoothing;
+			zoomSmoothing = PreviewSettings.D_ZoomSmoothing;
 			panSmoothing = PreviewSettings.D_PanSmoothing;
 			motionPadding = PreviewSettings.D_MotionPadding;
 			motionRadius = PreviewSettings.D_MotionRadius;
@@ -136,6 +138,8 @@ namespace NoodleHammer.PreviewForge.Editor
 				refreshFps = intValue;
 			if (ProjectSettingsAssetUtility.TryReadFloat(settingsPath, nameof(orbitSmoothing), out float floatValue))
 				orbitSmoothing = floatValue;
+			if (ProjectSettingsAssetUtility.TryReadFloat(settingsPath, nameof(zoomSmoothing), out floatValue))
+				zoomSmoothing = floatValue;
 			if (ProjectSettingsAssetUtility.TryReadFloat(settingsPath, nameof(panSmoothing), out floatValue))
 				panSmoothing = floatValue;
 			if (ProjectSettingsAssetUtility.TryReadFloat(settingsPath, nameof(motionPadding), out floatValue))

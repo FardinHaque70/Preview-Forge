@@ -18,9 +18,12 @@ namespace NoodleHammer.PreviewForge.Editor
 		public const int D_RefreshFps = 45;
 		public const int MinRefreshFps = 15;
 		public const int MaxRefreshFps = 60;
-		public const float D_OrbitSmoothing = 20f;
+		public const float D_OrbitSmoothing = 35f;
 		public const float MinOrbitSmoothing = 1f;
-		public const float MaxOrbitSmoothing = 20f;
+		public const float MaxOrbitSmoothing = 50f;
+		public const float D_ZoomSmoothing = 35f;
+		public const float MinZoomSmoothing = 1f;
+		public const float MaxZoomSmoothing = 50f;
 		public const float D_PanSmoothing = 20f;
 		public const float MinPanSmoothing = 1f;
 		public const float MaxPanSmoothing = 20f;
@@ -103,6 +106,10 @@ namespace NoodleHammer.PreviewForge.Editor
 		public static float OrbitSmoothing => Storage.orbitSmoothing <= 0f
 			? D_OrbitSmoothing
 			: Mathf.Clamp(Storage.orbitSmoothing, MinOrbitSmoothing, MaxOrbitSmoothing);
+
+		public static float ZoomSmoothing => Storage.zoomSmoothing <= 0f
+			? D_ZoomSmoothing
+			: Mathf.Clamp(Storage.zoomSmoothing, MinZoomSmoothing, MaxZoomSmoothing);
 
 		public static float PanSmoothing => Storage.panSmoothing <= 0f
 			? D_PanSmoothing
@@ -252,6 +259,7 @@ namespace NoodleHammer.PreviewForge.Editor
 		private const string ActivePropertyName = "active";
 		private const string RefreshFpsPropertyName = "refreshFps";
 		private const string OrbitSmoothingPropertyName = "orbitSmoothing";
+		private const string ZoomSmoothingPropertyName = "zoomSmoothing";
 		private const string PanSmoothingPropertyName = "panSmoothing";
 		private const string BackgroundColorPropertyName = "backgroundColor";
 		private const string ToolbarColorPresetPropertyName = "toolbarColorPreset";
@@ -451,6 +459,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			DrawSectionCard("Interaction", () =>
 			{
 				DrawFloatSliderWithFallback(serializedObject.FindProperty(OrbitSmoothingPropertyName), "Orbit Smoothing", "Smoothing strength for orbit rotation input. Higher values feel softer.", PreviewSettings.MinOrbitSmoothing, PreviewSettings.MaxOrbitSmoothing, PreviewSettings.D_OrbitSmoothing);
+				DrawFloatSliderWithFallback(serializedObject.FindProperty(ZoomSmoothingPropertyName), "Zoom Smoothing", "Smoothing strength for zoom input. Higher values feel softer.", PreviewSettings.MinZoomSmoothing, PreviewSettings.MaxZoomSmoothing, PreviewSettings.D_ZoomSmoothing);
 				DrawFloatSliderWithFallback(serializedObject.FindProperty(PanSmoothingPropertyName), "Pan Smoothing", "Smoothing strength for panning input. Higher values feel softer.", PreviewSettings.MinPanSmoothing, PreviewSettings.MaxPanSmoothing, PreviewSettings.D_PanSmoothing);
 			});
 		}
@@ -719,7 +728,7 @@ namespace NoodleHammer.PreviewForge.Editor
 		private const string DefaultReflectionGuid = "e628e60fedd134eae92c45e351f5f566";
 		private const string DefaultSkyboxMaterialPath = SkyboxFolderPath + "/PreviewSkybox.mat";
 		private static Material s_generatedSkyboxMaterial;
-		private static int s_generatedSkyboxSourceCubemapId;
+		private static ulong s_generatedSkyboxSourceCubemapId;
 
 		internal static Cubemap GetDefaultSkyboxCubemap()
 		{
@@ -759,7 +768,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			if (defaultMaterial != null && defaultMaterial.GetTexture("_Tex") == resolvedCubemap)
 				return defaultMaterial;
 
-			int sourceCubemapId = resolvedCubemap.GetInstanceID();
+			ulong sourceCubemapId = PreviewForgeEditorCompatibility.GetObjectId(resolvedCubemap);
 			if (s_generatedSkyboxMaterial != null && s_generatedSkyboxSourceCubemapId == sourceCubemapId)
 				return s_generatedSkyboxMaterial;
 
@@ -799,7 +808,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			VisualModesFolderPath + "/Matcap_03.png",
 		};
 		private static Material s_generatedMatcapMaterial;
-		private static int s_generatedMatcapTextureId;
+		private static ulong s_generatedMatcapTextureId;
 		internal static int PresetCount => MatcapTexturePaths.Length;
 
 		internal static Texture2D GetDefaultMatcapTexture()
@@ -839,7 +848,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			if (defaultMaterial != null && defaultMaterial.GetTexture(MatcapTexturePropertyName) == resolvedTexture)
 				return defaultMaterial;
 
-			int sourceTextureId = resolvedTexture.GetInstanceID();
+			ulong sourceTextureId = PreviewForgeEditorCompatibility.GetObjectId(resolvedTexture);
 			if (s_generatedMatcapMaterial != null && s_generatedMatcapTextureId == sourceTextureId)
 				return s_generatedMatcapMaterial;
 

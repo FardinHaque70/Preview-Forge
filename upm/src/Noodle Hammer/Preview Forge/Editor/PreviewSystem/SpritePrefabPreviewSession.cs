@@ -12,7 +12,6 @@ namespace NoodleHammer.PreviewForge.Editor
         private const double SessionRestoreWindowSeconds = 2.0d;
         private const int MaxCachedSessionStates = 64;
         private const float MaxDeltaTime = 0.05f;
-        private const float ZoomSmooth = 8f;
         private const float DistanceEpsilon = 0.001f;
         private const float PivotEpsilon = 0.0001f;
         private const float AngularVelocityEpsilon = 0.01f;
@@ -35,8 +34,7 @@ namespace NoodleHammer.PreviewForge.Editor
             distanceEpsilon: DistanceEpsilon,
             pivotEpsilon: PivotEpsilon,
             angularVelocityEpsilon: AngularVelocityEpsilon,
-            orbitHoldStillResetSeconds: OrbitHoldStillResetSeconds,
-            zoomSmooth: ZoomSmooth);
+            orbitHoldStillResetSeconds: OrbitHoldStillResetSeconds);
         private static readonly Dictionary<string, SessionStateSnapshot> SessionStateByAssetPath = new();
         private static string s_lastSetupAssetPath;
 
@@ -52,7 +50,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
         private PreviewRenderUtility _preview;
         private GameObject _previewRoot;
-        private int _prefabInstanceId;
+        private ulong _prefabInstanceId;
         private string _prefabAssetPath;
         private Bounds _framedBounds;
         private bool _hasFramedBounds;
@@ -139,7 +137,7 @@ namespace NoodleHammer.PreviewForge.Editor
             if (prefab == null)
                 return;
 
-            int instanceId = prefab.GetInstanceID();
+            ulong instanceId = PreviewForgeEditorCompatibility.GetObjectId(prefab);
             string assetPath = AssetDatabase.GetAssetPath(prefab);
             bool isTransientRebuildOfSameSelection = !string.IsNullOrEmpty(assetPath)
                                                      && string.Equals(s_lastSetupAssetPath, assetPath, StringComparison.Ordinal);
@@ -358,6 +356,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 ref _lastInteractionUpdateTime,
                 now,
                 orbitSmoothing,
+                PreviewSettings.ZoomSmoothing,
                 panSmoothing,
                 false,
                 CameraInteractionConfig);

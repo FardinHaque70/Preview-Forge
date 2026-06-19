@@ -2,6 +2,14 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.36] - 2026-06-19
+
+- Add Unity 6.5 (`6000.5+`) compatibility for Unity object identity APIs while keeping Unity `2022.3+` package support.
+- Gate particle preview trace output behind the diagnostics setting so normal prefab selection no longer writes scrub-map debug logs to the Console.
+- Harden custom preview auto-selection to recover once from Unity's delayed default-preview takeover while still yielding to real competing preview providers.
+- Improve editor responsiveness and safety for thumbnail generation, settings persistence, and inspector repaint fallback behavior.
+- Update particle thumbnail asset menu branding under `Assets > Preview Forge`.
+
 ## [1.1.35] - 2026-06-13
 
 - Skip forced inspector rebuild attempts when Unity is outside a valid IMGUI event and consume that transient redraw instead of falling back into Unity's native path.

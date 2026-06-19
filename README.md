@@ -4,7 +4,7 @@
 
 Thumbnails and Custom Previews for Unity.
 
-[![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-black?style=flat-square&logo=unity)](#compatibility)
+[![Unity 2022.3+](https://img.shields.io/badge/Unity-2022.3%2B-black?style=flat-square&logo=unity)](#compatibility)
 [![Pipelines](https://img.shields.io/badge/Pipelines-Built--in%20%7C%20URP%20%7C%20HDRP-6f42c1?style=flat-square)](#compatibility)
 [![Git UPM](https://img.shields.io/badge/Install-Git%20UPM-2ea44f?style=flat-square)](#installation)
 [![Support](https://img.shields.io/badge/Support-Unity%20Asset%20Store-222c37?style=flat-square&logo=unity&logoColor=white)](https://assetstore.unity.com/packages/slug/370342)
@@ -72,8 +72,9 @@ Prefabs with 3D models, along with 3D asset files such as FBX and Blend, get a m
 
 ## Compatibility
 
-- Minimum Unity version: `2021.3`
-- Developed and verified in Unity `6000.3.10f1` on macOS
+- Minimum Unity version: `2022.3`
+- Unity 6.5 (`6000.5+`) is supported through the package compatibility layer for Unity object identity APIs
+- Developed and verified in Unity `6000.3.10f1` on macOS; compatibility checked against installed Unity `6000.5.0f1` API metadata
 - Targeted render pipeline support: Built-in Render Pipeline, URP, HDRP
 
 ## Installation

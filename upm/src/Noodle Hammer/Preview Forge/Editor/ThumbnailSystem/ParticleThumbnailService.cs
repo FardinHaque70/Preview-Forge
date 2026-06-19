@@ -70,7 +70,7 @@ namespace NoodleHammer.PreviewForge.Editor
 		private const double PersistentLoadBudgetMs = 2.0;
 		private const int StaleRequestFrameAge = 90;
 		private const int FastModeMaxRendersPerUpdate = 64;
-		private const double FastModeRenderBudgetMs = 200.0;
+		private const double FastModeRenderBudgetMs = 50.0;
 		private const double FastModeScanBudgetMs = 40.0;
 		private static readonly Color SelectionOutlineColor = new Color(0.11f, 0.84f, 0.39f, 1f);
 		private static bool ProjectWindowHookRegistered;
@@ -309,7 +309,7 @@ namespace NoodleHammer.PreviewForge.Editor
 				FinalizeGenerateAllPreparation();
 		}
 
-		[MenuItem("Assets/Particle Thumbnail/Regenerate Thumbnail", true)]
+		[MenuItem("Assets/Preview Forge/Regenerate Particle Thumbnail", true)]
 		private static bool MenuRegenerateSelectedValidate()
 		{
 			string[] guids = Selection.assetGUIDs;
@@ -325,7 +325,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			return false;
 		}
 
-		[MenuItem("Assets/Particle Thumbnail/Regenerate Thumbnail", false, 2000)]
+		[MenuItem("Assets/Preview Forge/Regenerate Particle Thumbnail", false, 2000)]
 		private static void MenuRegenerateSelected()
 		{
 			string[] guids = Selection.assetGUIDs;
@@ -1412,7 +1412,53 @@ namespace NoodleHammer.PreviewForge.Editor
 		internal static void NotifyProgressWindowClosedByUser()
 		{
 			if (TryGetGenerateAllProgressWindowState(out _, out _, out _))
-				GenerateAllProgressWindowDismissedByUser = true;
+				CancelGenerateAllThumbnails();
+		}
+
+		internal static void CancelGenerateAllThumbnails()
+		{
+			if (!IsGenerateAllInProgress)
+				return;
+
+			RemoveGenerateAllRequestsFromQueue(PriorityRenderQueue);
+			RemoveGenerateAllRequestsFromQueue(RenderQueue);
+			GenerateAllPendingRequests.Clear();
+			GenerateAllScanGuids = Array.Empty<string>();
+			GenerateAllScanIndex = 0;
+			GenerateAllScanInProgress = false;
+			GenerateAllIsPreparing = false;
+			GenerateAllPreparingTotal = 0;
+			GenerateAllPreparingIndex = 0;
+			GenerateAllCurrentAssetPath = string.Empty;
+			GenerateAllProgressWindowDismissedByUser = false;
+			GenerateAllUseUnthrottledProcessing = false;
+			GenerateAllRunActive = false;
+			GenerateAllWarmupFramePending = false;
+			RefreshVolatileStatsSnapshot();
+			SafeClearProgressWindow();
+			RefreshRuntimeHooks();
+			RepaintAllRelevantWindows();
+		}
+
+		private static void RemoveGenerateAllRequestsFromQueue(Queue<ParticleThumbnailRequest> queue)
+		{
+			if (queue == null || queue.Count == 0 || GenerateAllPendingRequests.Count == 0)
+				return;
+
+			int count = queue.Count;
+			for (int i = 0; i < count; i++)
+			{
+				ParticleThumbnailRequest request = queue.Dequeue();
+				if (GenerateAllPendingRequests.Contains(request))
+				{
+					Queued.Remove(request);
+					PriorityQueued.Remove(request);
+					RequestLastSeenFrame.Remove(request);
+					continue;
+				}
+
+				queue.Enqueue(request);
+			}
 		}
 
 		private static string GetProgressAssetLabel(string assetPath)
@@ -1698,6 +1744,10 @@ namespace NoodleHammer.PreviewForge.Editor
 
 			Rect percentRect = new Rect(trackRect.x, trackRect.y - 1f, trackRect.width, trackRect.height);
 			EditorGUI.LabelField(percentRect, $"{Mathf.RoundToInt(progress01 * 100f)}%", percentStyle);
+
+			Rect cancelRect = new Rect(position.width - pad - 96f, position.height - 34f, 96f, 22f);
+			if (GUI.Button(cancelRect, "Cancel", EditorStyles.miniButton))
+				ParticleThumbnailService.CancelGenerateAllThumbnails();
 		}
 
 		private static void DrawProgressBar(Rect rect, float progress01)

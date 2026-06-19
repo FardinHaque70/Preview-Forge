@@ -5,8 +5,8 @@ namespace NoodleHammer.PreviewForge.Editor
 {
 	internal static class PreviewParticleTrace
 	{
-		internal static readonly bool Enabled = false;
-		internal static readonly bool IntensityMapEnabled = true;
+		internal static bool Enabled => PreviewSettings.EnableDiagnostics;
+		internal static bool IntensityMapEnabled => PreviewSettings.EnableDiagnostics;
 
 		internal static void Log(string source, string message)
 		{

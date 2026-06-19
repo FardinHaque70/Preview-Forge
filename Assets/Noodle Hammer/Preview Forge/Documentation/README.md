@@ -18,8 +18,9 @@ Editor-only Unity tools for asset thumbnails and custom previews, currently focu
 
 ## Compatibility
 
-- Minimum Unity version: `2021.3` (UPM metadata baseline)
-- Verified in development environment: Unity `6000.3.10f1` on macOS
+- Minimum Unity version: `2022.3` (UPM metadata baseline)
+- Unity 6.5 (`6000.5+`) is supported through the package compatibility layer for Unity object identity APIs
+- Verified in development environment: Unity `6000.3.10f1` on macOS; compatibility checked against installed Unity `6000.5.0f1` API metadata
 - Render pipeline support target:
   - Built-in Render Pipeline
   - URP (`3D` and `2D Renderer` detection for preview compatibility safeguards)

@@ -37,7 +37,6 @@ namespace NoodleHammer.PreviewForge.Editor
 		private const float OrbitDragDeltaDeadzoneSqr = 0.0001f;
 		private const float MinDistance = 0.1f;
 		private const float MaxDistance = 500f;
-		private const float ZoomSmooth = 8f;
 		private const float MinAnimationClipLengthSeconds = 0.0001f;
 		private const float DefaultAnimationPlaybackSpeed = 1f;
 
@@ -84,8 +83,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			DistanceEpsilon,
 			PivotEpsilon,
 			AngularVelocityEpsilon,
-			OrbitHoldStillResetSeconds,
-			ZoomSmooth);
+			OrbitHoldStillResetSeconds);
 
 		private readonly List<Renderer> _renderers = new();
 		private readonly List<bool> _rendererInitialStates = new();
@@ -94,7 +92,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		private PreviewRenderUtility _preview;
 		private GameObject _previewRoot;
-		private int _prefabInstanceId;
+		private ulong _prefabInstanceId;
 		private string _prefabAssetPath;
 		private Skybox _cameraSkybox;
 		private Light _sunLight;
@@ -244,7 +242,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			if (prefab == null)
 				return;
 
-			int instanceId = prefab.GetInstanceID();
+			ulong instanceId = PreviewForgeEditorCompatibility.GetObjectId(prefab);
 			string assetPath = AssetDatabase.GetAssetPath(prefab);
 			bool isTransientRebuildOfSameSelection = !string.IsNullOrEmpty(assetPath)
 			                                         && string.Equals(s_lastSetupAssetPath, assetPath, StringComparison.Ordinal);
@@ -706,6 +704,7 @@ namespace NoodleHammer.PreviewForge.Editor
 				ref _lastInteractionUpdateTime,
 				now,
 				orbitSmoothing,
+				PreviewSettings.ZoomSmoothing,
 				panSmoothing,
 				effective2D,
 				CameraInteractionConfig);

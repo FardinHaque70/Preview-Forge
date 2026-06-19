@@ -109,6 +109,18 @@ namespace NoodleHammer.PreviewForge.Editor
 				null);
 		}
 
+		internal static ulong GetObjectId(UnityEngine.Object unityObject)
+		{
+			if (unityObject == null)
+				return 0UL;
+
+#if UNITY_6000_5_OR_NEWER
+			return UnityEngine.EntityId.ToULong(unityObject.GetEntityId());
+#else
+			return unchecked((ulong) unityObject.GetInstanceID());
+#endif
+		}
+
 		internal static FieldInfo GetInstanceField(Type type, string name)
 		{
 			if (type == null || string.IsNullOrEmpty(name))

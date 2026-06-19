@@ -46,7 +46,7 @@ namespace NoodleHammer.PreviewForge.Editor
         private bool _targetSupportCacheDirty = true;
         private GameObject _cachedSelectionModelRoot;
         private int _cachedSelectionCount = -1;
-        private int _cachedSelectionActiveInstanceId;
+        private ulong _cachedSelectionActiveInstanceId;
         private Object _cachedOwningPropertyEditor;
         private double _lastSelectionChangedTime = -1d;
         private readonly int _hostId = GetNextHostId();
@@ -267,7 +267,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             int currentSelectionCount = Selection.count;
             Object activeSelectionObject = Selection.activeObject;
-            int currentSelectionActiveInstanceId = activeSelectionObject != null ? activeSelectionObject.GetInstanceID() : 0;
+            ulong currentSelectionActiveInstanceId = PreviewForgeEditorCompatibility.GetObjectId(activeSelectionObject);
             bool selectionSignatureChanged = currentSelectionCount != _cachedSelectionCount
                                              || currentSelectionActiveInstanceId != _cachedSelectionActiveInstanceId;
 
@@ -282,7 +282,7 @@ namespace NoodleHammer.PreviewForge.Editor
             return !string.IsNullOrEmpty(modelAssetPath);
         }
 
-        private void RebuildSelectionSupportCache(int currentSelectionCount, int currentSelectionActiveInstanceId)
+        private void RebuildSelectionSupportCache(int currentSelectionCount, ulong currentSelectionActiveInstanceId)
         {
             _cachedSelectionCount = currentSelectionCount;
             _cachedSelectionActiveInstanceId = currentSelectionActiveInstanceId;
@@ -425,7 +425,7 @@ namespace NoodleHammer.PreviewForge.Editor
             if (TryGetCachedOwningPropertyEditor(out propertyEditor))
                 return true;
 
-            Object[] propertyEditors = Resources.FindObjectsOfTypeAll(PropertyEditorType);
+            Object[] propertyEditors = PreviewPropertyEditorCache.GetOpenPropertyEditors(PropertyEditorType);
             for (int i = 0; i < propertyEditors.Length; i++)
             {
                 Object candidatePropertyEditor = propertyEditors[i];

@@ -15,7 +15,8 @@ MonoBehaviour:
   enabled: 1
   active: 1
   refreshFps: 45
-  orbitSmoothing: 20
+  orbitSmoothing: 35
+  zoomSmoothing: 35
   panSmoothing: 20
   motionPadding: 0
   motionRadius: 3

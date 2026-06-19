@@ -26,8 +26,6 @@ namespace NoodleHammer.PreviewForge.Editor
         internal readonly float PivotEpsilon;
         internal readonly float AngularVelocityEpsilon;
         internal readonly float OrbitHoldStillResetSeconds;
-        internal readonly float ZoomSmooth;
-
         internal PreviewCameraInteractionConfig(
             float pitchMin,
             float pitchMax,
@@ -36,8 +34,7 @@ namespace NoodleHammer.PreviewForge.Editor
             float distanceEpsilon,
             float pivotEpsilon,
             float angularVelocityEpsilon,
-            float orbitHoldStillResetSeconds,
-            float zoomSmooth)
+            float orbitHoldStillResetSeconds)
         {
             PitchMin = pitchMin;
             PitchMax = pitchMax;
@@ -47,7 +44,6 @@ namespace NoodleHammer.PreviewForge.Editor
             PivotEpsilon = pivotEpsilon;
             AngularVelocityEpsilon = angularVelocityEpsilon;
             OrbitHoldStillResetSeconds = orbitHoldStillResetSeconds;
-            ZoomSmooth = zoomSmooth;
         }
     }
 
@@ -58,6 +54,7 @@ namespace NoodleHammer.PreviewForge.Editor
             ref double lastInteractionUpdateTime,
             double now,
             float orbitSmoothing,
+            float zoomSmoothing,
             float panSmoothing,
             bool effective2D,
             in PreviewCameraInteractionConfig config)
@@ -103,7 +100,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             if (Mathf.Abs(state.Distance - state.TargetDistance) > config.DistanceEpsilon)
             {
-                float zoomBlend = 1f - Mathf.Exp(-config.ZoomSmooth * dt);
+                float zoomBlend = 1f - Mathf.Exp(-zoomSmoothing * dt);
                 state.Distance = Mathf.Lerp(state.Distance, state.TargetDistance, zoomBlend);
             }
             else

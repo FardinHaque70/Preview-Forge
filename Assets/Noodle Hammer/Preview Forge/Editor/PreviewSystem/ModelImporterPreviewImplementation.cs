@@ -10,8 +10,8 @@ namespace NoodleHammer.PreviewForge.Editor
         private GameObject _activeModelRoot;
         private AnimationClip _activeAnimationClip;
         private bool _sessionActive;
-        private int _lastLoggedRootInstanceId;
-        private int _lastLoggedClipInstanceId = int.MinValue;
+        private ulong _lastLoggedRootInstanceId;
+        private ulong _lastLoggedClipInstanceId = ulong.MaxValue;
         private bool _lastReadyLogWasFailure;
 
         #region Lifecycle
@@ -31,13 +31,13 @@ namespace NoodleHammer.PreviewForge.Editor
             if (!ready)
             {
                 if (!_lastReadyLogWasFailure
-                    || _lastLoggedRootInstanceId != modelRoot.GetInstanceID()
-                    || _lastLoggedClipInstanceId != (animationClip != null ? animationClip.GetInstanceID() : 0))
+                    || _lastLoggedRootInstanceId != PreviewForgeEditorCompatibility.GetObjectId(modelRoot)
+                    || _lastLoggedClipInstanceId != PreviewForgeEditorCompatibility.GetObjectId(animationClip))
                 {
                     PreviewDiagnostics.Warn("ModelImporterImpl", $"EnsureReady failed root='{modelRoot.name}' clip='{(animationClip != null ? animationClip.name : "<none>")}'");
                     _lastReadyLogWasFailure = true;
-                    _lastLoggedRootInstanceId = modelRoot.GetInstanceID();
-                    _lastLoggedClipInstanceId = animationClip != null ? animationClip.GetInstanceID() : 0;
+                    _lastLoggedRootInstanceId = PreviewForgeEditorCompatibility.GetObjectId(modelRoot);
+                    _lastLoggedClipInstanceId = PreviewForgeEditorCompatibility.GetObjectId(animationClip);
                 }
 
                 return false;
@@ -45,8 +45,8 @@ namespace NoodleHammer.PreviewForge.Editor
 
             _sessionActive = true;
             _modelPreviewImplementation.SetPreviewAnimationClip(animationClip);
-            int rootInstanceId = modelRoot.GetInstanceID();
-            int clipInstanceId = animationClip != null ? animationClip.GetInstanceID() : 0;
+            ulong rootInstanceId = PreviewForgeEditorCompatibility.GetObjectId(modelRoot);
+            ulong clipInstanceId = PreviewForgeEditorCompatibility.GetObjectId(animationClip);
             if (_lastReadyLogWasFailure
                 || _lastLoggedRootInstanceId != rootInstanceId
                 || _lastLoggedClipInstanceId != clipInstanceId)
@@ -68,7 +68,7 @@ namespace NoodleHammer.PreviewForge.Editor
             _activeModelRoot = null;
             _activeAnimationClip = null;
             _lastLoggedRootInstanceId = 0;
-            _lastLoggedClipInstanceId = int.MinValue;
+            _lastLoggedClipInstanceId = ulong.MaxValue;
             _lastReadyLogWasFailure = false;
             _sessionActive = false;
             _modelPreviewImplementation.Cleanup(selectionIsEmpty: clearSessionCache);
