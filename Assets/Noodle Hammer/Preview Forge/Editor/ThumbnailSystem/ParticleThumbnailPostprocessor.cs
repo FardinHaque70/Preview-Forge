@@ -1,9 +1,9 @@
 using UnityEditor;
-// Listens for relevant asset import changes and invalidates thumbnail cache entries to keep project thumbnails up to date.
+// Listens for prefab import changes and invalidates shared prefab-thumbnail cache entries.
 
 namespace NoodleHammer.PreviewForge.Editor
 {
-    internal sealed class ParticleThumbnailPostprocessor : AssetPostprocessor
+    internal sealed class PrefabThumbnailPostprocessor : AssetPostprocessor
     {
         private static void OnPostprocessAllAssets(
             string[] importedAssets,
@@ -19,7 +19,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             if (ContainsPrefabPath(deletedAssets))
             {
-                ParticleThumbnailPersistentCache.PruneMissingAssets();
+                PrefabThumbnailPersistentCache.PruneMissingAssets();
                 changed = true;
             }
 

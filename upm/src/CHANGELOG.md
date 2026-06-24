@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.39] - 2026-06-24
+
+- Add custom Project-window thumbnail support for supported UI prefabs, including Canvas-based and loose `RectTransform`/TMP graphic layouts.
+- Generalize the thumbnail pipeline into shared prefab renderer, cache, and settings infrastructure so particle and UI thumbnail renderers can coexist safely.
+- Add EditMode coverage for prefab thumbnail renderer selection, cache key separation by asset kind, and UI framing bounds, plus demo UI prefabs in the sample scene.
+
 ## [1.1.38] - 2026-06-24
 
 - Retry built-in preview fallback patch application after unsafe editor transitions so prefab custom preview support comes back cleanly on startup and settings changes.

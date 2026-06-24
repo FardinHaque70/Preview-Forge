@@ -1,0 +1,23 @@
+{
+  "name": "NoodleHammer.PreviewForge.Editor.Tests",
+  "rootNamespace": "NoodleHammer.PreviewForge.Editor.Tests",
+  "references": [
+    "NoodleHammer.PreviewForge.Editor",
+    "Unity.TextMeshPro",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

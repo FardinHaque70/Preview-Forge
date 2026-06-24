@@ -2,13 +2,13 @@ using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
-// Persists thumbnail textures and metadata to disk, restores cache entries, and handles best-effort cache cleanup.
+// Persists prefab thumbnail textures and metadata to disk, restores cache entries, and handles best-effort cleanup.
 
 namespace NoodleHammer.PreviewForge.Editor
 {
-    internal static class ParticleThumbnailPersistentCache
+    internal static class PrefabThumbnailPersistentCache
     {
-        private const int CacheFormatVersion = 2;
+        private const int CacheFormatVersion = 3;
         private const string LegacyCacheFolderName = "ParticleThumbnailCache";
         private const string StudioFolderName = "Noodle Hammer";
         private const string ProductFolderName = "Preview Forge";
@@ -18,7 +18,7 @@ namespace NoodleHammer.PreviewForge.Editor
         private static bool s_legacyCacheMigrationAttempted;
         private static string s_cacheDirectoryOverrideForTests;
 
-        public static bool TryLoadTexture(ParticleThumbnailRequest request, string dependencyToken, out Texture2D texture)
+        public static bool TryLoadTexture(PrefabThumbnailRequest request, string dependencyToken, out Texture2D texture)
         {
             texture = null;
             string path = GetCacheFilePath(request, dependencyToken);
@@ -37,7 +37,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 texture = new Texture2D(2, 2, TextureFormat.RGBA32, false)
                 {
                     hideFlags = HideFlags.HideAndDontSave,
-                    name = $"ParticleThumb_{request.Guid}_{request.Surface}"
+                    name = $"PrefabThumb_{request.Guid}_{request.AssetKind}_{request.Surface}"
                 };
 
                 if (!texture.LoadImage(bytes, false))
@@ -57,7 +57,7 @@ namespace NoodleHammer.PreviewForge.Editor
             }
         }
 
-        public static void SaveTexture(ParticleThumbnailRequest request, string dependencyToken, Texture2D texture)
+        public static void SaveTexture(PrefabThumbnailRequest request, string dependencyToken, Texture2D texture)
         {
             if (texture == null)
                 return;
@@ -74,14 +74,11 @@ namespace NoodleHammer.PreviewForge.Editor
                     Directory.CreateDirectory(directory);
 
                 bool hadExistingFile = File.Exists(path);
-                long previousLength = 0L;
-                if (hadExistingFile)
-                    previousLength = new FileInfo(path).Length;
-
+                long previousLength = hadExistingFile ? new FileInfo(path).Length : 0L;
                 WriteAllBytesAtomic(path, bytes);
                 UpdateCachedDiskStatsForWrite(hadExistingFile, previousLength, bytes.LongLength);
             }
-            catch (Exception)
+            catch
             {
             }
         }
@@ -101,7 +98,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 for (int i = 0; i < files.Length; i++)
                     TryDeleteFile(files[i], updateCachedStats: true);
             }
-            catch (Exception)
+            catch
             {
             }
         }
@@ -129,7 +126,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     TryDeleteFile(files[i], updateCachedStats: true);
                 }
             }
-            catch (Exception)
+            catch
             {
             }
         }
@@ -145,7 +142,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 Directory.Delete(directory, true);
                 ResetCachedDiskStats();
             }
-            catch (Exception)
+            catch
             {
             }
         }
@@ -157,9 +154,9 @@ namespace NoodleHammer.PreviewForge.Editor
             totalBytes = s_cachedDiskBytes;
         }
 
-        internal static string BuildCacheKey(ParticleThumbnailRequest request, string dependencyToken, string settingsToken)
+        internal static string BuildCacheKey(PrefabThumbnailRequest request, string dependencyToken, string settingsToken)
         {
-            return $"{request.Guid}_{(int)request.Surface}_{dependencyToken}_{settingsToken}_v{CacheFormatVersion}";
+            return $"{request.Guid}_{(int)request.AssetKind}_{(int)request.Surface}_{dependencyToken}_{settingsToken}_v{CacheFormatVersion}";
         }
 
         internal static string GetCacheDirectoryPathForTests()
@@ -181,9 +178,9 @@ namespace NoodleHammer.PreviewForge.Editor
             s_legacyCacheMigrationAttempted = false;
         }
 
-        private static string GetCacheFilePath(ParticleThumbnailRequest request, string dependencyToken)
+        private static string GetCacheFilePath(PrefabThumbnailRequest request, string dependencyToken)
         {
-            string settingsToken = ParticleThumbnailSettings.GetPersistentSettingsToken();
+            string settingsToken = PrefabThumbnailSettings.GetPersistentSettingsToken();
             string fileStem = BuildCacheKey(request, dependencyToken, settingsToken);
             return Path.Combine(GetCacheDirectory(), fileStem + ".png");
         }
@@ -206,7 +203,6 @@ namespace NoodleHammer.PreviewForge.Editor
                 return;
 
             s_legacyCacheMigrationAttempted = true;
-
             string legacyCacheDirectory = Path.Combine(libraryDirectory, LegacyCacheFolderName);
             if (!Directory.Exists(legacyCacheDirectory) || string.Equals(legacyCacheDirectory, cacheDirectory, StringComparison.Ordinal))
                 return;
@@ -237,9 +233,8 @@ namespace NoodleHammer.PreviewForge.Editor
                 if (Directory.GetFileSystemEntries(legacyCacheDirectory).Length == 0)
                     Directory.Delete(legacyCacheDirectory, false);
             }
-            catch (Exception)
+            catch
             {
-                // Best effort migration keeps old caches usable when possible.
             }
         }
 
@@ -261,12 +256,9 @@ namespace NoodleHammer.PreviewForge.Editor
                 else
                     File.Move(tempPath, path);
             }
-            catch
+            finally
             {
-                if (File.Exists(path))
-                    TryDeleteFile(path, updateCachedStats: false);
-
-                File.Move(tempPath, path);
+                TryDeleteFile(tempPath, updateCachedStats: false);
             }
         }
 
@@ -275,57 +267,35 @@ namespace NoodleHammer.PreviewForge.Editor
             if (s_diskStatsInitialized)
                 return;
 
+            s_diskStatsInitialized = true;
             s_cachedDiskFileCount = 0;
             s_cachedDiskBytes = 0L;
 
             string directory = GetCacheDirectory();
             if (!Directory.Exists(directory))
-            {
-                s_diskStatsInitialized = true;
                 return;
-            }
 
             try
             {
                 string[] files = Directory.GetFiles(directory, "*.png", SearchOption.TopDirectoryOnly);
                 s_cachedDiskFileCount = files.Length;
                 for (int i = 0; i < files.Length; i++)
-                {
-                    FileInfo fileInfo = new FileInfo(files[i]);
-                    s_cachedDiskBytes += fileInfo.Length;
-                }
+                    s_cachedDiskBytes += new FileInfo(files[i]).Length;
             }
-            catch (Exception)
+            catch
             {
                 s_cachedDiskFileCount = 0;
                 s_cachedDiskBytes = 0L;
             }
-
-            s_diskStatsInitialized = true;
         }
 
         private static void UpdateCachedDiskStatsForWrite(bool hadExistingFile, long previousLength, long newLength)
         {
-            if (!s_diskStatsInitialized)
-                return;
-
+            EnsureCachedDiskStatsInitialized();
             if (!hadExistingFile)
-            {
                 s_cachedDiskFileCount++;
-                s_cachedDiskBytes += newLength;
-                return;
-            }
 
-            s_cachedDiskBytes += newLength - previousLength;
-        }
-
-        private static void ResetCachedDiskStats()
-        {
-            if (!s_diskStatsInitialized)
-                return;
-
-            s_cachedDiskFileCount = 0;
-            s_cachedDiskBytes = 0L;
+            s_cachedDiskBytes = Math.Max(0L, s_cachedDiskBytes - previousLength + newLength);
         }
 
         private static void TryDeleteFile(string path, bool updateCachedStats)
@@ -335,21 +305,49 @@ namespace NoodleHammer.PreviewForge.Editor
 
             try
             {
-                long fileLength = 0L;
-                if (updateCachedStats && s_diskStatsInitialized)
-                    fileLength = new FileInfo(path).Length;
-
+                long length = updateCachedStats ? new FileInfo(path).Length : 0L;
                 File.Delete(path);
-                if (updateCachedStats && s_diskStatsInitialized)
+                if (updateCachedStats)
                 {
+                    EnsureCachedDiskStatsInitialized();
                     s_cachedDiskFileCount = Math.Max(0, s_cachedDiskFileCount - 1);
-                    s_cachedDiskBytes = Math.Max(0L, s_cachedDiskBytes - fileLength);
+                    s_cachedDiskBytes = Math.Max(0L, s_cachedDiskBytes - length);
                 }
             }
             catch
             {
-                // Best effort cleanup.
             }
         }
+
+        private static void ResetCachedDiskStats()
+        {
+            s_diskStatsInitialized = true;
+            s_cachedDiskFileCount = 0;
+            s_cachedDiskBytes = 0L;
+        }
+    }
+
+    internal static class ParticleThumbnailPersistentCache
+    {
+        public static bool TryLoadTexture(PrefabThumbnailRequest request, string dependencyToken, out Texture2D texture)
+            => PrefabThumbnailPersistentCache.TryLoadTexture(request, dependencyToken, out texture);
+
+        public static void SaveTexture(PrefabThumbnailRequest request, string dependencyToken, Texture2D texture)
+            => PrefabThumbnailPersistentCache.SaveTexture(request, dependencyToken, texture);
+
+        public static void InvalidateGuid(string guid)
+            => PrefabThumbnailPersistentCache.InvalidateGuid(guid);
+
+        public static void PruneMissingAssets()
+            => PrefabThumbnailPersistentCache.PruneMissingAssets();
+
+        public static void ClearAll()
+            => PrefabThumbnailPersistentCache.ClearAll();
+
+        internal static void GetCachedDiskStats(out int fileCount, out long totalBytes)
+            => PrefabThumbnailPersistentCache.GetCachedDiskStats(out fileCount, out totalBytes);
+
+        internal static string BuildCacheKey(PrefabThumbnailRequest request, string dependencyToken, string settingsToken)
+            => PrefabThumbnailPersistentCache.BuildCacheKey(request, dependencyToken, settingsToken);
     }
 }

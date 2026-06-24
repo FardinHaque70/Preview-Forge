@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace NoodleHammer.PreviewForge.Editor
 {
-    internal static class ParticleThumbnailRenderer
+    internal sealed class ParticlePrefabThumbnailRenderer : IPrefabThumbnailRenderer
     {
         private const float CoarseSampleStep = 1f / 30f;
         private const float RefineSampleStep = 1f / 120f;
@@ -33,7 +33,20 @@ namespace NoodleHammer.PreviewForge.Editor
 
         private static readonly ParticleSystem.Particle[] ParticleBuffer = new ParticleSystem.Particle[MaxParticleBuffer];
 
-        public static Texture2D Render(string assetPath, ParticleThumbnailSurface surface)
+        public PrefabThumbnailAssetKind Kind => PrefabThumbnailAssetKind.ParticlePrefab;
+        public int Priority => 100;
+
+        public PrefabThumbnailSupportInfo GetSupportInfo(GameObject prefab, string guid, string assetPath)
+        {
+            if (prefab == null)
+                return PrefabThumbnailSupportInfo.Unsupported;
+
+            return PrefabThumbnailDetection.IsParticlePrefab(prefab)
+                ? new PrefabThumbnailSupportInfo(true, PrefabThumbnailAssetKind.ParticlePrefab, Priority)
+                : PrefabThumbnailSupportInfo.Unsupported;
+        }
+
+        public Texture2D Render(string assetPath, PrefabThumbnailSurface surface)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
             if (prefab == null)

@@ -1,38 +1,48 @@
 using System;
 using UnityEngine;
-// Defines core thumbnail request, cache, and result data structures shared across rendering, caching, and service layers.
+// Defines shared prefab-thumbnail request, cache, support, and renderer contract types.
 
 namespace NoodleHammer.PreviewForge.Editor
 {
-    internal enum ParticleThumbnailSurface
+    internal enum PrefabThumbnailAssetKind
+    {
+        Unsupported = 0,
+        ParticlePrefab = 1,
+        UiPrefab = 2,
+    }
+
+    internal enum PrefabThumbnailSurface
     {
         ProjectWindowGrid = 0,
         ProjectWindowList = 1,
     }
 
-    internal readonly struct ParticleThumbnailRequest : IEquatable<ParticleThumbnailRequest>
+    internal readonly struct PrefabThumbnailRequest : IEquatable<PrefabThumbnailRequest>
     {
         public readonly string Guid;
         public readonly string AssetPath;
-        public readonly ParticleThumbnailSurface Surface;
+        public readonly PrefabThumbnailAssetKind AssetKind;
+        public readonly PrefabThumbnailSurface Surface;
 
-        public ParticleThumbnailRequest(string guid, string assetPath, ParticleThumbnailSurface surface)
+        public PrefabThumbnailRequest(string guid, string assetPath, PrefabThumbnailAssetKind assetKind, PrefabThumbnailSurface surface)
         {
             Guid = guid ?? string.Empty;
             AssetPath = assetPath ?? string.Empty;
+            AssetKind = assetKind;
             Surface = surface;
         }
 
-        public bool Equals(ParticleThumbnailRequest other)
+        public bool Equals(PrefabThumbnailRequest other)
         {
             return Guid == other.Guid
                 && AssetPath == other.AssetPath
+                && AssetKind == other.AssetKind
                 && Surface == other.Surface;
         }
 
         public override bool Equals(object obj)
         {
-            return obj is ParticleThumbnailRequest other && Equals(other);
+            return obj is PrefabThumbnailRequest other && Equals(other);
         }
 
         public override int GetHashCode()
@@ -41,24 +51,50 @@ namespace NoodleHammer.PreviewForge.Editor
             {
                 int hash = Guid.GetHashCode();
                 hash = (hash * 397) ^ AssetPath.GetHashCode();
+                hash = (hash * 397) ^ (int)AssetKind;
                 hash = (hash * 397) ^ (int)Surface;
                 return hash;
             }
         }
 
-        public static bool operator ==(ParticleThumbnailRequest left, ParticleThumbnailRequest right) => left.Equals(right);
-        public static bool operator !=(ParticleThumbnailRequest left, ParticleThumbnailRequest right) => !left.Equals(right);
+        public static bool operator ==(PrefabThumbnailRequest left, PrefabThumbnailRequest right) => left.Equals(right);
+        public static bool operator !=(PrefabThumbnailRequest left, PrefabThumbnailRequest right) => !left.Equals(right);
     }
 
-    internal sealed class ParticleThumbnailRecord
+    internal sealed class PrefabThumbnailRecord
     {
         public string Guid;
         public string AssetPath;
         public string DependencyToken;
-        public ParticleThumbnailSurface Surface;
+        public PrefabThumbnailAssetKind AssetKind;
+        public PrefabThumbnailSurface Surface;
         public Texture2D Texture;
 
         public bool IsValid => Texture != null;
+    }
+
+    internal readonly struct PrefabThumbnailSupportInfo
+    {
+        public readonly bool Supported;
+        public readonly PrefabThumbnailAssetKind AssetKind;
+        public readonly int Priority;
+
+        public PrefabThumbnailSupportInfo(bool supported, PrefabThumbnailAssetKind assetKind, int priority)
+        {
+            Supported = supported;
+            AssetKind = assetKind;
+            Priority = priority;
+        }
+
+        public static PrefabThumbnailSupportInfo Unsupported => new(false, PrefabThumbnailAssetKind.Unsupported, int.MaxValue);
+    }
+
+    internal interface IPrefabThumbnailRenderer
+    {
+        PrefabThumbnailAssetKind Kind { get; }
+        int Priority { get; }
+        PrefabThumbnailSupportInfo GetSupportInfo(GameObject prefab, string guid, string assetPath);
+        Texture2D Render(string assetPath, PrefabThumbnailSurface surface);
     }
 
     internal readonly struct ParticleFrameCandidate

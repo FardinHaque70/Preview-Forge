@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-// Coordinates thumbnail request queuing, cache lifetime, render scheduling, and Project window drawing hooks for particle prefabs.
+// Coordinates shared prefab-thumbnail queuing, cache lifetime, render scheduling, and Project window drawing hooks.
 
 namespace NoodleHammer.PreviewForge.Editor
 {
@@ -13,37 +13,36 @@ namespace NoodleHammer.PreviewForge.Editor
 		{
 			public string AssetPath;
 			public string DependencyToken;
-			public bool IsParticlePrefab;
+			public PrefabThumbnailSupportInfo SupportInfo;
+			public IPrefabThumbnailRenderer Renderer;
 		}
 
 		private struct DeferredPersistentLoadRequest
 		{
-			public ParticleThumbnailRequest Request;
+			public PrefabThumbnailRequest Request;
 			public string RequestDependencyToken;
 			public string CacheKey;
 		}
 
-		private static readonly Dictionary<ParticleThumbnailRequest, ParticleThumbnailRecord> Cache = new();
-		private static readonly LinkedList<ParticleThumbnailRequest> CacheLru = new();
-		private static readonly Dictionary<ParticleThumbnailRequest, LinkedListNode<ParticleThumbnailRequest>> CacheLruNodes = new();
+		private static readonly Dictionary<PrefabThumbnailRequest, PrefabThumbnailRecord> Cache = new();
+		private static readonly LinkedList<PrefabThumbnailRequest> CacheLru = new();
+		private static readonly Dictionary<PrefabThumbnailRequest, LinkedListNode<PrefabThumbnailRequest>> CacheLruNodes = new();
 
-		private static readonly Queue<ParticleThumbnailRequest> RenderQueue = new();
-		private static readonly Queue<ParticleThumbnailRequest> PriorityRenderQueue = new();
-		private static readonly HashSet<ParticleThumbnailRequest> Queued = new();
-		private static readonly HashSet<ParticleThumbnailRequest> PriorityQueued = new();
-		private static readonly Dictionary<ParticleThumbnailRequest, string> FailedDependencyByRequest = new();
-		private static readonly Dictionary<ParticleThumbnailRequest, int> RequestLastSeenFrame = new();
-		private static readonly HashSet<string> SelectedAssetGuids = new(StringComparer.OrdinalIgnoreCase);
-		private static readonly HashSet<ParticleThumbnailRequest> GenerateAllPendingRequests = new();
+		private static readonly Queue<PrefabThumbnailRequest> RenderQueue = new();
+		private static readonly Queue<PrefabThumbnailRequest> PriorityRenderQueue = new();
+		private static readonly HashSet<PrefabThumbnailRequest> Queued = new();
+		private static readonly HashSet<PrefabThumbnailRequest> PriorityQueued = new();
+		private static readonly Dictionary<PrefabThumbnailRequest, string> FailedDependencyByRequest = new();
+		private static readonly Dictionary<PrefabThumbnailRequest, int> RequestLastSeenFrame = new();
+		private static readonly HashSet<PrefabThumbnailRequest> GenerateAllPendingRequests = new();
 
 		private static readonly Dictionary<string, SupportCacheEntry> SupportCache = new();
 		private static readonly HashSet<string> KnownNonPrefabGuids = new(StringComparer.OrdinalIgnoreCase);
 		private static readonly Queue<string> PendingSupportLookupQueue = new();
 		private static readonly HashSet<string> PendingSupportLookupSet = new(StringComparer.OrdinalIgnoreCase);
 		private static readonly Queue<DeferredPersistentLoadRequest> PendingPersistentLoadQueue = new();
-		private static readonly HashSet<ParticleThumbnailRequest> PendingPersistentLoadSet = new();
+		private static readonly HashSet<PrefabThumbnailRequest> PendingPersistentLoadSet = new();
 		private static readonly HashSet<string> KnownPersistentCacheMisses = new(StringComparer.Ordinal);
-		private static string SingleSelectedAssetGuid = string.Empty;
 		private static int GenerateAllTotalCount;
 		private static int GenerateAllCompletedCount;
 		private static int GenerateAllSucceededCount;
@@ -61,8 +60,6 @@ namespace NoodleHammer.PreviewForge.Editor
 		private static double GenerateAllStartTime;
 		private static bool GenerateAllWarmupFramePending;
 
-		private const float SelectionOutlineThickness = 2f;
-		private const float SelectionOutlineInset = 2f;
 		private const double GenerateAllScanBudgetMs = 6.0;
 		private const int SupportLookupMaxPerUpdate = 24;
 		private const double SupportLookupBudgetMs = 2.0;
@@ -72,17 +69,15 @@ namespace NoodleHammer.PreviewForge.Editor
 		private const int FastModeMaxRendersPerUpdate = 64;
 		private const double FastModeRenderBudgetMs = 50.0;
 		private const double FastModeScanBudgetMs = 40.0;
-		private static readonly Color SelectionOutlineColor = new Color(0.11f, 0.84f, 0.39f, 1f);
 		private static bool ProjectWindowHookRegistered;
 		private static bool EditorUpdateHookRegistered;
-		private static bool SelectionChangedHookRegistered;
 
 		static ParticleThumbnailService()
 		{
 			EditorApplication.quitting += SafeClearProgressWindow;
 			AssemblyReloadEvents.beforeAssemblyReload += SafeClearProgressWindow;
 			ParticleThumbnailSettings.SettingsChanged += HandleSettingsChanged;
-			RefreshRuntimeHooks(refreshSelectionCacheWhenEnabled: true);
+			RefreshRuntimeHooks();
 		}
 
 		public static bool IsGenerateAllInProgress
@@ -155,9 +150,9 @@ namespace NoodleHammer.PreviewForge.Editor
 				return;
 
 			string guid = AssetDatabase.AssetPathToGUID(assetPath);
-			List<ParticleThumbnailRequest> toRemove = new List<ParticleThumbnailRequest>();
+			List<PrefabThumbnailRequest> toRemove = new List<PrefabThumbnailRequest>();
 
-			foreach (KeyValuePair<ParticleThumbnailRequest, ParticleThumbnailRecord> kv in Cache)
+			foreach (KeyValuePair<PrefabThumbnailRequest, PrefabThumbnailRecord> kv in Cache)
 			{
 				if (kv.Key.AssetPath == assetPath || (!string.IsNullOrEmpty(guid) && kv.Key.Guid == guid))
 					toRemove.Add(kv.Key);
@@ -187,7 +182,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		public static void ClearMemoryCache()
 		{
-			foreach (ParticleThumbnailRecord record in Cache.Values)
+			foreach (PrefabThumbnailRecord record in Cache.Values)
 			{
 				if (record?.Texture != null)
 					UnityEngine.Object.DestroyImmediate(record.Texture);
@@ -212,7 +207,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			ResetGenerateAllProgress();
 			SafeClearProgressWindow();
 			ResetCacheStatsSnapshot();
-			RefreshRuntimeHooks(refreshSelectionCacheWhenEnabled: true);
+			RefreshRuntimeHooks();
 			EditorApplication.RepaintProjectWindow();
 		}
 
@@ -267,10 +262,10 @@ namespace NoodleHammer.PreviewForge.Editor
 				return;
 
 			InvalidatePath(assetPath);
-			if (!TryGetParticlePrefabInfo(guid, out string validatedPath, out _))
+			if (!TryGetSupportedPrefabInfo(guid, out string validatedPath, out _, out PrefabThumbnailAssetKind assetKind))
 				return;
 
-			EnqueueAllSurfaces(guid, validatedPath);
+			EnqueueAllSurfaces(guid, validatedPath, assetKind);
 			EditorApplication.RepaintProjectWindow();
 		}
 
@@ -309,7 +304,7 @@ namespace NoodleHammer.PreviewForge.Editor
 				FinalizeGenerateAllPreparation();
 		}
 
-		[MenuItem("Assets/Preview Forge/Regenerate Particle Thumbnail", true)]
+		[MenuItem("Assets/Preview Forge/Regenerate Prefab Thumbnail", true)]
 		private static bool MenuRegenerateSelectedValidate()
 		{
 			string[] guids = Selection.assetGUIDs;
@@ -318,14 +313,14 @@ namespace NoodleHammer.PreviewForge.Editor
 
 			for (int i = 0; i < guids.Length; i++)
 			{
-				if (TryGetParticlePrefabInfo(guids[i], out _, out _))
+				if (TryGetSupportedPrefabInfo(guids[i], out _, out _, out _))
 					return true;
 			}
 
 			return false;
 		}
 
-		[MenuItem("Assets/Preview Forge/Regenerate Particle Thumbnail", false, 2000)]
+		[MenuItem("Assets/Preview Forge/Regenerate Prefab Thumbnail", false, 2000)]
 		private static void MenuRegenerateSelected()
 		{
 			string[] guids = Selection.assetGUIDs;
@@ -334,17 +329,17 @@ namespace NoodleHammer.PreviewForge.Editor
 
 			for (int i = 0; i < guids.Length; i++)
 			{
-				if (!TryGetParticlePrefabInfo(guids[i], out string assetPath, out _))
+				if (!TryGetSupportedPrefabInfo(guids[i], out string assetPath, out _, out _))
 					continue;
 
 				RegenerateThumbnail(assetPath);
 			}
 		}
 
-		private static readonly ParticleThumbnailSurface[] GenerationSurfaces =
+		private static readonly PrefabThumbnailSurface[] GenerationSurfaces =
 		{
-			ParticleThumbnailSurface.ProjectWindowGrid,
-			ParticleThumbnailSurface.ProjectWindowList,
+			PrefabThumbnailSurface.ProjectWindowGrid,
+			PrefabThumbnailSurface.ProjectWindowList,
 		};
 
 		private static void OnProjectWindowItemGui(string guid, Rect selectionRect)
@@ -355,31 +350,25 @@ namespace NoodleHammer.PreviewForge.Editor
 			if (!ParticleThumbnailSettings.Enabled)
 				return;
 
-			if (!TryGetParticlePrefabInfo(guid, out string assetPath, out string dependencyToken, allowSynchronousResolve: false))
+			if (!TryGetSupportedPrefabInfo(guid, out string assetPath, out string dependencyToken, out PrefabThumbnailAssetKind assetKind, allowSynchronousResolve: false))
 				return;
 
-			if (ParticleThumbnailProjectWindowUi.ShouldSkipObjectSelectorContext())
+			if (PrefabThumbnailProjectWindowUi.ShouldSkipObjectSelectorContext())
 				return;
 
-			ParticleThumbnailSurface surface = ParticleThumbnailProjectWindowUi.GetSurface(selectionRect);
+			PrefabThumbnailSurface surface = PrefabThumbnailProjectWindowUi.GetSurface(selectionRect);
 			if (!ShouldDrawOnSurface(surface))
 				return;
 
-			Rect contentRect = ParticleThumbnailProjectWindowUi.GetContentRect(selectionRect, surface);
+			Rect contentRect = PrefabThumbnailProjectWindowUi.GetContentRect(selectionRect, surface);
 			if (contentRect.width <= 1f || contentRect.height <= 1f)
 				return;
 
-			bool shouldDrawSelectionOutline = ShouldDrawSelectionOutline(surface, guid);
-			Rect outlineRect = shouldDrawSelectionOutline
-				? ParticleThumbnailProjectWindowUi.GetOutlineRect(selectionRect, surface)
-				: default;
-			ParticleThumbnailRequest request = new ParticleThumbnailRequest(guid, assetPath, surface);
+			PrefabThumbnailRequest request = new PrefabThumbnailRequest(guid, assetPath, assetKind, surface);
 			MarkRequestSeen(request);
-			if (TryGetValidRecord(request, dependencyToken, out ParticleThumbnailRecord record, allowDeferredPersistentLoad: true))
+			if (TryGetValidRecord(request, dependencyToken, out PrefabThumbnailRecord record, allowDeferredPersistentLoad: true))
 			{
 				DrawRecord(contentRect, record.Texture);
-				if (shouldDrawSelectionOutline)
-					DrawSelectionOutline(outlineRect);
 				return;
 			}
 
@@ -387,8 +376,6 @@ namespace NoodleHammer.PreviewForge.Editor
 				return;
 
 			DrawLoadingPlaceholder(contentRect);
-			if (shouldDrawSelectionOutline)
-				DrawSelectionOutline(outlineRect);
 
 			if (!IsKnownFailed(request, dependencyToken))
 				Enqueue(request, prioritize: true);
@@ -434,8 +421,8 @@ namespace NoodleHammer.PreviewForge.Editor
 			if (GenerateAllPendingRequests.Count == 0 || PriorityRenderQueue.Count > 0 || RenderQueue.Count > 0 || PendingPersistentLoadQueue.Count > 0)
 				return;
 
-			List<ParticleThumbnailRequest> dangling = new List<ParticleThumbnailRequest>(GenerateAllPendingRequests.Count);
-			foreach (ParticleThumbnailRequest request in GenerateAllPendingRequests)
+			List<PrefabThumbnailRequest> dangling = new List<PrefabThumbnailRequest>(GenerateAllPendingRequests.Count);
+			foreach (PrefabThumbnailRequest request in GenerateAllPendingRequests)
 				dangling.Add(request);
 
 			bool anyResolved = false;
@@ -474,7 +461,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
 			string modeLabel = GenerateAllUseUnthrottledProcessing ? "fast mode" : "throttled mode";
 			Debug.Log(
-				$"[ParticleThumbnail] Generate-all complete ({modeLabel}). Total={total}, Succeeded={succeeded}, Failed={failed}, Time={elapsedSec:F2}s");
+				$"[PrefabThumbnail] Generate-all complete ({modeLabel}). Total={total}, Succeeded={succeeded}, Failed={failed}, Time={elapsedSec:F2}s");
 
 			GenerateAllRunActive = false;
 			GenerateAllUseUnthrottledProcessing = false;
@@ -500,11 +487,11 @@ namespace NoodleHammer.PreviewForge.Editor
 				GenerateAllPreparingIndex = GenerateAllScanIndex + 1;
 				GenerateAllCurrentAssetPath = previewAssetPath ?? string.Empty;
 
-				if (TryGetParticlePrefabInfo(guid, out string assetPath, out string dependencyToken))
+				if (TryGetSupportedPrefabInfo(guid, out string assetPath, out string dependencyToken, out PrefabThumbnailAssetKind assetKind))
 				{
 					for (int s = 0; s < GenerationSurfaces.Length; s++)
 					{
-						ParticleThumbnailRequest request = new ParticleThumbnailRequest(guid, assetPath, GenerationSurfaces[s]);
+						PrefabThumbnailRequest request = new PrefabThumbnailRequest(guid, assetPath, assetKind, GenerationSurfaces[s]);
 						if (TryGetValidRecord(request, dependencyToken, out _, allowDeferredPersistentLoad: false))
 							continue;
 
@@ -642,7 +629,7 @@ namespace NoodleHammer.PreviewForge.Editor
 				if (elapsedMs > budgetMs)
 					break;
 
-				if (!TryDequeueRequest(out ParticleThumbnailRequest request))
+				if (!TryDequeueRequest(out PrefabThumbnailRequest request))
 					continue;
 
 				if (ShouldDropStaleRequest(request))
@@ -680,7 +667,8 @@ namespace NoodleHammer.PreviewForge.Editor
 				Texture2D texture = null;
 				try
 				{
-					texture = ParticleThumbnailRenderer.Render(request.AssetPath, request.Surface);
+					if (TryGetRendererForRequest(request, out IPrefabThumbnailRenderer renderer))
+						texture = renderer.Render(request.AssetPath, request.Surface);
 				}
 				catch (Exception)
 				{ }
@@ -734,17 +722,23 @@ namespace NoodleHammer.PreviewForge.Editor
 			GUI.DrawTexture(iconRect, spinner.image, ScaleMode.ScaleToFit, true);
 		}
 
-		private static bool ShouldDrawOnSurface(ParticleThumbnailSurface surface)
+		private static bool ShouldDrawOnSurface(PrefabThumbnailSurface surface)
 		{
-			return surface == ParticleThumbnailSurface.ProjectWindowList
-				? ParticleThumbnailSettings.DrawInProjectList
-				: ParticleThumbnailSettings.DrawInProjectGrid;
+			return surface == PrefabThumbnailSurface.ProjectWindowList
+				? PrefabThumbnailSettings.DrawInProjectList
+				: PrefabThumbnailSettings.DrawInProjectGrid;
 		}
 
-		private static bool TryGetParticlePrefabInfo(string guid, out string assetPath, out string dependencyToken, bool allowSynchronousResolve = true)
+		private static bool TryGetSupportedPrefabInfo(
+			string guid,
+			out string assetPath,
+			out string dependencyToken,
+			out PrefabThumbnailAssetKind assetKind,
+			bool allowSynchronousResolve = true)
 		{
 			assetPath = string.Empty;
 			dependencyToken = string.Empty;
+			assetKind = PrefabThumbnailAssetKind.Unsupported;
 
 			if (string.IsNullOrEmpty(guid))
 				return false;
@@ -757,7 +751,8 @@ namespace NoodleHammer.PreviewForge.Editor
 			{
 				assetPath = cached.AssetPath;
 				dependencyToken = cached.DependencyToken;
-				return cached.IsParticlePrefab;
+				assetKind = cached.SupportInfo.AssetKind;
+				return cached.SupportInfo.Supported;
 			}
 
 			if (!allowSynchronousResolve)
@@ -771,7 +766,8 @@ namespace NoodleHammer.PreviewForge.Editor
 
 			assetPath = resolved.AssetPath;
 			dependencyToken = resolved.DependencyToken;
-			return resolved.IsParticlePrefab;
+			assetKind = resolved.SupportInfo.AssetKind;
+			return resolved.SupportInfo.Supported;
 		}
 
 		private static void EnqueueSupportLookup(string guid)
@@ -806,18 +802,45 @@ namespace NoodleHammer.PreviewForge.Editor
 			}
 
 			GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
-			bool isParticlePrefab = ParticleThumbnailDetection.IsParticlePrefab(prefab);
-			string dependencyToken = isParticlePrefab ? GetDependencyToken(assetPath) : string.Empty;
+			IPrefabThumbnailRenderer renderer = PrefabThumbnailRendererRegistry.FindBestRenderer(prefab, guid, assetPath, out PrefabThumbnailSupportInfo supportInfo);
+			string dependencyToken = supportInfo.Supported ? GetDependencyToken(assetPath) : string.Empty;
 
 			entry = new SupportCacheEntry
 			{
 				AssetPath = assetPath,
 				DependencyToken = dependencyToken,
-				IsParticlePrefab = isParticlePrefab,
+				SupportInfo = supportInfo,
+				Renderer = renderer,
 			};
 
 			SupportCache[guid] = entry;
 			return true;
+		}
+
+		private static bool TryGetRendererForRequest(PrefabThumbnailRequest request, out IPrefabThumbnailRenderer renderer)
+		{
+			renderer = null;
+			if (string.IsNullOrEmpty(request.Guid) || string.IsNullOrEmpty(request.AssetPath))
+				return false;
+
+			if (SupportCache.TryGetValue(request.Guid, out SupportCacheEntry cached)
+			    && string.Equals(cached.AssetPath, request.AssetPath, StringComparison.OrdinalIgnoreCase)
+			    && cached.SupportInfo.Supported
+			    && cached.SupportInfo.AssetKind == request.AssetKind
+			    && cached.Renderer != null)
+			{
+				renderer = cached.Renderer;
+				return true;
+			}
+
+			if (!TryResolveSupportCacheEntry(request.Guid, out SupportCacheEntry resolved))
+				return false;
+
+			if (!resolved.SupportInfo.Supported || resolved.SupportInfo.AssetKind != request.AssetKind)
+				return false;
+
+			renderer = resolved.Renderer;
+			return renderer != null;
 		}
 
 		private static string GetDependencyToken(string assetPath)
@@ -835,7 +858,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			}
 		}
 
-		private static bool TryGetValidRecord(ParticleThumbnailRequest request, string dependencyToken, out ParticleThumbnailRecord record, bool allowDeferredPersistentLoad)
+		private static bool TryGetValidRecord(PrefabThumbnailRequest request, string dependencyToken, out PrefabThumbnailRecord record, bool allowDeferredPersistentLoad)
 		{
 			if (Cache.TryGetValue(request, out record))
 			{
@@ -874,68 +897,26 @@ namespace NoodleHammer.PreviewForge.Editor
 			return true;
 		}
 
-		private static bool IsKnownFailed(ParticleThumbnailRequest request, string dependencyToken)
+		private static bool IsKnownFailed(PrefabThumbnailRequest request, string dependencyToken)
 		{
 			return FailedDependencyByRequest.TryGetValue(request, out string failedDependency)
 			       && failedDependency == dependencyToken;
 		}
 
-		private static bool ShouldDrawSelectionOutline(ParticleThumbnailSurface surface, string guid)
+		private static void EnqueueAllSurfaces(string guid, string assetPath, PrefabThumbnailAssetKind assetKind)
 		{
-			if (surface != ParticleThumbnailSurface.ProjectWindowGrid)
-				return false;
-
-			return IsGuidSelectedInProjectWindow(guid);
-		}
-
-		private static bool IsGuidSelectedInProjectWindow(string guid)
-		{
-			if (string.IsNullOrEmpty(guid))
-				return false;
-
-			if (!string.IsNullOrEmpty(SingleSelectedAssetGuid))
-				return string.Equals(SingleSelectedAssetGuid, guid, StringComparison.OrdinalIgnoreCase);
-
-			return SelectedAssetGuids.Contains(guid);
-		}
-
-		private static void DrawSelectionOutline(Rect contentRect)
-		{
-			if (contentRect.width <= 2f || contentRect.height <= 2f)
-				return;
-
-			float maxInset = Mathf.Max(0f, Mathf.Min(contentRect.width, contentRect.height) * 0.25f);
-			float inset = Mathf.Clamp(SelectionOutlineInset, 0f, maxInset);
-			Rect insetRect = new Rect(
-				contentRect.x + inset,
-				contentRect.y + inset,
-				Mathf.Max(0f, contentRect.width - inset * 2f),
-				Mathf.Max(0f, contentRect.height - inset * 2f));
-
-			if (insetRect.width <= 2f || insetRect.height <= 2f)
-				return;
-
-			float thickness = Mathf.Clamp(Mathf.Round(SelectionOutlineThickness), 1f, Mathf.Min(insetRect.width, insetRect.height) * 0.5f);
-			EditorGUI.DrawRect(new Rect(insetRect.x, insetRect.y, insetRect.width, thickness), SelectionOutlineColor);
-			EditorGUI.DrawRect(new Rect(insetRect.x, insetRect.yMax - thickness, insetRect.width, thickness), SelectionOutlineColor);
-			EditorGUI.DrawRect(new Rect(insetRect.x, insetRect.y, thickness, insetRect.height), SelectionOutlineColor);
-			EditorGUI.DrawRect(new Rect(insetRect.xMax - thickness, insetRect.y, thickness, insetRect.height), SelectionOutlineColor);
-		}
-
-		private static void EnqueueAllSurfaces(string guid, string assetPath)
-		{
-			if (string.IsNullOrEmpty(guid) || string.IsNullOrEmpty(assetPath))
+			if (string.IsNullOrEmpty(guid) || string.IsNullOrEmpty(assetPath) || assetKind == PrefabThumbnailAssetKind.Unsupported)
 				return;
 
 			for (int s = 0; s < GenerationSurfaces.Length; s++)
 			{
-				ParticleThumbnailRequest request = new ParticleThumbnailRequest(guid, assetPath, GenerationSurfaces[s]);
+				PrefabThumbnailRequest request = new PrefabThumbnailRequest(guid, assetPath, assetKind, GenerationSurfaces[s]);
 				if (!Queued.Contains(request))
 					Enqueue(request, prioritize: false);
 			}
 		}
 
-		private static void Enqueue(ParticleThumbnailRequest request, bool prioritize)
+		private static void Enqueue(PrefabThumbnailRequest request, bool prioritize)
 		{
 			if (Queued.Contains(request))
 			{
@@ -965,7 +946,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			RefreshRuntimeHooks();
 		}
 
-		private static void EnqueuePersistentLoad(ParticleThumbnailRequest request, string dependencyToken, string cacheKey)
+		private static void EnqueuePersistentLoad(PrefabThumbnailRequest request, string dependencyToken, string cacheKey)
 		{
 			if (!PendingPersistentLoadSet.Add(request))
 				return;
@@ -981,14 +962,14 @@ namespace NoodleHammer.PreviewForge.Editor
 			RefreshRuntimeHooks();
 		}
 
-		private static void StoreCacheRecord(ParticleThumbnailRequest request, string dependencyToken, Texture2D texture, bool persistToDisk)
+		private static void StoreCacheRecord(PrefabThumbnailRequest request, string dependencyToken, Texture2D texture, bool persistToDisk)
 		{
 			if (texture == null)
 				return;
 
 			EnsureCacheStatsInitialized();
 			long previousTextureBytes = 0L;
-			if (Cache.TryGetValue(request, out ParticleThumbnailRecord existing)
+			if (Cache.TryGetValue(request, out PrefabThumbnailRecord existing)
 			    && existing?.Texture != null
 			    && existing.Texture != texture)
 			{
@@ -996,11 +977,12 @@ namespace NoodleHammer.PreviewForge.Editor
 				UnityEngine.Object.DestroyImmediate(existing.Texture);
 			}
 
-			ParticleThumbnailRecord record = new ParticleThumbnailRecord
+			PrefabThumbnailRecord record = new PrefabThumbnailRecord
 			{
 				Guid = request.Guid,
 				AssetPath = request.AssetPath,
 				DependencyToken = dependencyToken,
+				AssetKind = request.AssetKind,
 				Surface = request.Surface,
 				Texture = texture,
 			};
@@ -1014,26 +996,26 @@ namespace NoodleHammer.PreviewForge.Editor
 
 			FailedDependencyByRequest.Remove(request);
 			RefreshVolatileStatsSnapshot();
-			string settingsToken = ParticleThumbnailSettings.GetPersistentSettingsToken();
-			KnownPersistentCacheMisses.Remove(ParticleThumbnailPersistentCache.BuildCacheKey(request, dependencyToken, settingsToken));
+			string settingsToken = PrefabThumbnailSettings.GetPersistentSettingsToken();
+			KnownPersistentCacheMisses.Remove(PrefabThumbnailPersistentCache.BuildCacheKey(request, dependencyToken, settingsToken));
 
 			if (persistToDisk)
 			{
-				ParticleThumbnailPersistentCache.SaveTexture(request, dependencyToken, texture);
+				PrefabThumbnailPersistentCache.SaveTexture(request, dependencyToken, texture);
 				RefreshDiskStatsSnapshot();
 			}
 		}
 
-		private static void TouchLru(ParticleThumbnailRequest request)
+		private static void TouchLru(PrefabThumbnailRequest request)
 		{
-			if (CacheLruNodes.TryGetValue(request, out LinkedListNode<ParticleThumbnailRequest> existingNode))
+			if (CacheLruNodes.TryGetValue(request, out LinkedListNode<PrefabThumbnailRequest> existingNode))
 			{
 				CacheLru.Remove(existingNode);
 				CacheLru.AddFirst(existingNode);
 				return;
 			}
 
-			LinkedListNode<ParticleThumbnailRequest> node = CacheLru.AddFirst(request);
+			LinkedListNode<PrefabThumbnailRequest> node = CacheLru.AddFirst(request);
 			CacheLruNodes[request] = node;
 		}
 
@@ -1042,7 +1024,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			int max = ParticleThumbnailSettings.MemoryCacheMaxEntries;
 			while (CacheLru.Count > max)
 			{
-				LinkedListNode<ParticleThumbnailRequest> tail = CacheLru.Last;
+				LinkedListNode<PrefabThumbnailRequest> tail = CacheLru.Last;
 				if (tail == null)
 					break;
 
@@ -1050,9 +1032,9 @@ namespace NoodleHammer.PreviewForge.Editor
 			}
 		}
 
-		private static void RemoveCacheEntry(ParticleThumbnailRequest request)
+		private static void RemoveCacheEntry(PrefabThumbnailRequest request)
 		{
-			if (Cache.TryGetValue(request, out ParticleThumbnailRecord record))
+			if (Cache.TryGetValue(request, out PrefabThumbnailRecord record))
 			{
 				EnsureCacheStatsInitialized();
 				CachedStats.TotalEntries = Math.Max(0, CachedStats.TotalEntries - 1);
@@ -1065,7 +1047,7 @@ namespace NoodleHammer.PreviewForge.Editor
 				Cache.Remove(request);
 			}
 
-			if (CacheLruNodes.TryGetValue(request, out LinkedListNode<ParticleThumbnailRequest> node))
+			if (CacheLruNodes.TryGetValue(request, out LinkedListNode<PrefabThumbnailRequest> node))
 			{
 				CacheLru.Remove(node);
 				CacheLruNodes.Remove(request);
@@ -1077,8 +1059,8 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		private static void RemoveFailedEntries(string assetPath, string guid)
 		{
-			List<ParticleThumbnailRequest> toRemove = new List<ParticleThumbnailRequest>();
-			foreach (KeyValuePair<ParticleThumbnailRequest, string> kv in FailedDependencyByRequest)
+			List<PrefabThumbnailRequest> toRemove = new List<PrefabThumbnailRequest>();
+			foreach (KeyValuePair<PrefabThumbnailRequest, string> kv in FailedDependencyByRequest)
 			{
 				if (kv.Key.AssetPath == assetPath || (!string.IsNullOrEmpty(guid) && kv.Key.Guid == guid))
 					toRemove.Add(kv.Key);
@@ -1097,10 +1079,10 @@ namespace NoodleHammer.PreviewForge.Editor
 				return;
 
 			bool anyRemoved = false;
-			Queue<ParticleThumbnailRequest> retainedPriority = new Queue<ParticleThumbnailRequest>(PriorityRenderQueue.Count);
+			Queue<PrefabThumbnailRequest> retainedPriority = new Queue<PrefabThumbnailRequest>(PriorityRenderQueue.Count);
 			while (PriorityRenderQueue.Count > 0)
 			{
-				ParticleThumbnailRequest request = PriorityRenderQueue.Dequeue();
+				PrefabThumbnailRequest request = PriorityRenderQueue.Dequeue();
 				bool remove = request.AssetPath == assetPath || (!string.IsNullOrEmpty(guid) && request.Guid == guid);
 				if (remove)
 				{
@@ -1118,10 +1100,10 @@ namespace NoodleHammer.PreviewForge.Editor
 			while (retainedPriority.Count > 0)
 				PriorityRenderQueue.Enqueue(retainedPriority.Dequeue());
 
-			Queue<ParticleThumbnailRequest> retained = new Queue<ParticleThumbnailRequest>(RenderQueue.Count);
+			Queue<PrefabThumbnailRequest> retained = new Queue<PrefabThumbnailRequest>(RenderQueue.Count);
 			while (RenderQueue.Count > 0)
 			{
-				ParticleThumbnailRequest request = RenderQueue.Dequeue();
+				PrefabThumbnailRequest request = RenderQueue.Dequeue();
 				bool remove = request.AssetPath == assetPath || (!string.IsNullOrEmpty(guid) && request.Guid == guid);
 				if (remove)
 				{
@@ -1145,7 +1127,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			while (PendingPersistentLoadQueue.Count > 0)
 			{
 				DeferredPersistentLoadRequest deferred = PendingPersistentLoadQueue.Dequeue();
-				ParticleThumbnailRequest request = deferred.Request;
+				PrefabThumbnailRequest request = deferred.Request;
 				bool remove = request.AssetPath == assetPath || (!string.IsNullOrEmpty(guid) && request.Guid == guid);
 				if (remove)
 				{
@@ -1168,10 +1150,10 @@ namespace NoodleHammer.PreviewForge.Editor
 		private static void HandleSettingsChanged()
 		{
 			ClearMemoryCache();
-			RefreshRuntimeHooks(refreshSelectionCacheWhenEnabled: true);
+			RefreshRuntimeHooks();
 		}
 
-		private static void TrackGenerateAllRequest(ParticleThumbnailRequest request)
+		private static void TrackGenerateAllRequest(PrefabThumbnailRequest request)
 		{
 			if (!GenerateAllPendingRequests.Add(request))
 				return;
@@ -1180,7 +1162,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			RefreshVolatileStatsSnapshot();
 		}
 
-		private static bool CompleteGenerateAllRequest(ParticleThumbnailRequest request, bool success)
+		private static bool CompleteGenerateAllRequest(PrefabThumbnailRequest request, bool success)
 		{
 			if (!GenerateAllPendingRequests.Remove(request))
 				return false;
@@ -1221,12 +1203,12 @@ namespace NoodleHammer.PreviewForge.Editor
 			RefreshVolatileStatsSnapshot();
 		}
 
-		private static void MarkRequestSeen(ParticleThumbnailRequest request)
+		private static void MarkRequestSeen(PrefabThumbnailRequest request)
 		{
 			RequestLastSeenFrame[request] = Time.frameCount;
 		}
 
-		private static bool TryDequeueRequest(out ParticleThumbnailRequest request)
+		private static bool TryDequeueRequest(out PrefabThumbnailRequest request)
 		{
 			while (PriorityRenderQueue.Count > 0)
 			{
@@ -1258,32 +1240,32 @@ namespace NoodleHammer.PreviewForge.Editor
 			CachedStats = default;
 		}
 
-		internal static void StoreCacheRecordForTests(ParticleThumbnailRequest request, string dependencyToken, Texture2D texture)
+		internal static void StoreCacheRecordForTests(PrefabThumbnailRequest request, string dependencyToken, Texture2D texture)
 		{
 			StoreCacheRecord(request, dependencyToken, texture, persistToDisk: false);
 		}
 
-		internal static void RemoveCacheEntryForTests(ParticleThumbnailRequest request)
+		internal static void RemoveCacheEntryForTests(PrefabThumbnailRequest request)
 		{
 			RemoveCacheEntry(request);
 		}
 
-		internal static void EnqueueForTests(ParticleThumbnailRequest request, bool prioritize)
+		internal static void EnqueueForTests(PrefabThumbnailRequest request, bool prioritize)
 		{
 			Enqueue(request, prioritize);
 		}
 
-		internal static void TrackGenerateAllRequestForTests(ParticleThumbnailRequest request)
+		internal static void TrackGenerateAllRequestForTests(PrefabThumbnailRequest request)
 		{
 			TrackGenerateAllRequest(request);
 		}
 
-		internal static void CompleteGenerateAllRequestForTests(ParticleThumbnailRequest request, bool success)
+		internal static void CompleteGenerateAllRequestForTests(PrefabThumbnailRequest request, bool success)
 		{
 			CompleteGenerateAllRequest(request, success);
 		}
 
-		internal static void MarkFailedRequestForTests(ParticleThumbnailRequest request, string dependencyToken)
+		internal static void MarkFailedRequestForTests(PrefabThumbnailRequest request, string dependencyToken)
 		{
 			FailedDependencyByRequest[request] = dependencyToken ?? string.Empty;
 			RefreshVolatileStatsSnapshot();
@@ -1306,7 +1288,7 @@ namespace NoodleHammer.PreviewForge.Editor
 				DiskCacheBytes = diskBytes,
 			};
 
-			foreach (ParticleThumbnailRecord record in Cache.Values)
+			foreach (PrefabThumbnailRecord record in Cache.Values)
 			{
 				if (record?.Texture != null)
 					CachedStats.MemoryCacheBytes += GetTextureFootprintBytes(record.Texture);
@@ -1345,7 +1327,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			return texture == null ? 0L : (long) texture.width * texture.height * 4L;
 		}
 
-		private static bool ShouldDropStaleRequest(ParticleThumbnailRequest request)
+		private static bool ShouldDropStaleRequest(PrefabThumbnailRequest request)
 		{
 			if (GenerateAllPendingRequests.Contains(request))
 				return false;
@@ -1440,7 +1422,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			RepaintAllRelevantWindows();
 		}
 
-		private static void RemoveGenerateAllRequestsFromQueue(Queue<ParticleThumbnailRequest> queue)
+		private static void RemoveGenerateAllRequestsFromQueue(Queue<PrefabThumbnailRequest> queue)
 		{
 			if (queue == null || queue.Count == 0 || GenerateAllPendingRequests.Count == 0)
 				return;
@@ -1448,7 +1430,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			int count = queue.Count;
 			for (int i = 0; i < count; i++)
 			{
-				ParticleThumbnailRequest request = queue.Dequeue();
+				PrefabThumbnailRequest request = queue.Dequeue();
 				if (GenerateAllPendingRequests.Contains(request))
 				{
 					Queued.Remove(request);
@@ -1518,36 +1500,6 @@ namespace NoodleHammer.PreviewForge.Editor
 			UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
 		}
 
-		private static void RefreshSelectedAssetGuidCache()
-		{
-			SingleSelectedAssetGuid = string.Empty;
-			SelectedAssetGuids.Clear();
-
-			string[] selectedAssetGuids = Selection.assetGUIDs;
-			if (selectedAssetGuids == null || selectedAssetGuids.Length == 0)
-				return;
-
-			if (selectedAssetGuids.Length == 1)
-			{
-				SingleSelectedAssetGuid = selectedAssetGuids[0] ?? string.Empty;
-				return;
-			}
-
-			for (int i = 0; i < selectedAssetGuids.Length; i++)
-			{
-				string selectedGuid = selectedAssetGuids[i];
-				if (!string.IsNullOrEmpty(selectedGuid))
-					SelectedAssetGuids.Add(selectedGuid);
-			}
-		}
-
-		private static void OnSelectionChanged()
-		{
-			RefreshSelectedAssetGuidCache();
-			if (ParticleThumbnailSettings.Enabled && ParticleThumbnailSettings.DrawInProjectGrid)
-				EditorApplication.RepaintProjectWindow();
-		}
-
 		private static bool ShouldProjectWindowHookBeActive()
 		{
 			return ParticleThumbnailSettings.Enabled
@@ -1576,7 +1528,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			return PreviewEditorTransitionGuard.IsUnsafeTransition();
 		}
 
-		private static void RefreshRuntimeHooks(bool refreshSelectionCacheWhenEnabled = false)
+		private static void RefreshRuntimeHooks()
 		{
 			bool shouldProjectWindowHookBeActive = ShouldProjectWindowHookBeActive();
 			if (shouldProjectWindowHookBeActive != ProjectWindowHookRegistered)
@@ -1588,20 +1540,6 @@ namespace NoodleHammer.PreviewForge.Editor
 
 				ProjectWindowHookRegistered = shouldProjectWindowHookBeActive;
 			}
-
-			bool shouldSelectionHookBeActive = shouldProjectWindowHookBeActive;
-			if (shouldSelectionHookBeActive != SelectionChangedHookRegistered)
-			{
-				if (shouldSelectionHookBeActive)
-					Selection.selectionChanged += OnSelectionChanged;
-				else
-					Selection.selectionChanged -= OnSelectionChanged;
-
-				SelectionChangedHookRegistered = shouldSelectionHookBeActive;
-			}
-
-			if (shouldSelectionHookBeActive && refreshSelectionCacheWhenEnabled)
-				RefreshSelectedAssetGuidCache();
 
 			bool shouldEditorUpdateHookBeActive = HasPendingEditorWork();
 			if (shouldEditorUpdateHookBeActive == EditorUpdateHookRegistered)
@@ -1729,7 +1667,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			float contentWidth = position.width - pad * 2f;
 			float y = 20f;
 
-			EditorGUI.LabelField(new Rect(pad, y, contentWidth, 28f), "Generating Particle Thumbnails", titleStyle);
+			EditorGUI.LabelField(new Rect(pad, y, contentWidth, 28f), "Generating Prefab Thumbnails", titleStyle);
 			y += 34f;
 
 			EditorGUI.LabelField(new Rect(pad, y, contentWidth, 24f), headline, headlineStyle);

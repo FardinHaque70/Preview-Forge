@@ -11,17 +11,17 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23c0bc9f594814c38a7204621b8f0f7c, type: 3}
   m_Name: ParticleThumbnailSettings
-  m_EditorClassIdentifier: NoodleHammer.PreviewForge.Editor::NoodleHammer.PreviewForge.Editor.ParticleThumbnailSettingsStorage
+  m_EditorClassIdentifier: NoodleHammer.PreviewForge.Editor::NoodleHammer.PreviewForge.Editor.PrefabThumbnailSettingsStorage
   enabled: 1
   drawInProjectGrid: 1
   drawInProjectList: 1
   gridRenderSize: 128
   listRenderSize: 32
   backgroundColor: {r: 0.15, g: 0.15, b: 0.15, a: 1}
+  boundsPadding: 0.15
   cameraFov: 30
   cameraYaw: 35
   cameraPitch: 25
-  boundsPadding: 0.15
   scanMaxSeconds: 3
   motionPadding: 0.2
   motionRadius: 3

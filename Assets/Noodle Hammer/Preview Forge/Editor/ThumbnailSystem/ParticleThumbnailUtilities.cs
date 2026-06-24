@@ -1,14 +1,56 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-// Provides shared utility helpers for thumbnail drawing, overlay rendering, texture handling, and GUI convenience workflows.
+// Provides shared detection, renderer resolution, scoring, and Project-window UI helpers for prefab thumbnails.
 
 namespace NoodleHammer.PreviewForge.Editor
 {
-    internal static class ParticleThumbnailDetection
+    internal static class PrefabThumbnailDetection
     {
         public static bool IsParticlePrefab(GameObject root)
         {
-            return root != null && root.GetComponent<ParticleSystem>() != null;
+            return root != null && root.GetComponentInChildren<ParticleSystem>(true) != null;
+        }
+    }
+
+    internal static class PrefabThumbnailRendererRegistry
+    {
+        private static readonly List<IPrefabThumbnailRenderer> Renderers = new();
+
+        static PrefabThumbnailRendererRegistry()
+        {
+            Register(new ParticlePrefabThumbnailRenderer());
+            Register(new UiPrefabThumbnailRenderer());
+        }
+
+        public static IPrefabThumbnailRenderer FindBestRenderer(GameObject prefab, string guid, string assetPath, out PrefabThumbnailSupportInfo supportInfo)
+        {
+            supportInfo = PrefabThumbnailSupportInfo.Unsupported;
+            IPrefabThumbnailRenderer bestRenderer = null;
+
+            for (int i = 0; i < Renderers.Count; i++)
+            {
+                IPrefabThumbnailRenderer renderer = Renderers[i];
+                PrefabThumbnailSupportInfo candidate = renderer.GetSupportInfo(prefab, guid, assetPath);
+                if (!candidate.Supported)
+                    continue;
+
+                if (bestRenderer == null || candidate.Priority < supportInfo.Priority)
+                {
+                    bestRenderer = renderer;
+                    supportInfo = candidate;
+                }
+            }
+
+            return bestRenderer;
+        }
+
+        private static void Register(IPrefabThumbnailRenderer renderer)
+        {
+            if (renderer == null)
+                return;
+
+            Renderers.Add(renderer);
         }
     }
 
@@ -52,39 +94,33 @@ namespace NoodleHammer.PreviewForge.Editor
         }
     }
 
-    internal static class ParticleThumbnailProjectWindowUi
+    internal static class PrefabThumbnailProjectWindowUi
     {
         private const float ListViewIconOffsetX = 2f;
-        private const float ThumbnailRectScale = 0.95f;
+        private const float ThumbnailRectScale = 1f;
 
-        public static ParticleThumbnailSurface GetSurface(Rect selectionRect)
+        public static PrefabThumbnailSurface GetSurface(Rect selectionRect)
         {
             if (selectionRect.width > selectionRect.height * 2f)
-                return ParticleThumbnailSurface.ProjectWindowList;
+                return PrefabThumbnailSurface.ProjectWindowList;
 
             if (selectionRect.width < selectionRect.height * 1.2f)
-                return ParticleThumbnailSurface.ProjectWindowGrid;
+                return PrefabThumbnailSurface.ProjectWindowGrid;
 
             return selectionRect.height <= 24f
-                ? ParticleThumbnailSurface.ProjectWindowList
-                : ParticleThumbnailSurface.ProjectWindowGrid;
+                ? PrefabThumbnailSurface.ProjectWindowList
+                : PrefabThumbnailSurface.ProjectWindowGrid;
         }
 
-        public static Rect GetContentRect(Rect selectionRect, ParticleThumbnailSurface surface)
+        public static Rect GetContentRect(Rect selectionRect, PrefabThumbnailSurface surface)
         {
             Rect iconRect = GetBaseIconRect(selectionRect, surface);
             return ScaleRectAroundCenter(iconRect, ThumbnailRectScale);
         }
 
-        public static Rect GetOutlineRect(Rect selectionRect, ParticleThumbnailSurface surface)
+        private static Rect GetBaseIconRect(Rect selectionRect, PrefabThumbnailSurface surface)
         {
-            // Outline uses full icon rect so it fills the padding introduced by thumbnail scaling.
-            return GetBaseIconRect(selectionRect, surface);
-        }
-
-        private static Rect GetBaseIconRect(Rect selectionRect, ParticleThumbnailSurface surface)
-        {
-            if (surface == ParticleThumbnailSurface.ProjectWindowList)
+            if (surface == PrefabThumbnailSurface.ProjectWindowList)
             {
                 float size = Mathf.Max(0f, selectionRect.height);
                 return new Rect(selectionRect.x + ListViewIconOffsetX, selectionRect.y, size, size);
