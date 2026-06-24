@@ -104,6 +104,9 @@ scripts/
 !scripts/
 !scripts/sync_upm_package.sh
 Assets/Tests
+Assets/Tests.meta
 Assets/Showcase
+Assets/Showcase.meta
 Assets/Scenes
+Assets/Scenes.meta
 Assets/Settings
