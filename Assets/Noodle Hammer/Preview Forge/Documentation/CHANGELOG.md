@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.42] - 2026-06-24
+
+- Rename the persistent thumbnail cache folder to `PrefabThumbnailCache` and keep both legacy particle-cache locations as migration sources for existing installs.
+- Add EditMode coverage for the current cache directory and both legacy migration paths so cache upgrades stay deterministic.
+- Refresh the readmes to better explain the current thumbnail scope, editor-internal integration costs, and preview conflict troubleshooting guidance.
+
 ## [1.1.41] - 2026-06-24
 
 - Refresh the package readmes to document the current support matrix for particle, UI, sprite, model, and imported 3D asset workflows.

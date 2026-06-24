@@ -2,22 +2,12 @@
 
 Thumbnails and Custom Previews for Unity
 
-Editor-only Unity tools for custom thumbnails and custom previews across a focused set of prefab and asset types.
-
-## Support Matrix
-
-| Content type | Custom thumbnail | Custom Inspector preview | Notes |
-| --- | --- | --- | --- |
-| Particle prefabs | Yes | Yes | Thumbnails support particle content in the prefab hierarchy. The particle custom preview path targets prefabs whose root object owns the primary `ParticleSystem`. |
-| UI prefabs | Yes | No | Supports `Canvas`-based or loose `RectTransform` prefabs with drawable Unity UI `Graphic` content or `TextMeshProUGUI`. |
-| Sprite prefabs | No | Yes | Uses the sprite prefab preview workflow with framing, bounds, collider, and grid tools. |
-| Model prefabs | No | Yes | Supports prefabs with `MeshRenderer` or `SkinnedMeshRenderer` content. |
-| Imported 3D assets | No | Yes | Uses the improved model importer preview workflow. |
+Editor-only Unity tools for custom thumbnails and custom previews that improve Unity's default prefab and asset browsing workflow.
 
 ## What This Package Provides
 
 - `Custom Thumbnails`
-  - Static Project-window thumbnails for supported particle and UI prefabs.
+  - Static Project-window thumbnails for particle prefabs and supported UI prefabs that Unity does not thumbnail well by default.
   - Motion-aware framing for effects that emit over traveled distance.
   - Thumbnail badges for supported prefab categories.
 - `Custom Previews`
@@ -32,16 +22,19 @@ Editor-only Unity tools for custom thumbnails and custom previews across a focus
 
 - Minimum Unity version: `2022.3` (UPM metadata baseline)
 - Unity 6.5 (`6000.5+`) is supported through the package compatibility layer for Unity object identity APIs
-- Verified in development environment: Unity `6000.3.10f1` on macOS; compatibility checked against installed Unity `6000.5.0f1` API metadata
-- Render pipeline support target:
+- Render pipeline support:
   - Built-in Render Pipeline
   - URP (`3D` and `2D Renderer` detection for preview compatibility safeguards)
   - HDRP
 
 ## Performance and Safety Notes
 
+- Preview Forge is designed to stay lightweight and editor-only, but it is not a zero-cost or zero-risk integration.
+- Unity does not provide a clean public API for fully replacing Project window asset thumbnails, so Unity's default thumbnail still draws underneath before Preview Forge overlays its custom thumbnail result.
+- Custom prefab preview ownership is patched in with a scoped Harmony integration because Unity does not expose a stable public replacement path for this workflow.
 - No runtime update loops or player-side hooks are added using Harmony Patcher.
 - Preview update hooks are scoped and unsubscribed when not needed.
+- Because these features depend on Unity editor internals, future untested Unity versions may require compatibility updates if Unity changes thumbnail or preview behavior.
 
 ## Third-Party Inspector / Preview Coexistence
 
@@ -49,10 +42,11 @@ This package is designed to coexist with other editor tools, including Odin Insp
 
 If you see preview ownership conflicts:
 
-1. Open `Project Settings > Preview Forge`
-2. Temporarily disable Particle Preview
-3. Adjust tool registration order / integration settings
-4. Re-enable Particle Preview and recheck prefab inspector behavior
+1. Check the Console for the Preview Forge conflict log to confirm whether Unity's built-in preview or another custom preview provider took ownership.
+2. Open `Project Settings > Preview Forge` and temporarily disable custom prefab previews to confirm whether the conflict is on Preview Forge's preview path.
+3. If another tool is trying to own the same prefab preview surface, keep one preview system enabled for that workflow instead of running both against the same target.
+4. Re-enable Preview Forge, reselect the prefab, and restart Unity if needed so the inspector host rebuilds cleanly.
+5. If the conflict still happens on a supported Unity version without another competing preview tool, report it as a compatibility issue.
 
 ## Installation (Git UPM)
 

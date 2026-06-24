@@ -15,23 +15,7 @@ Thumbnails and Custom Previews for Unity.
 > I want this tool to stay accessible to everyone, so the **free GitHub version** and the **paid Unity Asset Store version** include the exact same toolset.
 > If you'd like to support my work and ongoing development, you can pick it up on the [Unity Asset Store](https://assetstore.unity.com/packages/slug/370342). Thanks!
 
-Preview Forge adds custom Project window thumbnails and Inspector previews for a focused set of prefab and asset types, with editor safety and compatibility as first-class goals.
-
-## What We Support
-
-| Content type | Custom thumbnail | Custom Inspector preview | Notes |
-| --- | --- | --- | --- |
-| Particle prefabs | Yes | Yes | Particle thumbnails support particle content in the prefab hierarchy. The particle custom preview path targets prefabs whose root object owns the primary `ParticleSystem`. |
-| UI prefabs | Yes | No | Supports `Canvas`-based or loose `RectTransform` prefabs with drawable Unity UI `Graphic` content or `TextMeshProUGUI`. |
-| Sprite prefabs | No | Yes | Uses the sprite prefab preview workflow with framing, bounds, collider, and grid tools. |
-| Model prefabs | No | Yes | Supports prefabs with `MeshRenderer` or `SkinnedMeshRenderer` content. |
-| Imported 3D assets (`FBX`, `Blend`, similar model assets) | No | Yes | Uses the same improved model preview workflow in the importer preview. |
-
-## What We Do Not Currently Support
-
-- UI prefabs do not currently get a dedicated custom Inspector preview.
-- Mixed UI + mesh or UI + sprite prefabs do not use the UI thumbnail renderer and fall back to the other applicable preview path or Unity defaults.
-- VFX Graph thumbnails are not currently supported.
+Preview Forge improves Unity's default asset browsing workflow with custom Project window thumbnails for particle prefabs and supported UI prefabs, plus richer Inspector previews for particle, sprite, model, and imported 3D assets.
 
 ## See It In Action
 
@@ -63,9 +47,9 @@ Prefabs with 3D models, along with 3D asset files such as FBX and Blend, get a m
 ### Custom Thumbnails
 
 - Particle prefab thumbnails with static rendering and motion-aware framing for effects that emit over traveled distance
-- UI prefab thumbnails for supported `RectTransform`-based Unity UI and TMP UGUI prefabs
+- UI prefab thumbnails for supported `Canvas`-based and loose `RectTransform` prefabs that use Unity UI `Graphic` components or `TextMeshProUGUI`
 - Thumbnail badges that distinguish supported particle and UI prefab thumbnails
-- Cached output stored in `Library/Noodle Hammer/Preview Forge/ParticleThumbnailCache`
+- Cached output stored in `Library/Noodle Hammer/Preview Forge/PrefabThumbnailCache`
 
 ### Custom Previews
 
@@ -81,6 +65,13 @@ Prefabs with 3D models, along with 3D asset files such as FBX and Blend, get a m
 - Unity 6.5 (`6000.5+`) is supported through the package compatibility layer for Unity object identity APIs
 - Developed and verified in Unity `6000.3.10f1` on macOS; compatibility checked against installed Unity `6000.5.0f1` API metadata
 - Targeted render pipeline support: Built-in Render Pipeline, URP, HDRP
+
+## Performance and Safety Notes
+
+- Preview Forge is designed to stay lightweight and editor-only, but it is not a zero-cost integration.
+- Unity does not provide a clean public API for fully replacing Project window asset thumbnails, so Unity's default thumbnail still draws underneath before Preview Forge overlays its custom thumbnail result.
+- Custom prefab preview ownership is patched in with a scoped Harmony integration because Unity does not expose a stable public replacement path for this workflow.
+- Because these features depend on Unity editor internals, future untested Unity versions may require compatibility updates if Unity changes thumbnail or preview behavior.
 
 ## Installation
 

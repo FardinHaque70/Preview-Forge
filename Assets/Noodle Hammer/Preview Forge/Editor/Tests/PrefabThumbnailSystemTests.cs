@@ -1,3 +1,4 @@
+using System.IO;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -197,6 +198,37 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
             string uiKey = PrefabThumbnailPersistentCache.BuildCacheKey(uiRequest, dependencyToken, settingsToken);
 
             Assert.That(particleKey, Is.Not.EqualTo(uiKey));
+        }
+
+        [Test]
+        public void PersistentCacheDirectory_UsesGenericPrefabFolderName()
+        {
+            string libraryDirectory = Path.Combine("ProjectRoot", "Library");
+
+            string directory = PrefabThumbnailPersistentCache.BuildCurrentCacheDirectoryPathForTests(libraryDirectory);
+
+            Assert.That(
+                directory,
+                Is.EqualTo(Path.Combine(libraryDirectory, "Noodle Hammer", "Preview Forge", "PrefabThumbnailCache")));
+        }
+
+        [Test]
+        public void PersistentCacheDirectory_LegacyParticlePathsRemainMigrationSources()
+        {
+            string libraryDirectory = Path.Combine("ProjectRoot", "Library");
+
+            string nestedLegacyDirectory = PrefabThumbnailPersistentCache.BuildNestedLegacyCacheDirectoryPathForTests(libraryDirectory);
+            string flatLegacyDirectory = PrefabThumbnailPersistentCache.BuildFlatLegacyCacheDirectoryPathForTests(libraryDirectory);
+            string currentDirectory = PrefabThumbnailPersistentCache.BuildCurrentCacheDirectoryPathForTests(libraryDirectory);
+
+            Assert.That(
+                nestedLegacyDirectory,
+                Is.EqualTo(Path.Combine(libraryDirectory, "Noodle Hammer", "Preview Forge", "ParticleThumbnailCache")));
+            Assert.That(
+                flatLegacyDirectory,
+                Is.EqualTo(Path.Combine(libraryDirectory, "ParticleThumbnailCache")));
+            Assert.That(currentDirectory, Is.Not.EqualTo(nestedLegacyDirectory));
+            Assert.That(currentDirectory, Is.Not.EqualTo(flatLegacyDirectory));
         }
 
         [Test]

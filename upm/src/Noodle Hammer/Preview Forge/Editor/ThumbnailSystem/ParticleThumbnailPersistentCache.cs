@@ -9,13 +9,14 @@ namespace NoodleHammer.PreviewForge.Editor
     internal static class PrefabThumbnailPersistentCache
     {
         private const int CacheFormatVersion = 3;
+        private const string CurrentCacheFolderName = "PrefabThumbnailCache";
         private const string LegacyCacheFolderName = "ParticleThumbnailCache";
         private const string StudioFolderName = "Noodle Hammer";
         private const string ProductFolderName = "Preview Forge";
         private static bool s_diskStatsInitialized;
         private static int s_cachedDiskFileCount;
         private static long s_cachedDiskBytes;
-        private static bool s_legacyCacheMigrationAttempted;
+        private static bool s_cacheMigrationAttempted;
         private static string s_cacheDirectoryOverrideForTests;
 
         public static bool TryLoadTexture(PrefabThumbnailRequest request, string dependencyToken, out Texture2D texture)
@@ -175,7 +176,22 @@ namespace NoodleHammer.PreviewForge.Editor
             s_diskStatsInitialized = false;
             s_cachedDiskFileCount = 0;
             s_cachedDiskBytes = 0L;
-            s_legacyCacheMigrationAttempted = false;
+            s_cacheMigrationAttempted = false;
+        }
+
+        internal static string BuildCurrentCacheDirectoryPathForTests(string libraryDirectory)
+        {
+            return BuildProductCacheDirectory(libraryDirectory, CurrentCacheFolderName);
+        }
+
+        internal static string BuildNestedLegacyCacheDirectoryPathForTests(string libraryDirectory)
+        {
+            return BuildProductCacheDirectory(libraryDirectory, LegacyCacheFolderName);
+        }
+
+        internal static string BuildFlatLegacyCacheDirectoryPathForTests(string libraryDirectory)
+        {
+            return Path.Combine(libraryDirectory, LegacyCacheFolderName);
         }
 
         private static string GetCacheFilePath(PrefabThumbnailRequest request, string dependencyToken)
@@ -192,50 +208,73 @@ namespace NoodleHammer.PreviewForge.Editor
 
             string projectRoot = Path.GetDirectoryName(Application.dataPath) ?? string.Empty;
             string libraryDirectory = Path.Combine(projectRoot, "Library");
-            string cacheDirectory = Path.Combine(libraryDirectory, StudioFolderName, ProductFolderName, LegacyCacheFolderName);
-            TryMigrateLegacyCacheDirectory(libraryDirectory, cacheDirectory);
+            string cacheDirectory = BuildCurrentCacheDirectoryPathForTests(libraryDirectory);
+            TryMigrateLegacyCacheDirectories(libraryDirectory, cacheDirectory);
             return cacheDirectory;
         }
 
-        private static void TryMigrateLegacyCacheDirectory(string libraryDirectory, string cacheDirectory)
+        private static void TryMigrateLegacyCacheDirectories(string libraryDirectory, string cacheDirectory)
         {
-            if (s_legacyCacheMigrationAttempted)
+            if (s_cacheMigrationAttempted)
                 return;
 
-            s_legacyCacheMigrationAttempted = true;
-            string legacyCacheDirectory = Path.Combine(libraryDirectory, LegacyCacheFolderName);
-            if (!Directory.Exists(legacyCacheDirectory) || string.Equals(legacyCacheDirectory, cacheDirectory, StringComparison.Ordinal))
+            s_cacheMigrationAttempted = true;
+            string[] legacyDirectories =
+            {
+                BuildNestedLegacyCacheDirectoryPathForTests(libraryDirectory),
+                BuildFlatLegacyCacheDirectoryPathForTests(libraryDirectory),
+            };
+
+            for (int i = 0; i < legacyDirectories.Length; i++)
+            {
+                TryMigrateCacheDirectory(legacyDirectories[i], cacheDirectory);
+            }
+        }
+
+        private static void TryMigrateCacheDirectory(string sourceDirectory, string destinationDirectory)
+        {
+            if (string.IsNullOrEmpty(sourceDirectory)
+                || string.IsNullOrEmpty(destinationDirectory)
+                || string.Equals(sourceDirectory, destinationDirectory, StringComparison.Ordinal)
+                || !Directory.Exists(sourceDirectory))
+            {
                 return;
+            }
 
             try
             {
-                string parentDirectory = Path.GetDirectoryName(cacheDirectory);
+                string parentDirectory = Path.GetDirectoryName(destinationDirectory);
                 if (string.IsNullOrEmpty(parentDirectory))
                     return;
 
                 Directory.CreateDirectory(parentDirectory);
-                if (!Directory.Exists(cacheDirectory))
+                if (!Directory.Exists(destinationDirectory))
                 {
-                    Directory.Move(legacyCacheDirectory, cacheDirectory);
+                    Directory.Move(sourceDirectory, destinationDirectory);
                     return;
                 }
 
-                string[] legacyFiles = Directory.GetFiles(legacyCacheDirectory, "*", SearchOption.TopDirectoryOnly);
-                for (int i = 0; i < legacyFiles.Length; i++)
+                string[] sourceFiles = Directory.GetFiles(sourceDirectory, "*", SearchOption.TopDirectoryOnly);
+                for (int i = 0; i < sourceFiles.Length; i++)
                 {
-                    string destinationPath = Path.Combine(cacheDirectory, Path.GetFileName(legacyFiles[i]));
+                    string destinationPath = Path.Combine(destinationDirectory, Path.GetFileName(sourceFiles[i]));
                     if (File.Exists(destinationPath))
                         continue;
 
-                    File.Move(legacyFiles[i], destinationPath);
+                    File.Move(sourceFiles[i], destinationPath);
                 }
 
-                if (Directory.GetFileSystemEntries(legacyCacheDirectory).Length == 0)
-                    Directory.Delete(legacyCacheDirectory, false);
+                if (Directory.GetFileSystemEntries(sourceDirectory).Length == 0)
+                    Directory.Delete(sourceDirectory, false);
             }
             catch
             {
             }
+        }
+
+        private static string BuildProductCacheDirectory(string libraryDirectory, string cacheFolderName)
+        {
+            return Path.Combine(libraryDirectory, StudioFolderName, ProductFolderName, cacheFolderName);
         }
 
         private static void WriteAllBytesAtomic(string path, byte[] bytes)
