@@ -101,5 +101,9 @@ OldImplementation
 agent.md
 AGENTS.md
 scripts/
+!scripts/
+!scripts/sync_upm_package.sh
 Assets/Tests
 Assets/Showcase
+Assets/Scenes
+Assets/Settings

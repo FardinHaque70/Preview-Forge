@@ -22,7 +22,8 @@ Editor-only Unity tools for custom thumbnails and custom previews that improve U
 
 - Minimum Unity version: `2022.3` (UPM metadata baseline)
 - Unity 6.5 (`6000.5+`) is supported through the package compatibility layer for Unity object identity APIs
-- Render pipeline support:
+- Verified in development environment: Unity `6000.3.10f1` on macOS; compatibility checked against installed Unity `6000.5.0f1` API metadata
+- Render pipeline support target:
   - Built-in Render Pipeline
   - URP (`3D` and `2D Renderer` detection for preview compatibility safeguards)
   - HDRP
@@ -81,7 +82,8 @@ Unity Editor restart is recommended after first install so preview hook initiali
 
 - Asset Store payload root: `Assets/Noodle Hammer/Preview Forge`
 - Git UPM install root: `Packages/com.noodlehammer.preview-forge/Noodle Hammer/Preview Forge`
-- Writable settings assets: `Assets/Noodle Hammer/Preview Forge/Settings`
+- Project configuration stays in `Assets/Noodle Hammer/Preview Forge/Settings`
+- Git UPM installs should not require or auto-create a companion `Assets/Noodle Hammer/Preview Forge` folder
 
 ## Usage
 
@@ -90,6 +92,13 @@ Unity Editor restart is recommended after first install so preview hook initiali
 3. Select supported UI prefabs in the Project window to let Preview Forge generate custom thumbnails.
 4. For sprite or mesh/skinned prefabs, use preview controls for orbit/pan/zoom plus the available visualization tools.
 5. Use package project settings for thumbnail cache maintenance, regeneration, and preview behavior defaults.
+
+## Extending Safely
+
+- Keep extension code in editor-only assemblies (`includePlatforms: Editor`).
+- Reuse `PreviewRenderCompatibilityUtility` and `PreviewModeResolver` for SRP/version-safe decisions.
+- Prefer lightweight, event-driven hooks over persistent editor update polling.
+- When adding preview integrations, keep conflict logs actionable and one-time to avoid console spam.
 
 ## Limitations
 

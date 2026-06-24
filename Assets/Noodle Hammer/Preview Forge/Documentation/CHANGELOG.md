@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.44] - 2026-06-24
+
+- Add a tracked `scripts/sync_upm_package.sh` workflow and update the package readmes to clarify install layout, settings-asset ownership, and safe extension guidance.
+- Align UPM mirror `.meta` GUIDs with the asset-side source files so the published package metadata matches the canonical development tree more reliably.
+- Remove stale sample-root metadata that is no longer needed by the current package layout.
+
 ## [1.1.43] - 2026-06-24
 
 - Rename the shared thumbnail system files, settings asset, and supporting types from `ParticleThumbnail*` to `PrefabThumbnail*` so the codebase matches the package's broader prefab-thumbnail scope.

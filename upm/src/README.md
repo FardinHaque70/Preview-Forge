@@ -1,6 +1,6 @@
 # Preview Forge
 
-<sub>Thumbnails and Custom Previews for Unity</sub>
+Thumbnails and Custom Previews for Unity
 
 Editor-only Unity tools for custom thumbnails and custom previews that improve Unity's default prefab and asset browsing workflow.
 
@@ -78,17 +78,12 @@ Unity Editor restart is recommended after first install so preview hook initiali
 - After import, open `Project Settings > Preview Forge` to confirm defaults for your project.
 - Restart Unity once after first import so preview hook initialization is clean.
 
-## Distribution Workflow
+## Install Layout
 
-- Asset Store release payload: `Assets/Noodle Hammer/Preview Forge`
-- Git UPM release payload: `upm/src`
-- Each install is single-root:
-  - Asset Store import runs entirely from `Assets/Noodle Hammer/Preview Forge`
-  - Git UPM install runs entirely from `Packages/com.noodlehammer.preview-forge/Noodle Hammer/Preview Forge`
+- Asset Store payload root: `Assets/Noodle Hammer/Preview Forge`
+- Git UPM install root: `Packages/com.noodlehammer.preview-forge/Noodle Hammer/Preview Forge`
 - Project configuration stays in `Assets/Noodle Hammer/Preview Forge/Settings`
 - Git UPM installs should not require or auto-create a companion `Assets/Noodle Hammer/Preview Forge` folder
-
-For this repository, authoring stays in `Assets/Noodle Hammer/Preview Forge`. Run `scripts/sync_upm_package.sh` before Git UPM release work to mirror the current source into `upm/src`.
 
 ## Usage
 
