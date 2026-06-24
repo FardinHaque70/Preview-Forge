@@ -11,6 +11,13 @@ namespace NoodleHammer.PreviewForge.Editor
         UiPrefab = 2,
     }
 
+    internal enum PrefabThumbnailBadgeType
+    {
+        None = 0,
+        Particle = 1,
+        Ui = 2,
+    }
+
     internal enum PrefabThumbnailSurface
     {
         ProjectWindowGrid = 0,

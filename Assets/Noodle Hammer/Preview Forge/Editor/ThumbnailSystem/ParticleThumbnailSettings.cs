@@ -9,6 +9,7 @@ namespace NoodleHammer.PreviewForge.Editor
     {
         public const int D_GridRenderSize = 128;
         public const int D_ListRenderSize = 32;
+        public const bool D_ShowGridViewBadges = true;
         public static readonly Color D_BackgroundColor = new Color(0.15f, 0.15f, 0.15f, 1f);
 
         public const float D_CameraFov = 30f;
@@ -37,6 +38,7 @@ namespace NoodleHammer.PreviewForge.Editor
         public static bool Enabled => Storage.enabled;
         public static bool DrawInProjectGrid => Storage.drawInProjectGrid;
         public static bool DrawInProjectList => Storage.drawInProjectList;
+        public static bool ShowGridViewBadges => Storage.showGridViewBadges;
         public static int GridRenderSize => Mathf.Clamp(Storage.gridRenderSize, 32, 128);
         public static int ListRenderSize => Mathf.Clamp(Storage.listRenderSize, 16, 64);
         public static Color BackgroundColor => Storage.backgroundColor;
@@ -63,28 +65,59 @@ namespace NoodleHammer.PreviewForge.Editor
 
         public static string GetPersistentSettingsToken()
         {
+            return BuildPersistentSettingsToken(Storage);
+        }
+
+        internal static string BuildPersistentSettingsToken(PrefabThumbnailSettingsStorage storage)
+        {
+            if (storage == null)
+            {
+                return BuildPersistentSettingsToken(
+                    enabled: true,
+                    drawInProjectGrid: true,
+                    drawInProjectList: true,
+                    gridRenderSize: D_GridRenderSize,
+                    listRenderSize: D_ListRenderSize,
+                    backgroundColor: D_BackgroundColor,
+                    boundsPadding: D_BoundsPadding,
+                    cameraFov: D_CameraFov,
+                    cameraYaw: D_CameraYaw,
+                    cameraPitch: D_CameraPitch,
+                    scanMaxSeconds: D_ScanMaxSeconds,
+                    motionPadding: D_MotionPadding,
+                    motionRadius: D_MotionRadius,
+                    motionSpeed: D_MotionSpeed,
+                    enableTightFraming: D_EnableTightFraming,
+                    particleFramingPercentile: D_ParticleFramingPercentile,
+                    thumbnailFillTarget: D_ThumbnailFillTarget,
+                    maxRendersPerUpdate: D_MaxRendersPerUpdate,
+                    renderBudgetMs: D_RenderBudgetMs,
+                    memoryCacheMaxEntries: D_MemoryCacheMaxEntries,
+                    enablePersistentCache: true);
+            }
+
             return BuildPersistentSettingsToken(
-                Enabled,
-                DrawInProjectGrid,
-                DrawInProjectList,
-                GridRenderSize,
-                ListRenderSize,
-                BackgroundColor,
-                BoundsPadding,
-                CameraFov,
-                CameraYaw,
-                CameraPitch,
-                ScanMaxSeconds,
-                MotionPadding,
-                MotionRadius,
-                MotionSpeed,
-                EnableTightFraming,
-                ParticleFramingPercentile,
-                ThumbnailFillTarget,
-                MaxRendersPerUpdate,
-                RenderBudgetMs,
-                MemoryCacheMaxEntries,
-                EnablePersistentCache);
+                storage.enabled,
+                storage.drawInProjectGrid,
+                storage.drawInProjectList,
+                storage.gridRenderSize,
+                storage.listRenderSize,
+                storage.backgroundColor,
+                storage.boundsPadding,
+                storage.cameraFov,
+                storage.cameraYaw,
+                storage.cameraPitch,
+                storage.scanMaxSeconds,
+                storage.motionPadding,
+                storage.motionRadius,
+                storage.motionSpeed,
+                storage.enableTightFraming,
+                storage.particleFramingPercentile,
+                storage.thumbnailFillTarget,
+                storage.maxRendersPerUpdate,
+                storage.renderBudgetMs,
+                storage.memoryCacheMaxEntries,
+                storage.enablePersistentCache);
         }
 
         internal static string BuildParticleFramingSettingsFragment(bool enableTightFraming, float framingPercentile, float thumbnailFillTarget)
@@ -163,6 +196,7 @@ namespace NoodleHammer.PreviewForge.Editor
         public static bool Enabled => PrefabThumbnailSettings.Enabled;
         public static bool DrawInProjectGrid => PrefabThumbnailSettings.DrawInProjectGrid;
         public static bool DrawInProjectList => PrefabThumbnailSettings.DrawInProjectList;
+        public static bool ShowGridViewBadges => PrefabThumbnailSettings.ShowGridViewBadges;
         public static int GridRenderSize => PrefabThumbnailSettings.GridRenderSize;
         public static int ListRenderSize => PrefabThumbnailSettings.ListRenderSize;
         public static Color BackgroundColor => PrefabThumbnailSettings.BackgroundColor;
@@ -290,6 +324,7 @@ namespace NoodleHammer.PreviewForge.Editor
             {
                 DrawToggle(serializedObject.FindProperty(nameof(PrefabThumbnailSettingsStorage.drawInProjectGrid)), "Draw In Grid", "Render custom thumbnails in Project window grid view.");
                 DrawToggle(serializedObject.FindProperty(nameof(PrefabThumbnailSettingsStorage.drawInProjectList)), "Draw In List", "Render custom thumbnails in Project window list view.");
+                DrawToggle(serializedObject.FindProperty(nameof(PrefabThumbnailSettingsStorage.showGridViewBadges)), "Show Grid View Badges", "Draw small type badges on prefab thumbnails in Project window grid view only.");
             });
 
             DrawSectionCard("Background", () =>

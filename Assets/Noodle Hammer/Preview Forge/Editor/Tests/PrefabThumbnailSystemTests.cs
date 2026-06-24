@@ -200,6 +200,76 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
         }
 
         [Test]
+        public void BadgeResolver_ParticlePrefab_ResolvesParticleBadge()
+        {
+            Assert.That(
+                PrefabThumbnailBadgeResolver.Resolve(PrefabThumbnailAssetKind.ParticlePrefab),
+                Is.EqualTo(PrefabThumbnailBadgeType.Particle));
+        }
+
+        [Test]
+        public void BadgeResolver_UiPrefab_ResolvesUiBadge()
+        {
+            Assert.That(
+                PrefabThumbnailBadgeResolver.Resolve(PrefabThumbnailAssetKind.UiPrefab),
+                Is.EqualTo(PrefabThumbnailBadgeType.Ui));
+        }
+
+        [Test]
+        public void BadgeResolver_UnsupportedKind_ResolvesNoBadge()
+        {
+            Assert.That(
+                PrefabThumbnailBadgeResolver.Resolve(PrefabThumbnailAssetKind.Unsupported),
+                Is.EqualTo(PrefabThumbnailBadgeType.None));
+        }
+
+        [Test]
+        public void BadgeDrawer_ListView_DoesNotDraw()
+        {
+            bool shouldDraw = PrefabThumbnailBadgeDrawer.ShouldDraw(
+                PrefabThumbnailBadgeType.Ui,
+                PrefabThumbnailSurface.ProjectWindowList,
+                showGridViewBadges: true);
+
+            Assert.That(shouldDraw, Is.False);
+        }
+
+        [Test]
+        public void BadgeDrawer_DisabledToggle_DoesNotDraw()
+        {
+            bool shouldDraw = PrefabThumbnailBadgeDrawer.ShouldDraw(
+                PrefabThumbnailBadgeType.Particle,
+                PrefabThumbnailSurface.ProjectWindowGrid,
+                showGridViewBadges: false);
+
+            Assert.That(shouldDraw, Is.False);
+        }
+
+        [Test]
+        public void SharedSettingsToken_DoesNotChangeWhenBadgeToggleChanges()
+        {
+            PrefabThumbnailSettingsStorage withBadges = ScriptableObject.CreateInstance<PrefabThumbnailSettingsStorage>();
+            PrefabThumbnailSettingsStorage withoutBadges = ScriptableObject.CreateInstance<PrefabThumbnailSettingsStorage>();
+            try
+            {
+                withBadges.ResetToDefaults();
+                withoutBadges.ResetToDefaults();
+                withBadges.showGridViewBadges = true;
+                withoutBadges.showGridViewBadges = false;
+
+                string withBadgesToken = PrefabThumbnailSettings.BuildPersistentSettingsToken(withBadges);
+                string withoutBadgesToken = PrefabThumbnailSettings.BuildPersistentSettingsToken(withoutBadges);
+
+                Assert.That(withBadgesToken, Is.EqualTo(withoutBadgesToken));
+            }
+            finally
+            {
+                Object.DestroyImmediate(withBadges);
+                Object.DestroyImmediate(withoutBadges);
+            }
+        }
+
+        [Test]
         public void UiFraming_MultiGraphicBoundsUnion_IsCorrect()
         {
             GameObject root = new GameObject("BoundsRoot", typeof(RectTransform));

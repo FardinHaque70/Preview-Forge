@@ -369,6 +369,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			if (TryGetValidRecord(request, dependencyToken, out PrefabThumbnailRecord record, allowDeferredPersistentLoad: true))
 			{
 				DrawRecord(contentRect, record.Texture);
+				DrawBadge(contentRect, record.AssetKind, surface);
 				return;
 			}
 
@@ -703,6 +704,12 @@ namespace NoodleHammer.PreviewForge.Editor
 
 			EditorGUI.DrawRect(contentRect, ParticleThumbnailSettings.BackgroundColor);
 			GUI.DrawTexture(contentRect, texture, ScaleMode.ScaleToFit, true);
+		}
+
+		private static void DrawBadge(Rect contentRect, PrefabThumbnailAssetKind assetKind, PrefabThumbnailSurface surface)
+		{
+			PrefabThumbnailBadgeType badgeType = PrefabThumbnailBadgeResolver.Resolve(assetKind);
+			PrefabThumbnailBadgeDrawer.Draw(contentRect, badgeType, surface);
 		}
 
 		private static void DrawLoadingPlaceholder(Rect contentRect)

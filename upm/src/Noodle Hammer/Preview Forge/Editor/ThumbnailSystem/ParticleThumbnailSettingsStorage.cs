@@ -18,6 +18,7 @@ namespace NoodleHammer.PreviewForge.Editor
         [SerializeField] internal bool enabled = true;
         [SerializeField] internal bool drawInProjectGrid = true;
         [SerializeField] internal bool drawInProjectList = true;
+        [SerializeField] internal bool showGridViewBadges = PrefabThumbnailSettings.D_ShowGridViewBadges;
         [SerializeField] internal int gridRenderSize = PrefabThumbnailSettings.D_GridRenderSize;
         [SerializeField] internal int listRenderSize = PrefabThumbnailSettings.D_ListRenderSize;
         [SerializeField] internal Color backgroundColor = PrefabThumbnailSettings.D_BackgroundColor;
@@ -47,6 +48,7 @@ namespace NoodleHammer.PreviewForge.Editor
             enabled = true;
             drawInProjectGrid = true;
             drawInProjectList = true;
+            showGridViewBadges = PrefabThumbnailSettings.D_ShowGridViewBadges;
             gridRenderSize = PrefabThumbnailSettings.D_GridRenderSize;
             listRenderSize = PrefabThumbnailSettings.D_ListRenderSize;
             backgroundColor = PrefabThumbnailSettings.D_BackgroundColor;
@@ -75,6 +77,8 @@ namespace NoodleHammer.PreviewForge.Editor
                 drawInProjectGrid = boolValue;
             if (ProjectSettingsAssetUtility.TryReadBool(settingsPath, nameof(drawInProjectList), out boolValue))
                 drawInProjectList = boolValue;
+            if (ProjectSettingsAssetUtility.TryReadBool(settingsPath, nameof(showGridViewBadges), out boolValue))
+                showGridViewBadges = boolValue;
             if (ProjectSettingsAssetUtility.TryReadInt(settingsPath, nameof(gridRenderSize), out int intValue))
                 gridRenderSize = intValue;
             if (ProjectSettingsAssetUtility.TryReadInt(settingsPath, nameof(listRenderSize), out intValue))

@@ -15,6 +15,7 @@ MonoBehaviour:
   enabled: 1
   drawInProjectGrid: 1
   drawInProjectList: 1
+  showGridViewBadges: 1
   gridRenderSize: 128
   listRenderSize: 32
   backgroundColor: {r: 0.15, g: 0.15, b: 0.15, a: 1}

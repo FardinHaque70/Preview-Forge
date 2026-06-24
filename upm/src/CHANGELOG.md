@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.40] - 2026-06-24
+
+- Add optional grid-view badges so prefab thumbnails can show particle and UI type markers in the Project window without affecting list view.
+- Add a `Show Grid View Badges` project setting and keep that purely visual toggle out of the persistent thumbnail cache token so cached renders stay reusable.
+- Add EditMode coverage for badge resolution, badge draw gating, and badge-toggle cache-token stability.
+
 ## [1.1.39] - 2026-06-24
 
 - Add custom Project-window thumbnail support for supported UI prefabs, including Canvas-based and loose `RectTransform`/TMP graphic layouts.
