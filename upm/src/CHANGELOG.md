@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.41] - 2026-06-24
+
+- Refresh the package readmes to document the current support matrix for particle, UI, sprite, model, and imported 3D asset workflows.
+- Clarify the split between custom thumbnail support and custom Inspector preview support, including current UI-prefab and mixed-content limitations.
+- Update the feature overview and usage guidance so the documentation matches the current thumbnail badges, sprite preview tools, and model/importer preview behavior.
+
 ## [1.1.40] - 2026-06-24
 
 - Add optional grid-view badges so prefab thumbnails can show particle and UI type markers in the Project window without affecting list view.

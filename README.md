@@ -15,14 +15,23 @@ Thumbnails and Custom Previews for Unity.
 > I want this tool to stay accessible to everyone, so the **free GitHub version** and the **paid Unity Asset Store version** include the exact same toolset.
 > If you'd like to support my work and ongoing development, you can pick it up on the [Unity Asset Store](https://assetstore.unity.com/packages/slug/370342). Thanks!
 
-This package focuses on three core workflows:
+Preview Forge adds custom Project window thumbnails and Inspector previews for a focused set of prefab and asset types, with editor safety and compatibility as first-class goals.
 
-- `Particle Thumbnail`  
-  Static rendered Project window thumbnails for particle prefabs, so effects are easier to identify at a glance.
-- `Prefab and 3D Asset Preview`  
-  A richer Inspector preview for prefabs and 3D assets with better lighting, view modes, and smoother camera control.
-- `Particle Preview`  
-  A playback-focused preview workflow for particle prefabs with scrubbing and motion-aware inspection.
+## What We Support
+
+| Content type | Custom thumbnail | Custom Inspector preview | Notes |
+| --- | --- | --- | --- |
+| Particle prefabs | Yes | Yes | Particle thumbnails support particle content in the prefab hierarchy. The particle custom preview path targets prefabs whose root object owns the primary `ParticleSystem`. |
+| UI prefabs | Yes | No | Supports `Canvas`-based or loose `RectTransform` prefabs with drawable Unity UI `Graphic` content or `TextMeshProUGUI`. |
+| Sprite prefabs | No | Yes | Uses the sprite prefab preview workflow with framing, bounds, collider, and grid tools. |
+| Model prefabs | No | Yes | Supports prefabs with `MeshRenderer` or `SkinnedMeshRenderer` content. |
+| Imported 3D assets (`FBX`, `Blend`, similar model assets) | No | Yes | Uses the same improved model preview workflow in the importer preview. |
+
+## What We Do Not Currently Support
+
+- UI prefabs do not currently get a dedicated custom Inspector preview.
+- Mixed UI + mesh or UI + sprite prefabs do not use the UI thumbnail renderer and fall back to the other applicable preview path or Unity defaults.
+- VFX Graph thumbnails are not currently supported.
 
 ## See It In Action
 
@@ -51,23 +60,19 @@ Prefabs with 3D models, along with 3D asset files such as FBX and Blend, get a m
 
 ## Feature Overview
 
-### Particle Thumbnail
+### Custom Thumbnails
 
-- Static rendered thumbnails for particle prefabs
-- Motion-aware framing for effects that emit over traveled distance
-- Thumbnails are cached inside `Library/Noodle Hammer/Preview Forge/ParticleThumbnailCache`
+- Particle prefab thumbnails with static rendering and motion-aware framing for effects that emit over traveled distance
+- UI prefab thumbnails for supported `RectTransform`-based Unity UI and TMP UGUI prefabs
+- Thumbnail badges that distinguish supported particle and UI prefab thumbnails
+- Cached output stored in `Library/Noodle Hammer/Preview Forge/ParticleThumbnailCache`
 
-### Prefab Preview
+### Custom Previews
 
-- Much improved lighting that includes shadow casting directional light and a 3-point lighting rig
-- Better camera control with orbit, pan, zoom, and auto-framing controls
-- View mode toggles like Normal, UV, Vertex Color, Matcap, and Overdraw
-- Visualize box and sphere colliders
-
-### Particle Preview
-
-- Custom preview window automatically opens for the selected particle prefab
-- Includes particle timeline scrubbing and motion path support for systems that need motion
+- Particle prefab preview with playback controls, timeline scrubbing, and motion-aware inspection
+- Sprite prefab preview with framing plus bounds, collider, and grid visualization tools
+- Model and 3D asset preview with improved lighting, smoother orbit/pan/zoom, and auto-framing
+- Visual modes including Normal, UV, Vertex Color, Matcap, and Overdraw
 
 
 ## Compatibility
@@ -113,6 +118,9 @@ Restarting the Unity Editor once after first install is recommended so the previ
 
 ## Known Limitations
 
+- UI prefab support is currently thumbnail-only.
+- Particle custom previews are selected from prefabs whose root object contains the driving `ParticleSystem`.
+- Mixed UI prefabs that also contain `MeshRenderer`, `SkinnedMeshRenderer`, or `SpriteRenderer` content do not use the UI thumbnail renderer.
 - VFX Graph thumbnails are not currently supported.
 - In URP, particle shaders that require the camera opaque texture may render pink in thumbnails and prefab previews. This is not supported by the current preview rendering path.
 - A Unity Editor restart may be needed after first install or import for smoother preview window hook initialization.

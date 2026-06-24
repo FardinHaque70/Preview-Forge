@@ -2,16 +2,28 @@
 
 Thumbnails and Custom Previews for Unity
 
-Editor-only Unity tools for asset thumbnails and custom previews, currently focused on particle prefabs and 3D assets.
+Editor-only Unity tools for custom thumbnails and custom previews across a focused set of prefab and asset types.
+
+## Support Matrix
+
+| Content type | Custom thumbnail | Custom Inspector preview | Notes |
+| --- | --- | --- | --- |
+| Particle prefabs | Yes | Yes | Thumbnails support particle content in the prefab hierarchy. The particle custom preview path targets prefabs whose root object owns the primary `ParticleSystem`. |
+| UI prefabs | Yes | No | Supports `Canvas`-based or loose `RectTransform` prefabs with drawable Unity UI `Graphic` content or `TextMeshProUGUI`. |
+| Sprite prefabs | No | Yes | Uses the sprite prefab preview workflow with framing, bounds, collider, and grid tools. |
+| Model prefabs | No | Yes | Supports prefabs with `MeshRenderer` or `SkinnedMeshRenderer` content. |
+| Imported 3D assets | No | Yes | Uses the improved model importer preview workflow. |
 
 ## What This Package Provides
 
-- `Particle Thumbnail`
-  - Static Project-window thumbnails for particle prefabs.
+- `Custom Thumbnails`
+  - Static Project-window thumbnails for supported particle and UI prefabs.
   - Motion-aware framing for effects that emit over traveled distance.
-- `Particle Preview`
-  - Custom prefab preview for particle prefabs with playback controls and timeline scrubbing.
-  - Model prefab preview (mesh and skinned mesh) with auto-framing, orbit, pan, zoom, and default `3D` view mode.
+  - Thumbnail badges for supported prefab categories.
+- `Custom Previews`
+  - Particle prefab preview with playback controls and timeline scrubbing.
+  - Sprite prefab preview with framing plus bounds, collider, and grid tools.
+  - Model prefab and imported model preview with auto-framing, orbit, pan, zoom, and visual mode controls.
 - `Editor Safety`
   - Editor-only assemblies with no runtime/player build dependency.
   - Scoped preview-hook patching with bounded retries and compatibility fallbacks.
@@ -81,10 +93,13 @@ Unity Editor restart is recommended after first install so preview hook initiali
 
 1. Import or select a particle prefab in the Project window.
 2. Open the prefab Inspector preview to use playback and scrubbing controls.
-3. For mesh/skinned prefabs, use model preview controls for orbit/pan/zoom and visual mode toggles.
-4. Use package project settings for thumbnail cache maintenance, regeneration, and preview behavior defaults.
+3. Select supported UI prefabs in the Project window to let Preview Forge generate custom thumbnails.
+4. For sprite or mesh/skinned prefabs, use preview controls for orbit/pan/zoom plus the available visualization tools.
+5. Use package project settings for thumbnail cache maintenance, regeneration, and preview behavior defaults.
 
 ## Limitations
 
+- UI prefab support is currently thumbnail-only.
+- Mixed UI prefabs that also contain `MeshRenderer`, `SkinnedMeshRenderer`, or `SpriteRenderer` content do not use the UI thumbnail renderer.
 - VFX Graph thumbnails are not currently supported.
 - In URP, particle shaders that require the camera opaque texture may render pink in thumbnails and prefab previews. This is not supported by the current preview rendering path.
