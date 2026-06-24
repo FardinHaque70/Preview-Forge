@@ -59,7 +59,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             try
             {
-                int thumbnailSize = ParticleThumbnailSettings.GetRenderSize(surface);
+                int thumbnailSize = PrefabThumbnailSettings.GetRenderSize(surface);
 
                 instance = Object.Instantiate(prefab);
                 instance.hideFlags = HideFlags.HideAndDontSave;
@@ -74,8 +74,8 @@ namespace NoodleHammer.PreviewForge.Editor
 
                 preview = new PreviewRenderUtility(true);
                 preview.camera.clearFlags = CameraClearFlags.SolidColor;
-                preview.camera.backgroundColor = ParticleThumbnailSettings.BackgroundColor;
-                preview.cameraFieldOfView = ParticleThumbnailSettings.CameraFov;
+                preview.camera.backgroundColor = PrefabThumbnailSettings.BackgroundColor;
+                preview.cameraFieldOfView = PrefabThumbnailSettings.CameraFov;
                 preview.camera.nearClipPlane = 0.01f;
                 preview.camera.farClipPlane = 1000f;
                 preview.lights[0].intensity = 1.3f;
@@ -88,7 +88,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
                 bool needsMotion = ParticleMotionDetectionUtility.NeedsMotion(systems);
 
-                float coarseScanMax = Mathf.Min(GetScanMaxSeconds(systems, useMaxLifetime: false), ParticleThumbnailSettings.ScanMaxSeconds);
+                float coarseScanMax = Mathf.Min(GetScanMaxSeconds(systems, useMaxLifetime: false), PrefabThumbnailSettings.ScanMaxSeconds);
                 bool foundBest = TryFindBestCandidate(
                     systems,
                     instance,
@@ -117,7 +117,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
                 if (CountLiveParticles(systems) <= 0)
                 {
-                    float fallbackScanMax = Mathf.Min(GetScanMaxSeconds(systems, useMaxLifetime: true), ParticleThumbnailSettings.ScanMaxSeconds);
+                    float fallbackScanMax = Mathf.Min(GetScanMaxSeconds(systems, useMaxLifetime: true), PrefabThumbnailSettings.ScanMaxSeconds);
                     float fallbackTime = FindFirstVisibleTime(
                         systems,
                         instance,
@@ -785,7 +785,7 @@ namespace NoodleHammer.PreviewForge.Editor
             using (PreviewRenderCompatibilityUtility.PushShaderTime(frameTime))
             {
                 SyncWorldPositionShaderOffsets(renderers);
-                preview.camera.backgroundColor = ParticleThumbnailSettings.BackgroundColor;
+                preview.camera.backgroundColor = PrefabThumbnailSettings.BackgroundColor;
                 preview.BeginPreview(new Rect(0f, 0f, thumbnailSize, thumbnailSize), GUIStyle.none);
                 using (PreviewRenderCompatibilityUtility.EnableRenderersScoped(renderers, rendererEnabledStates))
                 {
@@ -1067,12 +1067,12 @@ namespace NoodleHammer.PreviewForge.Editor
         {
             bool hasParticles = false;
             Bounds fullBounds = new Bounds(Vector3.zero, Vector3.zero);
-            List<float> minXs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
-            List<float> minYs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
-            List<float> minZs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
-            List<float> maxXs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
-            List<float> maxYs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
-            List<float> maxZs = ParticleThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> minXs = PrefabThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> minYs = PrefabThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> minZs = PrefabThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> maxXs = PrefabThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> maxYs = PrefabThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
+            List<float> maxZs = PrefabThumbnailSettings.EnableTightFraming ? new List<float>(128) : null;
 
             for (int i = 0; i < systems.Length; i++)
             {
@@ -1121,7 +1121,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 return new Bounds(Vector3.zero, Vector3.one * 2f);
 
             Bounds result = fullBounds;
-            if (ParticleThumbnailSettings.EnableTightFraming
+            if (PrefabThumbnailSettings.EnableTightFraming
                 && minXs != null
                 && minXs.Count >= MinParticlesForTightFraming
                 && TryBuildPercentileBounds(
@@ -1131,7 +1131,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     maxXs,
                     maxYs,
                     maxZs,
-                    ParticleThumbnailSettings.ParticleFramingPercentile,
+                    PrefabThumbnailSettings.ParticleFramingPercentile,
                     out Bounds tightBounds))
             {
                 result = tightBounds;
@@ -1289,7 +1289,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
         private static void FrameCamera(Camera camera, Light mainLight, Bounds bounds, bool needsMotion, bool applyTargetFill)
         {
-            Quaternion cameraRotation = Quaternion.Euler(ParticleThumbnailSettings.CameraPitch, ParticleThumbnailSettings.CameraYaw, 0f);
+            Quaternion cameraRotation = Quaternion.Euler(PrefabThumbnailSettings.CameraPitch, PrefabThumbnailSettings.CameraYaw, 0f);
             Vector3 forward = cameraRotation * Vector3.forward;
             Vector3 right = cameraRotation * Vector3.right;
             Vector3 up = cameraRotation * Vector3.up;
@@ -1302,8 +1302,8 @@ namespace NoodleHammer.PreviewForge.Editor
             {
                 center = Vector3.zero;
                 float halfFov = camera.fieldOfView * 0.5f * Mathf.Deg2Rad;
-                float radius = ParticleThumbnailSettings.MotionRadius;
-                float padding = ParticleThumbnailSettings.MotionPadding;
+                float radius = PrefabThumbnailSettings.MotionRadius;
+                float padding = PrefabThumbnailSettings.MotionPadding;
                 distance = Mathf.Max((radius * (1.5f + padding)) / Mathf.Tan(halfFov), 0.3f);
                 maxDepth = radius * 3f;
                 camera.nearClipPlane = Mathf.Max(0.01f, distance - maxDepth);
@@ -1319,7 +1319,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 {
                     SetCameraPose(camera, center, forward, cameraRotation, fitDistance);
                     float coverageAtFit = EstimateScreenCoverage(camera, bounds);
-                    float distanceScale = ComputeTargetFillDistanceScale(coverageAtFit, ParticleThumbnailSettings.ThumbnailFillTarget);
+                    float distanceScale = ComputeTargetFillDistanceScale(coverageAtFit, PrefabThumbnailSettings.ThumbnailFillTarget);
                     distance = fitDistance * distanceScale;
 
                     for (int i = 0; i < FillSafetyIterations && distance < fitDistance; i++)
@@ -1345,7 +1345,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
         private static float ComputeContainmentDistance(Camera camera, Bounds bounds, Vector3 right, Vector3 up, Vector3 forward, out float maxDepth)
         {
-            float padding = ParticleThumbnailSettings.BoundsPadding;
+            float padding = PrefabThumbnailSettings.BoundsPadding;
             Vector3 extents = bounds.extents * (1f + padding);
             float halfFov = camera.fieldOfView * 0.5f * Mathf.Deg2Rad;
             float tanHalf = Mathf.Tan(halfFov);
@@ -1439,8 +1439,8 @@ namespace NoodleHammer.PreviewForge.Editor
 
         private static Vector3 CirclePosition(float time)
         {
-            float radius = ParticleThumbnailSettings.MotionRadius;
-            float speed = ParticleThumbnailSettings.MotionSpeed;
+            float radius = PrefabThumbnailSettings.MotionRadius;
+            float speed = PrefabThumbnailSettings.MotionSpeed;
             float angle = time * (speed / Mathf.Max(radius, 0.0001f));
             return new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
         }

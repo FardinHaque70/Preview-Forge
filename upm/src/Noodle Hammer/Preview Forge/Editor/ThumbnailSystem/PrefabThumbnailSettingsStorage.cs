@@ -5,15 +5,24 @@ namespace NoodleHammer.PreviewForge.Editor
 {
     public sealed class PrefabThumbnailSettingsStorage : ScriptableObject
     {
-        private const string SettingsPath = "Assets/Noodle Hammer/Preview Forge/Settings/ParticleThumbnailSettings.asset";
+        private const string SettingsPath = "Assets/Noodle Hammer/Preview Forge/Settings/PrefabThumbnailSettings.asset";
+        private const string LegacySettingsPath = "Assets/Noodle Hammer/Preview Forge/Settings/ParticleThumbnailSettings.asset";
 
-        internal static PrefabThumbnailSettingsStorage instance => ProjectSettingsAssetUtility.LoadOrCreate<PrefabThumbnailSettingsStorage>(
-            SettingsPath,
-            storage =>
+        internal static PrefabThumbnailSettingsStorage instance
+        {
+            get
             {
-                storage.ResetToDefaults();
-                storage.ApplySerializedSettings(SettingsPath);
-            });
+                TryMigrateLegacySettingsAsset();
+                string serializedSettingsPath = ResolveSerializedSettingsPath();
+                return ProjectSettingsAssetUtility.LoadOrCreate<PrefabThumbnailSettingsStorage>(
+                    SettingsPath,
+                    storage =>
+                    {
+                        storage.ResetToDefaults();
+                        storage.ApplySerializedSettings(serializedSettingsPath);
+                    });
+            }
+        }
 
         [SerializeField] internal bool enabled = true;
         [SerializeField] internal bool drawInProjectGrid = true;
@@ -115,6 +124,35 @@ namespace NoodleHammer.PreviewForge.Editor
                 memoryCacheMaxEntries = intValue;
             if (ProjectSettingsAssetUtility.TryReadBool(settingsPath, nameof(enablePersistentCache), out boolValue))
                 enablePersistentCache = boolValue;
+        }
+
+        internal static string GetSettingsPathForTests() => SettingsPath;
+        internal static string GetLegacySettingsPathForTests() => LegacySettingsPath;
+
+        private static string ResolveSerializedSettingsPath()
+        {
+            if (AssetDatabase.LoadAssetAtPath<PrefabThumbnailSettingsStorage>(SettingsPath) != null)
+                return SettingsPath;
+
+            return AssetDatabase.LoadAssetAtPath<PrefabThumbnailSettingsStorage>(LegacySettingsPath) != null
+                ? LegacySettingsPath
+                : SettingsPath;
+        }
+
+        private static void TryMigrateLegacySettingsAsset()
+        {
+            if (AssetDatabase.LoadAssetAtPath<PrefabThumbnailSettingsStorage>(SettingsPath) != null)
+                return;
+
+            if (AssetDatabase.LoadAssetAtPath<PrefabThumbnailSettingsStorage>(LegacySettingsPath) == null)
+                return;
+
+            string error = AssetDatabase.MoveAsset(LegacySettingsPath, SettingsPath);
+            if (!string.IsNullOrEmpty(error))
+                return;
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
         }
     }
 }

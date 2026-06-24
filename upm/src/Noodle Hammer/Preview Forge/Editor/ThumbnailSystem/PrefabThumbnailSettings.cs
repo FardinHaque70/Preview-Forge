@@ -167,60 +167,6 @@ namespace NoodleHammer.PreviewForge.Editor
         }
     }
 
-    internal static class ParticleThumbnailSettings
-    {
-        public static event Action SettingsChanged
-        {
-            add => PrefabThumbnailSettings.SettingsChanged += value;
-            remove => PrefabThumbnailSettings.SettingsChanged -= value;
-        }
-
-        public const int D_GridRenderSize = PrefabThumbnailSettings.D_GridRenderSize;
-        public const int D_ListRenderSize = PrefabThumbnailSettings.D_ListRenderSize;
-        public static readonly Color D_BackgroundColor = PrefabThumbnailSettings.D_BackgroundColor;
-        public const float D_CameraFov = PrefabThumbnailSettings.D_CameraFov;
-        public const float D_CameraYaw = PrefabThumbnailSettings.D_CameraYaw;
-        public const float D_CameraPitch = PrefabThumbnailSettings.D_CameraPitch;
-        public const float D_BoundsPadding = PrefabThumbnailSettings.D_BoundsPadding;
-        public const float D_ScanMaxSeconds = PrefabThumbnailSettings.D_ScanMaxSeconds;
-        public const float D_MotionPadding = PrefabThumbnailSettings.D_MotionPadding;
-        public const float D_MotionRadius = PrefabThumbnailSettings.D_MotionRadius;
-        public const float D_MotionSpeed = PrefabThumbnailSettings.D_MotionSpeed;
-        public const float D_ThumbnailFillTarget = PrefabThumbnailSettings.D_ThumbnailFillTarget;
-        public const bool D_EnableTightFraming = PrefabThumbnailSettings.D_EnableTightFraming;
-        public const float D_ParticleFramingPercentile = PrefabThumbnailSettings.D_ParticleFramingPercentile;
-        public const int D_MaxRendersPerUpdate = PrefabThumbnailSettings.D_MaxRendersPerUpdate;
-        public const float D_RenderBudgetMs = PrefabThumbnailSettings.D_RenderBudgetMs;
-        public const int D_MemoryCacheMaxEntries = PrefabThumbnailSettings.D_MemoryCacheMaxEntries;
-
-        public static bool Enabled => PrefabThumbnailSettings.Enabled;
-        public static bool DrawInProjectGrid => PrefabThumbnailSettings.DrawInProjectGrid;
-        public static bool DrawInProjectList => PrefabThumbnailSettings.DrawInProjectList;
-        public static bool ShowGridViewBadges => PrefabThumbnailSettings.ShowGridViewBadges;
-        public static int GridRenderSize => PrefabThumbnailSettings.GridRenderSize;
-        public static int ListRenderSize => PrefabThumbnailSettings.ListRenderSize;
-        public static Color BackgroundColor => PrefabThumbnailSettings.BackgroundColor;
-        public static float BoundsPadding => PrefabThumbnailSettings.BoundsPadding;
-        public static float CameraFov => PrefabThumbnailSettings.CameraFov;
-        public static float CameraYaw => PrefabThumbnailSettings.CameraYaw;
-        public static float CameraPitch => PrefabThumbnailSettings.CameraPitch;
-        public static float ScanMaxSeconds => PrefabThumbnailSettings.ScanMaxSeconds;
-        public static float MotionPadding => PrefabThumbnailSettings.MotionPadding;
-        public static float MotionRadius => PrefabThumbnailSettings.MotionRadius;
-        public static float MotionSpeed => PrefabThumbnailSettings.MotionSpeed;
-        public static float ThumbnailFillTarget => PrefabThumbnailSettings.ThumbnailFillTarget;
-        public static bool EnableTightFraming => PrefabThumbnailSettings.EnableTightFraming;
-        public static float ParticleFramingPercentile => PrefabThumbnailSettings.ParticleFramingPercentile;
-        public static int MaxRendersPerUpdate => PrefabThumbnailSettings.MaxRendersPerUpdate;
-        public static float RenderBudgetMs => PrefabThumbnailSettings.RenderBudgetMs;
-        public static int MemoryCacheMaxEntries => PrefabThumbnailSettings.MemoryCacheMaxEntries;
-        public static bool EnablePersistentCache => PrefabThumbnailSettings.EnablePersistentCache;
-
-        public static int GetRenderSize(PrefabThumbnailSurface surface) => PrefabThumbnailSettings.GetRenderSize(surface);
-        public static string GetPersistentSettingsToken() => PrefabThumbnailSettings.GetPersistentSettingsToken();
-        public static void NotifyChanged() => PrefabThumbnailSettings.NotifyChanged();
-    }
-
     internal static class PrefabThumbnailSettingsProvider
     {
         private enum SettingsTab
@@ -392,19 +338,19 @@ namespace NoodleHammer.PreviewForge.Editor
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("Clear Memory Cache"))
-                    ParticleThumbnailService.ClearMemoryCache();
+                    PrefabThumbnailService.ClearMemoryCache();
 
                 if (GUILayout.Button("Clear Persistent Cache"))
-                    ParticleThumbnailService.ClearPersistentCache();
+                    PrefabThumbnailService.ClearPersistentCache();
 
                 if (GUILayout.Button("Generate All Supported Prefab Thumbnails"))
-                    EditorApplication.delayCall += ParticleThumbnailService.GenerateAllThumbnailsInProjectFromSettings;
+                    EditorApplication.delayCall += PrefabThumbnailService.GenerateAllThumbnailsInProjectFromSettings;
             }
         }
 
         private static void DrawCacheRuntimeInfo()
         {
-            ParticleThumbnailService.CacheStats stats = ParticleThumbnailService.GetCacheStats();
+            PrefabThumbnailService.CacheStats stats = PrefabThumbnailService.GetCacheStats();
             EditorGUILayout.HelpBox(
                 $"Entries: {stats.TotalEntries} | Queue: {stats.QueueDepth} | Persistent: {stats.PersistentEntryCount} | " +
                 $"Failed: {stats.FailedCount} | Memory: {EditorUtility.FormatBytes(stats.MemoryCacheBytes)} | Disk: {EditorUtility.FormatBytes(stats.DiskCacheBytes)}",

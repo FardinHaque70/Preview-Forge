@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.43] - 2026-06-24
+
+- Rename the shared thumbnail system files, settings asset, and supporting types from `ParticleThumbnail*` to `PrefabThumbnail*` so the codebase matches the package's broader prefab-thumbnail scope.
+- Split the particle-specific thumbnail renderer and scoring logic into dedicated seams while keeping the prefab-wide service, cache, progress window, and settings flow intact.
+- Refresh tests and readmes to reflect the prefab-wide naming and current editor-integration guidance.
+
 ## [1.1.42] - 2026-06-24
 
 - Rename the persistent thumbnail cache folder to `PrefabThumbnailCache` and keep both legacy particle-cache locations as migration sources for existing installs.

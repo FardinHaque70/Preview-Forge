@@ -232,6 +232,22 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
         }
 
         [Test]
+        public void SettingsStorage_UsesPrefabNamedSettingsAssetPath()
+        {
+            Assert.That(
+                PrefabThumbnailSettingsStorage.GetSettingsPathForTests(),
+                Is.EqualTo("Assets/Noodle Hammer/Preview Forge/Settings/PrefabThumbnailSettings.asset"));
+        }
+
+        [Test]
+        public void SettingsStorage_LegacyParticleSettingsPath_RemainsMigrationSource()
+        {
+            Assert.That(
+                PrefabThumbnailSettingsStorage.GetLegacySettingsPathForTests(),
+                Is.EqualTo("Assets/Noodle Hammer/Preview Forge/Settings/ParticleThumbnailSettings.asset"));
+        }
+
+        [Test]
         public void BadgeResolver_ParticlePrefab_ResolvesParticleBadge()
         {
             Assert.That(

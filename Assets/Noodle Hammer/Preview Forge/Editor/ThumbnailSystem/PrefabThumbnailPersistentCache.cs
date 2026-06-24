@@ -365,28 +365,4 @@ namespace NoodleHammer.PreviewForge.Editor
             s_cachedDiskBytes = 0L;
         }
     }
-
-    internal static class ParticleThumbnailPersistentCache
-    {
-        public static bool TryLoadTexture(PrefabThumbnailRequest request, string dependencyToken, out Texture2D texture)
-            => PrefabThumbnailPersistentCache.TryLoadTexture(request, dependencyToken, out texture);
-
-        public static void SaveTexture(PrefabThumbnailRequest request, string dependencyToken, Texture2D texture)
-            => PrefabThumbnailPersistentCache.SaveTexture(request, dependencyToken, texture);
-
-        public static void InvalidateGuid(string guid)
-            => PrefabThumbnailPersistentCache.InvalidateGuid(guid);
-
-        public static void PruneMissingAssets()
-            => PrefabThumbnailPersistentCache.PruneMissingAssets();
-
-        public static void ClearAll()
-            => PrefabThumbnailPersistentCache.ClearAll();
-
-        internal static void GetCachedDiskStats(out int fileCount, out long totalBytes)
-            => PrefabThumbnailPersistentCache.GetCachedDiskStats(out fileCount, out totalBytes);
-
-        internal static string BuildCacheKey(PrefabThumbnailRequest request, string dependencyToken, string settingsToken)
-            => PrefabThumbnailPersistentCache.BuildCacheKey(request, dependencyToken, settingsToken);
-    }
 }

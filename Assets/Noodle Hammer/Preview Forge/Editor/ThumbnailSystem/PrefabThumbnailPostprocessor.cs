@@ -42,8 +42,8 @@ namespace NoodleHammer.PreviewForge.Editor
                 if (!path.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                ParticleThumbnailService.InvalidateSupportCacheForPath(path);
-                ParticleThumbnailService.InvalidatePath(path, repaintProjectWindow: false);
+                PrefabThumbnailService.InvalidateSupportCacheForPath(path);
+                PrefabThumbnailService.InvalidatePath(path, repaintProjectWindow: false);
                 changed = true;
             }
 

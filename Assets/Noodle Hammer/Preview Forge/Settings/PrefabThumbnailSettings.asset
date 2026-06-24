@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23c0bc9f594814c38a7204621b8f0f7c, type: 3}
-  m_Name: ParticleThumbnailSettings
+  m_Name: PrefabThumbnailSettings
   m_EditorClassIdentifier: NoodleHammer.PreviewForge.Editor::NoodleHammer.PreviewForge.Editor.PrefabThumbnailSettingsStorage
   enabled: 1
   drawInProjectGrid: 1

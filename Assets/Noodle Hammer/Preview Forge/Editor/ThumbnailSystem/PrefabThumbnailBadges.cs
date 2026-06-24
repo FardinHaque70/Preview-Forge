@@ -34,7 +34,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
         public static void Draw(Rect contentRect, PrefabThumbnailBadgeType badgeType, PrefabThumbnailSurface surface)
         {
-            if (!ShouldDraw(badgeType, surface, ParticleThumbnailSettings.ShowGridViewBadges))
+            if (!ShouldDraw(badgeType, surface, PrefabThumbnailSettings.ShowGridViewBadges))
                 return;
 
             Texture icon = GetIcon(badgeType);
