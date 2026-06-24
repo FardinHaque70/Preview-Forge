@@ -117,6 +117,7 @@ namespace NoodleHammer.PreviewForge.Editor
             }
 
             _activePrefabAssetPath = AssetDatabase.GetAssetPath(prefab);
+            CustomPreviewAutoSelector.NotifyPrefabPreviewHostAvailable(_activePrefabAssetPath);
             return true;
         }
 

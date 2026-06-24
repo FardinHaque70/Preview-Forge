@@ -1262,7 +1262,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			{
 				float target = ComputeInitialDistanceForBoundsForTests(bounds, true, _preview.camera.fieldOfView);
 				_targetDistance = Mathf.Clamp(target, MinDistance, MaxDistance);
-				_distance = Mathf.Clamp(Mathf.Max(_targetDistance * 1.35f, _targetDistance + 0.35f), MinDistance, MaxDistance);
+				_distance = _targetDistance;
 				_orbit = Vector2.zero;
 				_targetOrbit = Vector2.zero;
 			}
@@ -1270,7 +1270,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			{
 				float target = ComputeInitialDistanceForBoundsForTests(bounds, false, _preview.camera.fieldOfView);
 				_targetDistance = Mathf.Clamp(target, MinDistance, MaxDistance);
-				_distance = Mathf.Clamp(Mathf.Max(_targetDistance * 1.35f, _targetDistance + 0.35f), MinDistance, MaxDistance);
+				_distance = _targetDistance;
 				_orbit = new Vector2(130f, 18f);
 				_targetOrbit = _orbit;
 			}

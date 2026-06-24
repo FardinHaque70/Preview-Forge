@@ -18,7 +18,7 @@ namespace NoodleHammer.PreviewForge.Editor
         private const float MinDistance = 0.1f;
         private const float MaxDistance = 500f;
         private const float ZoomFactorPerScrollUnit = 0.1f;
-        private const float OrbitSensitivity = 1.2f;
+        private const float OrbitSensitivity = 0.84f;
         private const float PitchMin = -85f;
         private const float PitchMax = 85f;
         private const float OrbitVelocitySmoothing = 0.35f;

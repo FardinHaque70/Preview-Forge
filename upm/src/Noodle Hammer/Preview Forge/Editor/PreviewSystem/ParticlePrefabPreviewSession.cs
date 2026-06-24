@@ -31,8 +31,6 @@ namespace NoodleHammer.PreviewForge.Editor
 		private const int MaxParticleBuffer = 10000;
 		private const float LoopingPreviewDurationCap = 10f;
 
-		private const float IntroZoomMultiplier = 1.5f;
-		private const float IntroZoomMinimumExtraDistance = 0.05f;
 		private const float OrbitVelocitySmoothing = 0.35f;
 		private const float FallbackOrbitInputDeltaTime = 1f / 60f;
 		private const double OrbitHoldStillResetSeconds = 0.08d;
@@ -42,14 +40,14 @@ namespace NoodleHammer.PreviewForge.Editor
 		private const float PivotEpsilon = 0.0001f;
 		private const float AngularVelocityEpsilon = 0.01f;
 
-			private const float MinDistance = 0.25f;
-			private const float MaxDistance = 300f;
-			private const float OrbitSensitivity = 1.2f;
-			private const float ZoomFactorPerScrollUnit = 0.1f;
-			private const float PitchMin = -85f;
-			private const float PitchMax = 85f;
-			private const float MaxDeltaTime = 0.05f;
-			private const float MinAxisExtent = 0.02f;
+		private const float MinDistance = 0.25f;
+		private const float MaxDistance = 300f;
+		private const float OrbitSensitivity = 1.2f;
+		private const float ZoomFactorPerScrollUnit = 0.1f;
+		private const float PitchMin = -85f;
+		private const float PitchMax = 85f;
+		private const float MaxDeltaTime = 0.05f;
+		private const float MinAxisExtent = 0.02f;
 
 		private const float FramingScanMaxSeconds = 2f;
 		private const float FramingScanStep = 1f / 60f;
@@ -1255,8 +1253,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
 			_targetDistance = Mathf.Clamp(_targetDistance, MinDistance, MaxAutoFrameDistance);
 
-			float introDistance = Mathf.Max(_targetDistance * IntroZoomMultiplier, _targetDistance + IntroZoomMinimumExtraDistance);
-			_distance = Mathf.Clamp(introDistance, MinDistance, MaxDistance);
+			_distance = Mathf.Clamp(_targetDistance, MinDistance, MaxDistance);
 			_orbitAngularVelocity = Vector2.zero;
 			_isOrbitDragging = false;
 			_lastOrbitInputTime = -1d;

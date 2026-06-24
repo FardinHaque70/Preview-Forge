@@ -33,6 +33,8 @@ namespace NoodleHammer.PreviewForge.Editor
         private const int ModelImporterRearmFrames = 2;
         private const int PostApplyVerificationFrames = 20;
         private const int MaxApplyAttemptsPerSelection = 2;
+        private const int MaxLateHostActivationAttemptsPerSelection = 3;
+        private const double LateHostActivationRetryCooldownSeconds = 0.25d;
 
         private static readonly Type PropertyEditorType = PreviewForgeEditorCompatibility.ResolveEditorType("UnityEditor.PropertyEditor");
 
@@ -65,6 +67,9 @@ namespace NoodleHammer.PreviewForge.Editor
         private static bool _recoveryAttemptedForSelection;
         private static string _activeSelectionKey;
         private static string _appliedSelectionKey;
+        private static string _lateHostActivationAttemptedKey;
+        private static int _lateHostActivationAttemptsForSelection;
+        private static double _lastLateHostActivationAttemptTime = -1d;
         private static int _modelImporterRearmFramesRemaining;
         private static string _modelImporterRearmSelectionKey;
         private static bool _updateHookRegistered;
@@ -182,31 +187,142 @@ namespace NoodleHammer.PreviewForge.Editor
 
         internal static void NotifyModelImporterPreviewCandidate(string modelAssetPath)
         {
+            if (!PreviewSettings.ThreeDAssetPreviewActive || string.IsNullOrEmpty(modelAssetPath))
+                return;
+
+            NotifyPreviewHostAvailable(ModelImporterPreviewTypeName, "importer:" + modelAssetPath);
+        }
+
+        internal static void NotifyPrefabPreviewHostAvailable(string prefabAssetPath)
+        {
+            if (!PreviewSettings.AnyPrefabCustomPreviewActive || string.IsNullOrEmpty(prefabAssetPath))
+                return;
+
+            NotifyPreviewHostAvailable(PrefabPreviewTypeName, "prefab:" + prefabAssetPath);
+        }
+
+        internal static void NotifyPreviewHostAvailable(string previewTypeName, string selectionKey)
+        {
+            LogDiagnostic($"host-available begin type={ShortPreviewTypeName(previewTypeName)} key='{selectionKey}' active='{_activeSelectionKey}' applied='{_appliedSelectionKey}' late='{_lateHostActivationAttemptedKey}' pending={_autoSelectPending} frames={_framesRemaining} verify={_postApplyVerificationFramesRemaining} attempts={_applyAttemptsForSelection} recovery={_recoveryAttemptedForSelection}");
             if (PreviewEditorTransitionGuard.IsUnsafeTransition())
             {
+                LogDiagnostic($"host-available reset unsafe-transition type={ShortPreviewTypeName(previewTypeName)} key='{selectionKey}'");
                 ResetPendingAutoSelectState();
                 return;
             }
 
-            if (!PreviewSettings.ThreeDAssetPreviewActive || string.IsNullOrEmpty(modelAssetPath))
-                return;
-
-            string selectionKey = "importer:" + modelAssetPath;
-            if (string.Equals(_modelImporterRearmSelectionKey, selectionKey, StringComparison.Ordinal))
+            if (string.IsNullOrEmpty(previewTypeName) || string.IsNullOrEmpty(selectionKey))
             {
-                // This callback is hit from HasPreviewGUI; avoid expensive rearm work
-                // unless we are already in an active retry window.
-                if (!_autoSelectPending && _modelImporterRearmFramesRemaining <= 0)
-                    return;
+                LogDiagnostic($"host-available ignored invalid type={ShortPreviewTypeName(previewTypeName)} key='{selectionKey}'");
+                return;
+            }
+
+            if (!TryResolveAutoSelectRequest(Selection.objects, out AutoSelectRequest request))
+            {
+                LogDiagnostic($"host-available ignored unresolved-selection type={ShortPreviewTypeName(previewTypeName)} key='{selectionKey}' selectionCount={Selection.objects?.Length ?? 0}");
+                return;
+            }
+
+            if (!string.Equals(request.PreviewTypeName, previewTypeName, StringComparison.Ordinal)
+                || !string.Equals(request.SelectionKey, selectionKey, StringComparison.Ordinal))
+            {
+                LogDiagnostic($"host-available ignored selection-mismatch requestedType={ShortPreviewTypeName(previewTypeName)} requestedKey='{selectionKey}' resolvedType={ShortPreviewTypeName(request.PreviewTypeName)} resolvedKey='{request.SelectionKey}'");
+                return;
+            }
+
+            TrackSelectionKey(selectionKey);
+
+            string lateActivationKey = previewTypeName + "|" + selectionKey;
+            bool isHandledLateActivation = string.Equals(_lateHostActivationAttemptedKey, lateActivationKey, StringComparison.Ordinal);
+            PreviewSelectionProbe handledProbe = PreviewSelectionProbe.Unknown;
+            if (isHandledLateActivation
+                && !ShouldRetryHandledLateHostActivation(previewTypeName, selectionKey, out handledProbe))
+            {
+                LogDiagnostic($"host-available ignored already-handled type={ShortPreviewTypeName(previewTypeName)} key='{selectionKey}' verify={_postApplyVerificationFramesRemaining} pending={_autoSelectPending} attempts={_applyAttemptsForSelection} lateAttempts={_lateHostActivationAttemptsForSelection} {DescribeProbe(handledProbe)}");
+                return;
+            }
+
+            if (isHandledLateActivation)
+                LogDiagnostic($"host-available retrying delayed unity-default replacement type={ShortPreviewTypeName(previewTypeName)} key='{selectionKey}' lateAttempts={_lateHostActivationAttemptsForSelection} {DescribeProbe(handledProbe)}");
+
+            PreviewPropertyEditorCache.Invalidate();
+            UnityObject[] propertyEditors = GetOpenPropertyEditors();
+            PreviewSelectionProbe selectionProbe = GetPreviewSelectionProbeInOpenPropertyEditors(previewTypeName, propertyEditors);
+            LogDiagnostic($"host-available probe type={ShortPreviewTypeName(previewTypeName)} key='{selectionKey}' editors={propertyEditors.Length} {DescribeProbe(selectionProbe)}");
+            if (selectionProbe.State == PreviewSelectionState.Selected)
+            {
+                BeginLateHostActivationWindow(lateActivationKey);
+                _autoSelectPending = false;
+                _framesRemaining = 0;
+                _postApplyVerificationFramesRemaining = Math.Max(_postApplyVerificationFramesRemaining, PostApplyVerificationFrames);
+                LogDiagnostic($"Preview Forge is watching late preview host activation for: {selectionKey} type={previewTypeName}");
                 EnsureUpdateHook(shouldSubscribe: true);
                 return;
             }
 
-            _modelImporterRearmSelectionKey = selectionKey;
-            _modelImporterRearmFramesRemaining = ModelImporterRearmFrames;
+            if (selectionProbe.State == PreviewSelectionState.NotSelected
+                && selectionProbe.ReplacementKind == PreviewReplacementKind.CustomProvider)
+            {
+                _lateHostActivationAttemptedKey = lateActivationKey;
+                LogDiagnostic($"Preview Forge yielded late preview selection because another preview provider is active: {selectionKey} selected={selectionProbe.SelectedPreviewTypeName}");
+                return;
+            }
+
+            BeginLateHostActivationWindow(lateActivationKey);
+            if (string.Equals(previewTypeName, ModelImporterPreviewTypeName, StringComparison.Ordinal))
+            {
+                _modelImporterRearmSelectionKey = selectionKey;
+                _modelImporterRearmFramesRemaining = Math.Max(_modelImporterRearmFramesRemaining, ModelImporterRearmFrames);
+            }
+
             _autoSelectPending = true;
-            _framesRemaining = Math.Max(_framesRemaining, MaxRetryFrames / 2);
+            _framesRemaining = Math.Max(_framesRemaining, MaxRetryFrames);
+            LogDiagnostic($"Preview Forge scheduled late preview selection for: {selectionKey} type={previewTypeName}");
             EnsureUpdateHook(shouldSubscribe: true);
+        }
+
+        private static void BeginLateHostActivationWindow(string lateActivationKey)
+        {
+            _lateHostActivationAttemptedKey = lateActivationKey;
+            _lateHostActivationAttemptsForSelection++;
+            _lastLateHostActivationAttemptTime = EditorApplication.timeSinceStartup;
+            _applyAttemptsForSelection = 0;
+            _recoveryAttemptedForSelection = false;
+        }
+
+        private static bool ShouldRetryHandledLateHostActivation(
+            string previewTypeName,
+            string selectionKey,
+            out PreviewSelectionProbe selectionProbe)
+        {
+            selectionProbe = PreviewSelectionProbe.Unknown;
+
+            if (_autoSelectPending || _postApplyVerificationFramesRemaining > 0)
+                return false;
+
+            if (_lateHostActivationAttemptsForSelection >= MaxLateHostActivationAttemptsPerSelection)
+                return false;
+
+            double now = EditorApplication.timeSinceStartup;
+            if (_lastLateHostActivationAttemptTime >= 0d
+                && now - _lastLateHostActivationAttemptTime < LateHostActivationRetryCooldownSeconds)
+                return false;
+
+            PreviewPropertyEditorCache.Invalidate();
+            selectionProbe = GetPreviewSelectionProbeInOpenPropertyEditors(previewTypeName, GetOpenPropertyEditors());
+            if (selectionProbe.State == PreviewSelectionState.NotSelected
+                && selectionProbe.ReplacementKind == PreviewReplacementKind.UnityBuiltInOrDefault)
+            {
+                return true;
+            }
+
+            if (selectionProbe.State == PreviewSelectionState.NotSelected
+                && selectionProbe.ReplacementKind == PreviewReplacementKind.CustomProvider)
+            {
+                LogDiagnostic($"Preview Forge yielded delayed late preview retry because another preview provider is active: {selectionKey} selected={selectionProbe.SelectedPreviewTypeName}");
+            }
+
+            return false;
         }
 
         private static void OnEditorUpdate()
@@ -231,6 +347,11 @@ namespace NoodleHammer.PreviewForge.Editor
             bool shouldRearmModelImporter = ShouldRearmModelImporterSelection(request);
             PreviewSelectionProbe previewSelectionProbe = GetPreviewSelectionProbeInOpenPropertyEditors(request.PreviewTypeName, propertyEditors);
             PreviewSelectionState previewSelectionState = previewSelectionProbe.State;
+            if (_autoSelectPending || _postApplyVerificationFramesRemaining > 0 || PreviewSettings.EnableDiagnostics)
+            {
+                LogDiagnostic(
+                    $"update type={ShortPreviewTypeName(request.PreviewTypeName)} key='{request.SelectionKey}' editors={propertyEditors.Length} {DescribeProbe(previewSelectionProbe)} pending={_autoSelectPending} frames={_framesRemaining} verify={_postApplyVerificationFramesRemaining} attempts={_applyAttemptsForSelection} recovery={_recoveryAttemptedForSelection} late='{_lateHostActivationAttemptedKey}' modelRearm={_modelImporterRearmFramesRemaining}");
+            }
             if (isPrefabPreviewRequest)
             {
                 PreviewParticleTrace.Log(
@@ -320,6 +441,8 @@ namespace NoodleHammer.PreviewForge.Editor
             {
                 if (isPrefabPreviewRequest && _autoSelectPending)
                     PreviewParticleTrace.Log("AutoSelector", $"stop key='{request.SelectionKey}' frames={_framesRemaining} attempts={_applyAttemptsForSelection} state={previewSelectionState}");
+                if (_autoSelectPending)
+                    LogDiagnostic($"stop pending type={ShortPreviewTypeName(request.PreviewTypeName)} key='{request.SelectionKey}' frames={_framesRemaining} attempts={_applyAttemptsForSelection} state={previewSelectionState}");
                 _autoSelectPending = false;
                 _framesRemaining = 0;
             }
@@ -339,6 +462,9 @@ namespace NoodleHammer.PreviewForge.Editor
             _activeSelectionKey = selectionKey;
             _applyAttemptsForSelection = 0;
             _recoveryAttemptedForSelection = false;
+            _lateHostActivationAttemptedKey = null;
+            _lateHostActivationAttemptsForSelection = 0;
+            _lastLateHostActivationAttemptTime = -1d;
             _postApplyVerificationFramesRemaining = 0;
         }
 
@@ -400,6 +526,9 @@ namespace NoodleHammer.PreviewForge.Editor
             _postApplyVerificationFramesRemaining = 0;
             _applyAttemptsForSelection = 0;
             _recoveryAttemptedForSelection = false;
+            _lateHostActivationAttemptedKey = null;
+            _lateHostActivationAttemptsForSelection = 0;
+            _lastLateHostActivationAttemptTime = -1d;
             _activeSelectionKey = null;
             _appliedSelectionKey = null;
             _modelImporterRearmFramesRemaining = 0;
@@ -425,6 +554,9 @@ namespace NoodleHammer.PreviewForge.Editor
 
             propertyEditors ??= GetOpenPropertyEditors();
             bool applied = false;
+            int inspectedEditors = 0;
+            int compatibleEditors = 0;
+            int foundPreviewCount = 0;
 
             for (int i = 0; i < propertyEditors.Length; i++)
             {
@@ -432,17 +564,20 @@ namespace NoodleHammer.PreviewForge.Editor
                 if (propertyEditor == null || !ShouldApplyToPropertyEditor(propertyEditor, previewTypeName))
                     continue;
 
+                compatibleEditors++;
                 try
                 {
                     if (!TryGetInspectedObject(propertyEditor, out UnityObject _))
                         continue;
 
+                    inspectedEditors++;
                     IList previews = PreviewsField.GetValue(propertyEditor) as IList;
                     object ourPreview = FindPreviewByTypeName(previews, previewTypeName);
 
                     if (ourPreview == null)
                         continue;
 
+                    foundPreviewCount++;
                     bool didSelect = TrySelectPreview(propertyEditor, ourPreview);
                     if (!didSelect)
                         continue;
@@ -456,6 +591,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 }
             }
 
+            LogDiagnostic($"select-attempt type={ShortPreviewTypeName(previewTypeName)} editors={propertyEditors.Length} compatible={compatibleEditors} inspected={inspectedEditors} foundPreview={foundPreviewCount} applied={applied}");
             return applied;
         }
 
@@ -917,7 +1053,26 @@ namespace NoodleHammer.PreviewForge.Editor
         {
             if (!PreviewSettings.EnableDiagnostics || string.IsNullOrEmpty(message))
                 return;
-            Debug.Log("[PreviewForge][AutoSelector] " + message);
+            Debug.Log($"[PreviewForge][AutoSelector] frame={Time.frameCount} t={EditorApplication.timeSinceStartup:F3} {message}");
+        }
+
+        private static string DescribeProbe(PreviewSelectionProbe probe)
+        {
+            string selectedPreview = string.IsNullOrEmpty(probe.SelectedPreviewTypeName)
+                ? "<none>"
+                : probe.SelectedPreviewTypeName;
+            return $"state={probe.State} hasPreview={probe.HasPreview} replacement={probe.ReplacementKind} selected='{selectedPreview}'";
+        }
+
+        private static string ShortPreviewTypeName(string previewTypeName)
+        {
+            if (string.IsNullOrEmpty(previewTypeName))
+                return "<null>";
+
+            int dotIndex = previewTypeName.LastIndexOf('.');
+            return dotIndex >= 0 && dotIndex + 1 < previewTypeName.Length
+                ? previewTypeName.Substring(dotIndex + 1)
+                : previewTypeName;
         }
 
     }

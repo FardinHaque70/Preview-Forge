@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.37] - 2026-06-24
+
+- Retry prefab and model preview auto-selection when Unity activates the preview host late, while still yielding cleanly to competing custom preview providers.
+- Expand auto-selector diagnostics around host activation, property editor probing, and selection attempts to make preview conflicts easier to trace.
+- Remove the extra intro zoom from particle and model prefab previews and reduce sprite orbit sensitivity for steadier default framing and controls.
+
 ## [1.1.36] - 2026-06-19
 
 - Add Unity 6.5 (`6000.5+`) compatibility for Unity object identity APIs while keeping Unity `2022.3+` package support.
