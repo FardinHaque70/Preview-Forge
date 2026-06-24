@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.45] - 2026-06-24
+
+- Update the development project build settings to use `Assets/Noodle Hammer/Preview Forge/Demo/Demo.unity` after removing the accidentally committed root `Assets/Scenes` sample scene.
+
 ## [1.1.44] - 2026-06-24
 
 - Add a tracked `scripts/sync_upm_package.sh` workflow and update the package readmes to clarify install layout, settings-asset ownership, and safe extension guidance.
