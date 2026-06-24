@@ -187,15 +187,21 @@ namespace NoodleHammer.PreviewForge.Editor
         {
             if (!HasPreviewGUI() || _previewImplementation == null)
             {
-                if (isInteractive)
-                    base.OnInteractivePreviewGUI(rect, background);
-                else
-                    base.OnPreviewGUI(rect, background);
+                DrawNeutralPreviewBackground(rect, background);
                 return;
             }
 
             _lastSuccessfulResolveTime = EditorApplication.timeSinceStartup;
             _previewImplementation.Draw(rect, background, isInteractive);
+        }
+
+        private static void DrawNeutralPreviewBackground(Rect rect, GUIStyle background)
+        {
+            if (Event.current.type != EventType.Repaint)
+                return;
+
+            background?.Draw(rect, GUIContent.none, false, false, false, false);
+            EditorGUI.DrawRect(rect, PreviewSettings.BackgroundColor);
         }
         #endregion
 

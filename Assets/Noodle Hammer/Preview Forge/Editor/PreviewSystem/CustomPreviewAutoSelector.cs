@@ -145,8 +145,6 @@ namespace NoodleHammer.PreviewForge.Editor
             string selectionKey = request.SelectionKey;
             TrackSelectionKey(selectionKey);
             bool isPrefabPreviewRequest = string.Equals(request.PreviewTypeName, PrefabPreviewTypeName, StringComparison.Ordinal);
-            if (isPrefabPreviewRequest)
-                PreviewParticleTrace.Log("AutoSelector", $"schedule key='{selectionKey}' frames={MaxRetryFrames} attempts={_applyAttemptsForSelection}");
             if (string.Equals(request.PreviewTypeName, ModelImporterPreviewTypeName, StringComparison.Ordinal))
             {
                 _modelImporterRearmSelectionKey = selectionKey;
@@ -203,7 +201,6 @@ namespace NoodleHammer.PreviewForge.Editor
 
         internal static void NotifyPreviewHostAvailable(string previewTypeName, string selectionKey)
         {
-            LogDiagnostic($"host-available begin type={ShortPreviewTypeName(previewTypeName)} key='{selectionKey}' active='{_activeSelectionKey}' applied='{_appliedSelectionKey}' late='{_lateHostActivationAttemptedKey}' pending={_autoSelectPending} frames={_framesRemaining} verify={_postApplyVerificationFramesRemaining} attempts={_applyAttemptsForSelection} recovery={_recoveryAttemptedForSelection}");
             if (PreviewEditorTransitionGuard.IsUnsafeTransition())
             {
                 LogDiagnostic($"host-available reset unsafe-transition type={ShortPreviewTypeName(previewTypeName)} key='{selectionKey}'");
@@ -352,12 +349,6 @@ namespace NoodleHammer.PreviewForge.Editor
                 LogDiagnostic(
                     $"update type={ShortPreviewTypeName(request.PreviewTypeName)} key='{request.SelectionKey}' editors={propertyEditors.Length} {DescribeProbe(previewSelectionProbe)} pending={_autoSelectPending} frames={_framesRemaining} verify={_postApplyVerificationFramesRemaining} attempts={_applyAttemptsForSelection} recovery={_recoveryAttemptedForSelection} late='{_lateHostActivationAttemptedKey}' modelRearm={_modelImporterRearmFramesRemaining}");
             }
-            if (isPrefabPreviewRequest)
-            {
-                PreviewParticleTrace.Log(
-                    "AutoSelector",
-                    $"update key='{request.SelectionKey}' state={previewSelectionState} replacement={previewSelectionProbe.ReplacementKind} pending={_autoSelectPending} frames={_framesRemaining} verify={_postApplyVerificationFramesRemaining} attempts={_applyAttemptsForSelection}");
-            }
 
             if (_postApplyVerificationFramesRemaining > 0
                 && previewSelectionState == PreviewSelectionState.NotSelected
@@ -418,19 +409,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             if (applied)
             {
-                _appliedSelectionKey = request.SelectionKey;
-                _applyAttemptsForSelection++;
-                _postApplyVerificationFramesRemaining = PostApplyVerificationFrames;
-                if (isPrefabPreviewRequest)
-                    PreviewParticleTrace.Log("AutoSelector", $"applied key='{_appliedSelectionKey}' attempts={_applyAttemptsForSelection} verify={_postApplyVerificationFramesRemaining}");
-                if (!string.IsNullOrEmpty(_appliedSelectionKey) && LoggedAppliedSelectionKeys.Add(_appliedSelectionKey))
-                    LogDiagnostic($"Applied preview auto-select for: {_appliedSelectionKey} type={request.PreviewTypeName}");
-
-                _autoSelectPending = false;
-                _framesRemaining = 0;
-                EnsureUpdateHook(shouldSubscribe:
-                    _postApplyVerificationFramesRemaining > 0
-                    || _modelImporterRearmFramesRemaining > 0);
+                CompleteAppliedSelection(request, isPrefabPreviewRequest, reason: "update");
                 return;
             }
 
@@ -439,8 +418,6 @@ namespace NoodleHammer.PreviewForge.Editor
 
             if (_framesRemaining <= 0 || _applyAttemptsForSelection >= MaxApplyAttemptsPerSelection)
             {
-                if (isPrefabPreviewRequest && _autoSelectPending)
-                    PreviewParticleTrace.Log("AutoSelector", $"stop key='{request.SelectionKey}' frames={_framesRemaining} attempts={_applyAttemptsForSelection} state={previewSelectionState}");
                 if (_autoSelectPending)
                     LogDiagnostic($"stop pending type={ShortPreviewTypeName(request.PreviewTypeName)} key='{request.SelectionKey}' frames={_framesRemaining} attempts={_applyAttemptsForSelection} state={previewSelectionState}");
                 _autoSelectPending = false;
@@ -450,6 +427,21 @@ namespace NoodleHammer.PreviewForge.Editor
             EnsureUpdateHook(shouldSubscribe:
                 _autoSelectPending
                 || _postApplyVerificationFramesRemaining > 0
+                || _modelImporterRearmFramesRemaining > 0);
+        }
+
+        private static void CompleteAppliedSelection(AutoSelectRequest request, bool isPrefabPreviewRequest, string reason)
+        {
+            _appliedSelectionKey = request.SelectionKey;
+            _applyAttemptsForSelection++;
+            _postApplyVerificationFramesRemaining = PostApplyVerificationFrames;
+            if (!string.IsNullOrEmpty(_appliedSelectionKey) && LoggedAppliedSelectionKeys.Add(_appliedSelectionKey))
+                LogDiagnostic($"Applied preview auto-select for: {_appliedSelectionKey} type={request.PreviewTypeName} reason={reason}");
+
+            _autoSelectPending = false;
+            _framesRemaining = 0;
+            EnsureUpdateHook(shouldSubscribe:
+                _postApplyVerificationFramesRemaining > 0
                 || _modelImporterRearmFramesRemaining > 0);
         }
 
@@ -1053,7 +1045,8 @@ namespace NoodleHammer.PreviewForge.Editor
         {
             if (!PreviewSettings.EnableDiagnostics || string.IsNullOrEmpty(message))
                 return;
-            Debug.Log($"[PreviewForge][AutoSelector] frame={Time.frameCount} t={EditorApplication.timeSinceStartup:F3} {message}");
+
+            PreviewDiagnostics.Log("AutoSelector", message);
         }
 
         private static string DescribeProbe(PreviewSelectionProbe probe)

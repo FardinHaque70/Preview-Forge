@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.38] - 2026-06-24
+
+- Retry built-in preview fallback patch application after unsafe editor transitions so prefab custom preview support comes back cleanly on startup and settings changes.
+- Draw a neutral Preview Forge background while prefab or model custom previews are unresolved instead of bouncing through Unity's base preview path.
+- Route auto-selector diagnostics through the shared diagnostics logger and disable particle trace spam to keep preview debugging focused.
+
 ## [1.1.37] - 2026-06-24
 
 - Retry prefab and model preview auto-selection when Unity activates the preview host late, while still yielding cleanly to competing custom preview providers.

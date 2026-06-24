@@ -46,13 +46,11 @@ namespace NoodleHammer.PreviewForge.Editor
             base.Initialize(targets);
             RegisterEventHandlers();
             MarkTargetSupportCacheDirty();
-            PreviewParticleTrace.Log("PrefabHost", $"host=#{_hostId} Initialize targets={targets?.Length ?? 0} target='{DescribeTargetForTrace(target)}'");
             PreviewDiagnostics.Log("Host", $"#{_hostId} Initialize targets={targets?.Length ?? 0}");
         }
 
         public override void Cleanup()
         {
-            PreviewParticleTrace.Log("PrefabHost", $"host=#{_hostId} Cleanup activeKind={_activeKind} asset='{_activePrefabAssetPath}' target='{DescribeTargetForTrace(target)}'");
             CleanupActiveImplementation();
             _activeImplementation = null;
             _activeKind = PrefabPreviewTargetKind.Unsupported;
@@ -108,8 +106,6 @@ namespace NoodleHammer.PreviewForge.Editor
 
             if (_activeKind != kind || !ReferenceEquals(_activeImplementation, implementation))
             {
-                if (kind == PrefabPreviewTargetKind.Particle || _activeKind == PrefabPreviewTargetKind.Particle)
-                    PreviewParticleTrace.Log("PrefabHost", $"host=#{_hostId} switch {_activeKind}->{kind} prefab='{PreviewParticleTrace.Asset(prefab)}'");
                 LogResolveState($"switch {_activeKind} -> {kind} prefab='{prefab.name}'", force: true);
                 CleanupActiveImplementation();
                 _activeImplementation = implementation;
@@ -155,44 +151,41 @@ namespace NoodleHammer.PreviewForge.Editor
         {
             if (!HasPreviewGUI() || _activeImplementation == null)
             {
-                if (isInteractive)
-                    base.OnInteractivePreviewGUI(rect, background);
-                else
-                    base.OnPreviewGUI(rect, background);
+                DrawNeutralPreviewBackground(rect, background);
                 return;
             }
 
             if (!TryResolveSupportedPrefabTarget(out GameObject prefab, out PrefabPreviewTargetKind kind))
             {
-                if (isInteractive)
-                    base.OnInteractivePreviewGUI(rect, background);
-                else
-                    base.OnPreviewGUI(rect, background);
+                DrawNeutralPreviewBackground(rect, background);
                 return;
             }
 
             if (kind != _activeKind)
             {
-                if (isInteractive)
-                    base.OnInteractivePreviewGUI(rect, background);
-                else
-                    base.OnPreviewGUI(rect, background);
+                DrawNeutralPreviewBackground(rect, background);
                 return;
             }
 
             bool ready = _activeImplementation.EnsureReady(prefab);
             if (!ready)
             {
-                if (isInteractive)
-                    base.OnInteractivePreviewGUI(rect, background);
-                else
-                    base.OnPreviewGUI(rect, background);
+                DrawNeutralPreviewBackground(rect, background);
                 return;
             }
 
             _activePrefabAssetPath = AssetDatabase.GetAssetPath(prefab);
             _lastSuccessfulResolveTime = EditorApplication.timeSinceStartup;
             _activeImplementation.Draw(rect, background, isInteractive);
+        }
+
+        private static void DrawNeutralPreviewBackground(Rect rect, GUIStyle background)
+        {
+            if (Event.current.type != EventType.Repaint)
+                return;
+
+            background?.Draw(rect, GUIContent.none, false, false, false, false);
+            EditorGUI.DrawRect(rect, PreviewSettings.BackgroundColor);
         }
 
         private void EnsureImplementationInstance(PrefabPreviewTargetKind kind)
@@ -213,8 +206,6 @@ namespace NoodleHammer.PreviewForge.Editor
 
             implementation.SetRepaintCallback(RequestPreviewRepaint);
             _implementations[kind] = implementation;
-            if (kind == PrefabPreviewTargetKind.Particle)
-                PreviewParticleTrace.Log("PrefabHost", $"host=#{_hostId} create-implementation kind={kind}");
         }
 
         private IPrefabPreviewImplementation ResolveImplementation(PrefabPreviewTargetKind kind)
@@ -321,12 +312,6 @@ namespace NoodleHammer.PreviewForge.Editor
                 return;
 
             bool selectionIsEmpty = clearSessionCache;
-            if (_activeKind == PrefabPreviewTargetKind.Particle)
-            {
-                PreviewParticleTrace.Log(
-                    "PrefabHost",
-                    $"host=#{_hostId} cleanup-active kind={_activeKind} selectionEmpty={IsSelectionEmpty()} clearSessionCache={clearSessionCache} clearSessionState={selectionIsEmpty} asset='{_activePrefabAssetPath}'");
-            }
             _activeImplementation.Cleanup(selectionIsEmpty);
             PreviewDiagnostics.Log(
                 "Host",
