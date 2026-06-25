@@ -2,6 +2,11 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.46] - 2026-06-25
+
+- Restrict particle prefab thumbnail detection back to prefabs whose root object owns the driving `ParticleSystem`, instead of treating child-only particle hierarchies as particle thumbnail targets.
+- Add mirrored EditMode coverage for both the supported root-particle case and the unsupported child-only particle case.
+
 ## [1.1.45] - 2026-06-24
 
 - Update the development project build settings to use `Assets/Noodle Hammer/Preview Forge/Demo/Demo.unity` after removing the accidentally committed root `Assets/Scenes` sample scene.

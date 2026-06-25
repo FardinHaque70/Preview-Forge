@@ -9,7 +9,7 @@ namespace NoodleHammer.PreviewForge.Editor
     {
         public static bool IsParticlePrefab(GameObject root)
         {
-            return root != null && root.GetComponentInChildren<ParticleSystem>(true) != null;
+            return root != null && root.GetComponent<ParticleSystem>() != null;
         }
     }
 

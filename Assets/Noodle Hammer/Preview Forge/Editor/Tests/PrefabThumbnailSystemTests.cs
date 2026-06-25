@@ -14,9 +14,7 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
             GameObject root = new GameObject("ParticleRoot");
             try
             {
-                GameObject child = new GameObject("ParticleChild");
-                child.transform.SetParent(root.transform, false);
-                child.AddComponent<ParticleSystem>();
+                root.AddComponent<ParticleSystem>();
 
                 IPrefabThumbnailRenderer renderer = PrefabThumbnailRendererRegistry.FindBestRenderer(
                     root,
@@ -27,6 +25,32 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
                 Assert.That(renderer, Is.TypeOf<ParticlePrefabThumbnailRenderer>());
                 Assert.That(supportInfo.Supported, Is.True);
                 Assert.That(supportInfo.AssetKind, Is.EqualTo(PrefabThumbnailAssetKind.ParticlePrefab));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void RendererRegistry_ChildOnlyParticlePrefab_IsUnsupported()
+        {
+            GameObject root = new GameObject("ParticleRoot");
+            try
+            {
+                GameObject child = new GameObject("ParticleChild");
+                child.transform.SetParent(root.transform, false);
+                child.AddComponent<ParticleSystem>();
+
+                IPrefabThumbnailRenderer renderer = PrefabThumbnailRendererRegistry.FindBestRenderer(
+                    root,
+                    guid: "particle-guid",
+                    assetPath: "Assets/Particle.prefab",
+                    out PrefabThumbnailSupportInfo supportInfo);
+
+                Assert.That(renderer, Is.Null);
+                Assert.That(supportInfo.Supported, Is.False);
+                Assert.That(supportInfo.AssetKind, Is.EqualTo(PrefabThumbnailAssetKind.Unsupported));
             }
             finally
             {
