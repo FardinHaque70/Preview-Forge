@@ -2,6 +2,10 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.48] - 2026-06-25
+
+- Add an explicit `UnityEngine.Object` alias in the mirrored particle thumbnail renderer so the particle thumbnail path keeps a stable object-reference target when editor namespaces introduce `Object` ambiguity.
+
 ## [1.1.47] - 2026-06-25
 
 - Add a particle thumbnail render-timeout setting so heavy VFX thumbnail attempts can abort cleanly and log a bounded warning instead of hanging editor work indefinitely.

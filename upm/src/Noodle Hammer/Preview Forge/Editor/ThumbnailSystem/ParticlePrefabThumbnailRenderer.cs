@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 // Renders particle prefab thumbnails in isolated preview scenes and outputs textures suitable for Project window display.
 
 namespace NoodleHammer.PreviewForge.Editor
