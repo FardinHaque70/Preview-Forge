@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.47] - 2026-06-25
+
+- Add a particle thumbnail render-timeout setting so heavy VFX thumbnail attempts can abort cleanly and log a bounded warning instead of hanging editor work indefinitely.
+- Simplify prefab thumbnail bulk-generation flow by removing the old modal progress window path and limiting generation to the currently enabled Project window surfaces.
+- Add mirrored EditMode coverage for root-owned particle detection, enabled-surface selection, exact bulk-generation progress/detail reporting, persistent-cache modal hits, and timeout-sensitive settings tokens.
+
 ## [1.1.46] - 2026-06-25
 
 - Restrict particle prefab thumbnail detection back to prefabs whose root object owns the driving `ParticleSystem`, instead of treating child-only particle hierarchies as particle thumbnail targets.

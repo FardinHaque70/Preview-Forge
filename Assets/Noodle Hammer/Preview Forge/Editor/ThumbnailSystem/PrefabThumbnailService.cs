@@ -7,11 +7,18 @@ using UnityEngine;
 namespace NoodleHammer.PreviewForge.Editor
 {
 	[InitializeOnLoad]
-	public static class PrefabThumbnailService
-	{
-		private struct SupportCacheEntry
+		public static class PrefabThumbnailService
 		{
-			public string AssetPath;
+			internal enum ModalGenerateRequestResult
+			{
+				CacheHit = 0,
+				Rendered = 1,
+				Failed = 2,
+			}
+
+			private struct SupportCacheEntry
+			{
+				public string AssetPath;
 			public string DependencyToken;
 			public PrefabThumbnailSupportInfo SupportInfo;
 			public IPrefabThumbnailRenderer Renderer;
@@ -28,96 +35,34 @@ namespace NoodleHammer.PreviewForge.Editor
 		private static readonly LinkedList<PrefabThumbnailRequest> CacheLru = new();
 		private static readonly Dictionary<PrefabThumbnailRequest, LinkedListNode<PrefabThumbnailRequest>> CacheLruNodes = new();
 
-		private static readonly Queue<PrefabThumbnailRequest> RenderQueue = new();
-		private static readonly Queue<PrefabThumbnailRequest> PriorityRenderQueue = new();
-		private static readonly HashSet<PrefabThumbnailRequest> Queued = new();
-		private static readonly HashSet<PrefabThumbnailRequest> PriorityQueued = new();
-		private static readonly Dictionary<PrefabThumbnailRequest, string> FailedDependencyByRequest = new();
-		private static readonly Dictionary<PrefabThumbnailRequest, int> RequestLastSeenFrame = new();
-		private static readonly HashSet<PrefabThumbnailRequest> GenerateAllPendingRequests = new();
+			private static readonly Queue<PrefabThumbnailRequest> RenderQueue = new();
+			private static readonly Queue<PrefabThumbnailRequest> PriorityRenderQueue = new();
+			private static readonly HashSet<PrefabThumbnailRequest> Queued = new();
+			private static readonly HashSet<PrefabThumbnailRequest> PriorityQueued = new();
+			private static readonly Dictionary<PrefabThumbnailRequest, string> FailedDependencyByRequest = new();
+			private static readonly Dictionary<PrefabThumbnailRequest, int> RequestLastSeenFrame = new();
 
-		private static readonly Dictionary<string, SupportCacheEntry> SupportCache = new();
-		private static readonly HashSet<string> KnownNonPrefabGuids = new(StringComparer.OrdinalIgnoreCase);
-		private static readonly Queue<string> PendingSupportLookupQueue = new();
-		private static readonly HashSet<string> PendingSupportLookupSet = new(StringComparer.OrdinalIgnoreCase);
-		private static readonly Queue<DeferredPersistentLoadRequest> PendingPersistentLoadQueue = new();
-		private static readonly HashSet<PrefabThumbnailRequest> PendingPersistentLoadSet = new();
-		private static readonly HashSet<string> KnownPersistentCacheMisses = new(StringComparer.Ordinal);
-		private static int GenerateAllTotalCount;
-		private static int GenerateAllCompletedCount;
-		private static int GenerateAllSucceededCount;
-		private static int GenerateAllFailedCount;
-		private static bool GenerateAllIsPreparing;
-		private static int GenerateAllPreparingTotal;
-		private static int GenerateAllPreparingIndex;
-		private static string GenerateAllCurrentAssetPath = string.Empty;
-		private static bool GenerateAllProgressWindowDismissedByUser;
-		private static string[] GenerateAllScanGuids = Array.Empty<string>();
-		private static int GenerateAllScanIndex;
-		private static bool GenerateAllScanInProgress;
-		private static bool GenerateAllUseUnthrottledProcessing;
-		private static bool GenerateAllRunActive;
-		private static double GenerateAllStartTime;
-		private static bool GenerateAllWarmupFramePending;
+			private static readonly Dictionary<string, SupportCacheEntry> SupportCache = new();
+			private static readonly HashSet<string> KnownNonPrefabGuids = new(StringComparer.OrdinalIgnoreCase);
+			private static readonly Queue<string> PendingSupportLookupQueue = new();
+			private static readonly HashSet<string> PendingSupportLookupSet = new(StringComparer.OrdinalIgnoreCase);
+			private static readonly Queue<DeferredPersistentLoadRequest> PendingPersistentLoadQueue = new();
+			private static readonly HashSet<PrefabThumbnailRequest> PendingPersistentLoadSet = new();
+			private static readonly HashSet<string> KnownPersistentCacheMisses = new(StringComparer.Ordinal);
 
-		private const double GenerateAllScanBudgetMs = 6.0;
-		private const int SupportLookupMaxPerUpdate = 24;
-		private const double SupportLookupBudgetMs = 2.0;
-		private const int PersistentLoadMaxPerUpdate = 4;
-		private const double PersistentLoadBudgetMs = 2.0;
-		private const int StaleRequestFrameAge = 90;
-		private const int FastModeMaxRendersPerUpdate = 64;
-		private const double FastModeRenderBudgetMs = 50.0;
-		private const double FastModeScanBudgetMs = 40.0;
-		private static bool ProjectWindowHookRegistered;
-		private static bool EditorUpdateHookRegistered;
+			private const int SupportLookupMaxPerUpdate = 24;
+			private const double SupportLookupBudgetMs = 2.0;
+			private const int PersistentLoadMaxPerUpdate = 4;
+			private const double PersistentLoadBudgetMs = 2.0;
+			private const int StaleRequestFrameAge = 90;
+			private static bool ProjectWindowHookRegistered;
+			private static bool EditorUpdateHookRegistered;
 
-		static PrefabThumbnailService()
-		{
-			EditorApplication.quitting += SafeClearProgressWindow;
-			AssemblyReloadEvents.beforeAssemblyReload += SafeClearProgressWindow;
-			PrefabThumbnailSettings.SettingsChanged += HandleSettingsChanged;
-			RefreshRuntimeHooks();
-		}
-
-		public static bool IsGenerateAllInProgress
-		{
-			get
+			static PrefabThumbnailService()
 			{
-				if (GenerateAllIsPreparing || GenerateAllScanInProgress)
-					return true;
-
-				if (GenerateAllPendingRequests.Count > 0)
-					return true;
-
-				if (GenerateAllTotalCount <= 0)
-					return false;
-
-				return GenerateAllCompletedCount < GenerateAllTotalCount;
+				PrefabThumbnailSettings.SettingsChanged += HandleSettingsChanged;
+				RefreshRuntimeHooks();
 			}
-		}
-
-		public static bool TryGetGenerateAllProgress(
-			out float progress01,
-			out int completed,
-			out int total,
-			out int succeeded,
-			out int failed)
-		{
-			total = GenerateAllTotalCount;
-			completed = GenerateAllCompletedCount;
-			succeeded = GenerateAllSucceededCount;
-			failed = GenerateAllFailedCount;
-
-			if (total <= 0)
-			{
-				progress01 = 0f;
-				return false;
-			}
-
-			progress01 = Mathf.Clamp01((float) completed / total);
-			return true;
-		}
 
 		public struct CacheStats
 		{
@@ -199,16 +144,14 @@ namespace NoodleHammer.PreviewForge.Editor
 			FailedDependencyByRequest.Clear();
 			SupportCache.Clear();
 			KnownNonPrefabGuids.Clear();
-			PendingSupportLookupQueue.Clear();
-			PendingSupportLookupSet.Clear();
-			PendingPersistentLoadQueue.Clear();
-			PendingPersistentLoadSet.Clear();
-			KnownPersistentCacheMisses.Clear();
-			ResetGenerateAllProgress();
-			SafeClearProgressWindow();
-			ResetCacheStatsSnapshot();
-			RefreshRuntimeHooks();
-			EditorApplication.RepaintProjectWindow();
+				PendingSupportLookupQueue.Clear();
+				PendingSupportLookupSet.Clear();
+				PendingPersistentLoadQueue.Clear();
+				PendingPersistentLoadSet.Clear();
+				KnownPersistentCacheMisses.Clear();
+				ResetCacheStatsSnapshot();
+				RefreshRuntimeHooks();
+				EditorApplication.RepaintProjectWindow();
 		}
 
 		internal static void InvalidateSupportCacheForPath(string assetPath)
@@ -269,40 +212,161 @@ namespace NoodleHammer.PreviewForge.Editor
 			EditorApplication.RepaintProjectWindow();
 		}
 
-		public static void GenerateAllThumbnailsInProject()
-		{
-			GenerateAllThumbnailsInProject(unthrottledProcessing: false);
-		}
+			public static void GenerateAllThumbnailsInProject()
+			{
+				GenerateAllThumbnailsModal();
+			}
 
-		public static void GenerateAllThumbnailsInProjectFromSettings()
-		{
-			GenerateAllThumbnailsInProject(unthrottledProcessing: true);
-		}
+			public static void GenerateAllThumbnailsInProjectFromSettings()
+			{
+				GenerateAllThumbnailsModal();
+			}
 
-		private static void GenerateAllThumbnailsInProject(bool unthrottledProcessing)
-		{
-			FailedDependencyByRequest.Clear();
-			RefreshVolatileStatsSnapshot();
-			ResetGenerateAllProgress();
-			GenerateAllUseUnthrottledProcessing = unthrottledProcessing;
-			GenerateAllRunActive = true;
-			GenerateAllStartTime = EditorApplication.timeSinceStartup;
-			ShowImmediatePreparingPopup();
+			private static void GenerateAllThumbnailsModal()
+			{
+				if (IsThumbnailWorkSuspended())
+				{
+					Debug.LogWarning("[PrefabThumbnail] Bulk thumbnail generation is unavailable during compile, update, or play mode transitions.");
+					return;
+				}
 
-			GenerateAllScanGuids = AssetDatabase.FindAssets("t:Prefab") ?? Array.Empty<string>();
-			GenerateAllScanIndex = 0;
-			GenerateAllScanInProgress = true;
-			GenerateAllPreparingTotal = GenerateAllScanGuids.Length;
-			GenerateAllPreparingIndex = 0;
-			GenerateAllCurrentAssetPath = string.Empty;
-			GenerateAllWarmupFramePending = GenerateAllUseUnthrottledProcessing;
-			UpdateGenerateAllProgressWindow();
-			RepaintAllRelevantWindows();
-			RefreshRuntimeHooks();
+				FailedDependencyByRequest.Clear();
+				RefreshVolatileStatsSnapshot();
 
-			if (GenerateAllScanGuids.Length == 0)
-				FinalizeGenerateAllPreparation();
-		}
+				double startTime = EditorApplication.timeSinceStartup;
+				bool canceledDuringPrepare;
+				bool abortedDuringPrepare;
+				int supportedAssetCount;
+				int completedCount = 0;
+				int renderedCount = 0;
+				int cacheHitCount = 0;
+				int failedCount = 0;
+				bool canceledDuringRender = false;
+				bool abortedDuringRender = false;
+				string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab") ?? Array.Empty<string>();
+				List<PrefabThumbnailRequest> requests = null;
+
+				try
+				{
+					requests = CollectModalGenerateRequests(
+						prefabGuids,
+						out supportedAssetCount,
+						out canceledDuringPrepare,
+						out abortedDuringPrepare);
+
+					if (canceledDuringPrepare)
+					{
+						LogModalGenerateSummary(
+							"cancelled during preparation",
+							startTime,
+							supportedAssetCount,
+							totalRequestCount: requests.Count,
+							completedCount,
+							renderedCount,
+							cacheHitCount,
+							failedCount);
+						return;
+					}
+
+					if (abortedDuringPrepare)
+					{
+						Debug.LogWarning("[PrefabThumbnail] Bulk thumbnail generation aborted during preparation because the editor entered an unsafe transition.");
+						return;
+					}
+
+					if (requests.Count == 0)
+					{
+						if (GetEnabledGenerationSurfaces().Count == 0)
+						{
+							Debug.LogWarning("[PrefabThumbnail] Bulk thumbnail generation skipped because both Project window thumbnail surfaces are disabled.");
+						}
+						else
+						{
+							Debug.Log("[PrefabThumbnail] No supported prefab thumbnails were found to generate.");
+						}
+
+						return;
+					}
+
+					for (int i = 0; i < requests.Count; i++)
+					{
+						if (IsThumbnailWorkSuspended())
+						{
+							abortedDuringRender = true;
+							break;
+						}
+
+						PrefabThumbnailRequest request = requests[i];
+						if (EditorUtility.DisplayCancelableProgressBar(
+							    "Generating Prefab Thumbnails",
+							    BuildGenerateAllProgressDetail(
+								    completedCount,
+								    requests.Count,
+								    renderedCount,
+								    cacheHitCount,
+								    failedCount,
+								    request.AssetPath),
+							    GetGenerateAllProgress01(completedCount, requests.Count)))
+						{
+							canceledDuringRender = true;
+							break;
+						}
+
+						switch (ResolveModalGenerateRequest(request))
+						{
+							case ModalGenerateRequestResult.CacheHit:
+								cacheHitCount++;
+								break;
+							case ModalGenerateRequestResult.Rendered:
+								renderedCount++;
+								break;
+							default:
+								failedCount++;
+								break;
+						}
+
+						completedCount++;
+					}
+
+					if (canceledDuringRender)
+					{
+						LogModalGenerateSummary(
+							"cancelled",
+							startTime,
+							supportedAssetCount,
+							requests.Count,
+							completedCount,
+							renderedCount,
+							cacheHitCount,
+							failedCount);
+						return;
+					}
+
+					if (abortedDuringRender)
+					{
+						Debug.LogWarning(
+							$"[PrefabThumbnail] Bulk thumbnail generation aborted during rendering because the editor entered an unsafe transition. " +
+							BuildGenerateAllSummary(requests.Count, completedCount, renderedCount, cacheHitCount, failedCount, supportedAssetCount, startTime));
+						return;
+					}
+
+					LogModalGenerateSummary(
+						"complete",
+						startTime,
+						supportedAssetCount,
+						requests.Count,
+						completedCount,
+						renderedCount,
+						cacheHitCount,
+						failedCount);
+				}
+				finally
+				{
+					EditorUtility.ClearProgressBar();
+					EditorApplication.RepaintProjectWindow();
+					RefreshRuntimeHooks();
+				}
+			}
 
 		[MenuItem("Assets/Preview Forge/Regenerate Prefab Thumbnail", true)]
 		private static bool MenuRegenerateSelectedValidate()
@@ -336,13 +400,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			}
 		}
 
-		private static readonly PrefabThumbnailSurface[] GenerationSurfaces =
-		{
-			PrefabThumbnailSurface.ProjectWindowGrid,
-			PrefabThumbnailSurface.ProjectWindowList,
-		};
-
-		private static void OnProjectWindowItemGui(string guid, Rect selectionRect)
+			private static void OnProjectWindowItemGui(string guid, Rect selectionRect)
 		{
 			if (Event.current != null && Event.current.type != EventType.Repaint)
 				return;
@@ -382,155 +440,20 @@ namespace NoodleHammer.PreviewForge.Editor
 				Enqueue(request, prioritize: true);
 		}
 
-		private static void OnEditorUpdate()
-		{
-			if (!HasPendingEditorWork())
+			private static void OnEditorUpdate()
 			{
-				UpdateGenerateAllProgressWindow();
-				RefreshRuntimeHooks();
-				return;
-			}
-
-			if (GenerateAllWarmupFramePending)
-			{
-				GenerateAllWarmupFramePending = false;
-				RepaintAllRelevantWindows();
-				RefreshRuntimeHooks();
-				return;
-			}
-
-			if (GenerateAllScanInProgress)
-				ProcessGenerateAllScan();
-
-			ProcessPendingSupportLookups();
-			ProcessPendingPersistentLoads();
-			ResolveDanglingGenerateAllRequests();
-
-			if (PrefabThumbnailSettings.Enabled || GenerateAllPendingRequests.Count > 0)
-				ProcessQueue();
-
-			TryLogGenerateAllCompletion();
-			UpdateGenerateAllProgressWindow();
-			RefreshRuntimeHooks();
-		}
-
-		private static void ResolveDanglingGenerateAllRequests()
-		{
-			if (GenerateAllScanInProgress || GenerateAllIsPreparing)
-				return;
-
-			if (GenerateAllPendingRequests.Count == 0 || PriorityRenderQueue.Count > 0 || RenderQueue.Count > 0 || PendingPersistentLoadQueue.Count > 0)
-				return;
-
-			List<PrefabThumbnailRequest> dangling = new List<PrefabThumbnailRequest>(GenerateAllPendingRequests.Count);
-			foreach (PrefabThumbnailRequest request in GenerateAllPendingRequests)
-				dangling.Add(request);
-
-			bool anyResolved = false;
-			for (int i = 0; i < dangling.Count; i++)
-				anyResolved |= CompleteGenerateAllRequest(dangling[i], success: false);
-
-			if (!anyResolved)
-				return;
-
-			GenerateAllCurrentAssetPath = string.Empty;
-			RepaintAllRelevantWindows();
-		}
-
-		private static void TryLogGenerateAllCompletion()
-		{
-			if (!GenerateAllRunActive)
-				return;
-
-			if (GenerateAllIsPreparing || GenerateAllScanInProgress)
-				return;
-
-			if (GenerateAllTotalCount <= 0)
-				return;
-
-			if (GenerateAllCompletedCount < GenerateAllTotalCount)
-				return;
-
-			LogGenerateAllCompletion(GenerateAllTotalCount, GenerateAllSucceededCount, GenerateAllFailedCount);
-		}
-
-		private static void LogGenerateAllCompletion(int total, int succeeded, int failed)
-		{
-			double elapsedSec = EditorApplication.timeSinceStartup - GenerateAllStartTime;
-			if (elapsedSec < 0.0)
-				elapsedSec = 0.0;
-
-			string modeLabel = GenerateAllUseUnthrottledProcessing ? "fast mode" : "throttled mode";
-			Debug.Log(
-				$"[PrefabThumbnail] Generate-all complete ({modeLabel}). Total={total}, Succeeded={succeeded}, Failed={failed}, Time={elapsedSec:F2}s");
-
-			GenerateAllRunActive = false;
-			GenerateAllUseUnthrottledProcessing = false;
-		}
-
-		private static void ProcessGenerateAllScan()
-		{
-			if (!GenerateAllScanInProgress)
-				return;
-
-			double start = EditorApplication.timeSinceStartup;
-			int total = GenerateAllScanGuids?.Length ?? 0;
-
-			while (GenerateAllScanIndex < total)
-			{
-				double elapsedMs = (EditorApplication.timeSinceStartup - start) * 1000.0;
-				double scanBudgetMs = GenerateAllUseUnthrottledProcessing ? FastModeScanBudgetMs : GenerateAllScanBudgetMs;
-				if (elapsedMs > scanBudgetMs)
-					break;
-
-				string guid = GenerateAllScanGuids[GenerateAllScanIndex];
-				string previewAssetPath = AssetDatabase.GUIDToAssetPath(guid);
-				GenerateAllPreparingIndex = GenerateAllScanIndex + 1;
-				GenerateAllCurrentAssetPath = previewAssetPath ?? string.Empty;
-
-				if (TryGetSupportedPrefabInfo(guid, out string assetPath, out string dependencyToken, out PrefabThumbnailAssetKind assetKind))
+				if (!HasPendingEditorWork())
 				{
-					for (int s = 0; s < GenerationSurfaces.Length; s++)
-					{
-						PrefabThumbnailRequest request = new PrefabThumbnailRequest(guid, assetPath, assetKind, GenerationSurfaces[s]);
-						if (TryGetValidRecord(request, dependencyToken, out _, allowDeferredPersistentLoad: false))
-							continue;
-
-						TrackGenerateAllRequest(request);
-						if (!Queued.Contains(request))
-							Enqueue(request, prioritize: false);
-					}
+					RefreshRuntimeHooks();
+					return;
 				}
 
-				GenerateAllScanIndex++;
+				ProcessPendingSupportLookups();
+				ProcessPendingPersistentLoads();
+				if (PrefabThumbnailSettings.Enabled)
+					ProcessQueue();
+				RefreshRuntimeHooks();
 			}
-
-			if (GenerateAllScanIndex >= total)
-				FinalizeGenerateAllPreparation();
-		}
-
-		private static void FinalizeGenerateAllPreparation()
-		{
-			GenerateAllScanInProgress = false;
-			GenerateAllScanGuids = Array.Empty<string>();
-			GenerateAllScanIndex = 0;
-			GenerateAllIsPreparing = false;
-			GenerateAllPreparingIndex = 0;
-			GenerateAllPreparingTotal = 0;
-
-			if (GenerateAllTotalCount > 0)
-			{
-				GenerateAllCurrentAssetPath = "Queued. Starting generation...";
-				RepaintAllRelevantWindows();
-			}
-			else
-			{
-				LogGenerateAllCompletion(total: 0, succeeded: 0, failed: 0);
-				ResetGenerateAllProgress();
-				GenerateAllCurrentAssetPath = string.Empty;
-				EditorApplication.RepaintProjectWindow();
-			}
-		}
 
 		private static void ProcessPendingSupportLookups()
 		{
@@ -609,20 +532,19 @@ namespace NoodleHammer.PreviewForge.Editor
 				EditorApplication.RepaintProjectWindow();
 		}
 
-		private static void ProcessQueue()
-		{
-			if (PriorityRenderQueue.Count == 0 && RenderQueue.Count == 0)
-				return;
+			private static void ProcessQueue()
+			{
+				if (PriorityRenderQueue.Count == 0 && RenderQueue.Count == 0)
+					return;
 
-			if (IsThumbnailWorkSuspended())
-				return;
+				if (IsThumbnailWorkSuspended())
+					return;
 
-			int maxRenders = GenerateAllUseUnthrottledProcessing ? FastModeMaxRendersPerUpdate : PrefabThumbnailSettings.MaxRendersPerUpdate;
-			double budgetMs = GenerateAllUseUnthrottledProcessing ? FastModeRenderBudgetMs : PrefabThumbnailSettings.RenderBudgetMs;
-			double start = EditorApplication.timeSinceStartup;
-			bool anyRendered = false;
-			bool anyProgressUpdated = false;
-			int rendered = 0;
+				int maxRenders = PrefabThumbnailSettings.MaxRendersPerUpdate;
+				double budgetMs = PrefabThumbnailSettings.RenderBudgetMs;
+				double start = EditorApplication.timeSinceStartup;
+				bool anyRendered = false;
+				int rendered = 0;
 
 			while ((PriorityRenderQueue.Count > 0 || RenderQueue.Count > 0) && rendered < maxRenders)
 			{
@@ -639,31 +561,181 @@ namespace NoodleHammer.PreviewForge.Editor
 					PriorityQueued.Remove(request);
 					RefreshVolatileStatsSnapshot();
 					continue;
-				}
+					}
 
-				Queued.Remove(request);
-				PriorityQueued.Remove(request);
-				bool trackedByGenerateAll = GenerateAllPendingRequests.Contains(request);
-				if (trackedByGenerateAll)
+					Queued.Remove(request);
+					PriorityQueued.Remove(request);
+					if (string.IsNullOrEmpty(request.AssetPath))
+						continue;
+
+					string dependencyToken = GetDependencyToken(request.AssetPath);
+					if (TryGetValidRecord(request, dependencyToken, out _, allowDeferredPersistentLoad: false))
+						continue;
+
+					Texture2D texture = null;
+					try
 				{
-					GenerateAllCurrentAssetPath = request.AssetPath ?? string.Empty;
-					UpdateGenerateAllProgressWindow();
+					if (TryGetRendererForRequest(request, out IPrefabThumbnailRenderer renderer))
+						texture = renderer.Render(request.AssetPath, request.Surface);
+				}
+				catch (Exception)
+				{ }
+
+					if (texture == null)
+					{
+						FailedDependencyByRequest[request] = dependencyToken;
+						RefreshVolatileStatsSnapshot();
+						continue;
+					}
+
+					StoreCacheRecord(request, dependencyToken, texture, persistToDisk: PrefabThumbnailSettings.EnablePersistentCache);
+					rendered++;
+					anyRendered = true;
 				}
 
+				if (anyRendered)
+					EditorApplication.RepaintProjectWindow();
+			}
+
+			private static List<PrefabThumbnailRequest> CollectModalGenerateRequests(
+				string[] prefabGuids,
+				out int supportedAssetCount,
+				out bool canceled,
+				out bool abortedByTransition)
+			{
+				supportedAssetCount = 0;
+				canceled = false;
+				abortedByTransition = false;
+
+				List<PrefabThumbnailSurface> surfaces = GetEnabledGenerationSurfaces();
+				List<PrefabThumbnailRequest> requests = new List<PrefabThumbnailRequest>();
+				if (surfaces.Count == 0)
+					return requests;
+
+				int totalGuids = prefabGuids?.Length ?? 0;
+				for (int i = 0; i < totalGuids; i++)
+				{
+					if (IsThumbnailWorkSuspended())
+					{
+						abortedByTransition = true;
+						break;
+					}
+
+					string guid = prefabGuids[i];
+					string assetPathLabel = AssetDatabase.GUIDToAssetPath(guid);
+					if (EditorUtility.DisplayCancelableProgressBar(
+						    "Generating Prefab Thumbnails",
+						    BuildPreparationProgressDetail(i, totalGuids, supportedAssetCount, assetPathLabel),
+						    totalGuids > 0 ? Mathf.Clamp01((float) i / totalGuids) : 1f))
+					{
+						canceled = true;
+						break;
+					}
+
+					if (!TryGetSupportedPrefabInfo(guid, out string assetPath, out _, out PrefabThumbnailAssetKind assetKind))
+						continue;
+
+					supportedAssetCount++;
+					for (int s = 0; s < surfaces.Count; s++)
+						requests.Add(new PrefabThumbnailRequest(guid, assetPath, assetKind, surfaces[s]));
+				}
+
+				return requests;
+			}
+
+			private static List<PrefabThumbnailSurface> GetEnabledGenerationSurfaces()
+			{
+				return GetEnabledGenerationSurfaces(PrefabThumbnailSettings.DrawInProjectGrid, PrefabThumbnailSettings.DrawInProjectList);
+			}
+
+			private static List<PrefabThumbnailSurface> GetEnabledGenerationSurfaces(bool drawInProjectGrid, bool drawInProjectList)
+			{
+				List<PrefabThumbnailSurface> surfaces = new List<PrefabThumbnailSurface>(2);
+				if (drawInProjectGrid)
+					surfaces.Add(PrefabThumbnailSurface.ProjectWindowGrid);
+				if (drawInProjectList)
+					surfaces.Add(PrefabThumbnailSurface.ProjectWindowList);
+				return surfaces;
+			}
+
+			private static string BuildPreparationProgressDetail(int scannedCount, int totalCount, int supportedAssetCount, string assetPath)
+			{
+				string currentLabel = string.IsNullOrEmpty(assetPath) ? "(starting)" : assetPath;
+				return $"Scanning supported prefabs {scannedCount}/{totalCount} | Supported {supportedAssetCount} | Current: {currentLabel}";
+			}
+
+			private static string BuildGenerateAllProgressDetail(
+				int completedCount,
+				int totalCount,
+				int renderedCount,
+				int cacheHitCount,
+				int failedCount,
+				string assetPath)
+			{
+				string currentLabel = string.IsNullOrEmpty(assetPath) ? "(starting)" : assetPath;
+				return $"Completed {completedCount}/{totalCount} | Rendered {renderedCount} | Cache hits {cacheHitCount} | Failed {failedCount} | Current: {currentLabel}";
+			}
+
+			private static string BuildGenerateAllSummary(
+				int totalRequestCount,
+				int completedCount,
+				int renderedCount,
+				int cacheHitCount,
+				int failedCount,
+				int supportedAssetCount,
+				double startTime)
+			{
+				double elapsedSec = EditorApplication.timeSinceStartup - startTime;
+				if (elapsedSec < 0.0)
+					elapsedSec = 0.0;
+
+				return $"SupportedAssets={supportedAssetCount}, Requests={totalRequestCount}, Completed={completedCount}, Rendered={renderedCount}, CacheHits={cacheHitCount}, Failed={failedCount}, Time={elapsedSec:F2}s";
+			}
+
+			private static void LogModalGenerateSummary(
+				string statusLabel,
+				double startTime,
+				int supportedAssetCount,
+				int totalRequestCount,
+				int completedCount,
+				int renderedCount,
+				int cacheHitCount,
+				int failedCount)
+			{
+				string summary = BuildGenerateAllSummary(
+					totalRequestCount,
+					completedCount,
+					renderedCount,
+					cacheHitCount,
+					failedCount,
+					supportedAssetCount,
+					startTime);
+
+				if (string.Equals(statusLabel, "complete", StringComparison.Ordinal))
+				{
+					Debug.Log($"[PrefabThumbnail] Bulk thumbnail generation complete. {summary}");
+					return;
+				}
+
+				Debug.LogWarning($"[PrefabThumbnail] Bulk thumbnail generation {statusLabel}. {summary}");
+			}
+
+			private static float GetGenerateAllProgress01(int completedCount, int totalCount)
+			{
+				if (totalCount <= 0)
+					return 0f;
+
+				return Mathf.Clamp01((float) completedCount / totalCount);
+			}
+
+			private static ModalGenerateRequestResult ResolveModalGenerateRequest(PrefabThumbnailRequest request)
+			{
 				if (string.IsNullOrEmpty(request.AssetPath))
-				{
-					if (trackedByGenerateAll)
-						anyProgressUpdated |= CompleteGenerateAllRequest(request, success: false);
-					continue;
-				}
+					return ModalGenerateRequestResult.Failed;
 
 				string dependencyToken = GetDependencyToken(request.AssetPath);
 				if (TryGetValidRecord(request, dependencyToken, out _, allowDeferredPersistentLoad: false))
-				{
-					if (trackedByGenerateAll)
-						anyProgressUpdated |= CompleteGenerateAllRequest(request, success: true);
-					continue;
-				}
+					return ModalGenerateRequestResult.CacheHit;
 
 				Texture2D texture = null;
 				try
@@ -672,30 +744,19 @@ namespace NoodleHammer.PreviewForge.Editor
 						texture = renderer.Render(request.AssetPath, request.Surface);
 				}
 				catch (Exception)
-				{ }
+				{
+				}
 
 				if (texture == null)
 				{
 					FailedDependencyByRequest[request] = dependencyToken;
 					RefreshVolatileStatsSnapshot();
-					if (trackedByGenerateAll)
-						anyProgressUpdated |= CompleteGenerateAllRequest(request, success: false);
-					continue;
+					return ModalGenerateRequestResult.Failed;
 				}
 
 				StoreCacheRecord(request, dependencyToken, texture, persistToDisk: PrefabThumbnailSettings.EnablePersistentCache);
-				rendered++;
-				anyRendered = true;
-				if (trackedByGenerateAll)
-					anyProgressUpdated |= CompleteGenerateAllRequest(request, success: true);
+				return ModalGenerateRequestResult.Rendered;
 			}
-
-			if (anyRendered)
-				EditorApplication.RepaintProjectWindow();
-
-			if (anyProgressUpdated)
-				RepaintAllRelevantWindows();
-		}
 
 		private static void DrawRecord(Rect contentRect, Texture texture)
 		{
@@ -910,17 +971,18 @@ namespace NoodleHammer.PreviewForge.Editor
 			       && failedDependency == dependencyToken;
 		}
 
-		private static void EnqueueAllSurfaces(string guid, string assetPath, PrefabThumbnailAssetKind assetKind)
-		{
-			if (string.IsNullOrEmpty(guid) || string.IsNullOrEmpty(assetPath) || assetKind == PrefabThumbnailAssetKind.Unsupported)
-				return;
-
-			for (int s = 0; s < GenerationSurfaces.Length; s++)
+			private static void EnqueueAllSurfaces(string guid, string assetPath, PrefabThumbnailAssetKind assetKind)
 			{
-				PrefabThumbnailRequest request = new PrefabThumbnailRequest(guid, assetPath, assetKind, GenerationSurfaces[s]);
-				if (!Queued.Contains(request))
-					Enqueue(request, prioritize: false);
-			}
+				if (string.IsNullOrEmpty(guid) || string.IsNullOrEmpty(assetPath) || assetKind == PrefabThumbnailAssetKind.Unsupported)
+					return;
+
+				List<PrefabThumbnailSurface> surfaces = GetEnabledGenerationSurfaces();
+				for (int s = 0; s < surfaces.Count; s++)
+				{
+					PrefabThumbnailRequest request = new PrefabThumbnailRequest(guid, assetPath, assetKind, surfaces[s]);
+					if (!Queued.Contains(request))
+						Enqueue(request, prioritize: false);
+				}
 		}
 
 		private static void Enqueue(PrefabThumbnailRequest request, bool prioritize)
@@ -1096,7 +1158,6 @@ namespace NoodleHammer.PreviewForge.Editor
 					Queued.Remove(request);
 					PriorityQueued.Remove(request);
 					RequestLastSeenFrame.Remove(request);
-					CompleteGenerateAllRequest(request, success: false);
 					anyRemoved = true;
 					continue;
 				}
@@ -1116,7 +1177,6 @@ namespace NoodleHammer.PreviewForge.Editor
 				{
 					Queued.Remove(request);
 					RequestLastSeenFrame.Remove(request);
-					CompleteGenerateAllRequest(request, success: false);
 					anyRemoved = true;
 					continue;
 				}
@@ -1128,7 +1188,11 @@ namespace NoodleHammer.PreviewForge.Editor
 				RenderQueue.Enqueue(retained.Dequeue());
 
 			if (PendingPersistentLoadQueue.Count == 0)
+			{
+				if (anyRemoved)
+					RefreshVolatileStatsSnapshot();
 				return;
+			}
 
 			Queue<DeferredPersistentLoadRequest> retainedLoads = new Queue<DeferredPersistentLoadRequest>(PendingPersistentLoadQueue.Count);
 			while (PendingPersistentLoadQueue.Count > 0)
@@ -1158,56 +1222,6 @@ namespace NoodleHammer.PreviewForge.Editor
 		{
 			ClearMemoryCache();
 			RefreshRuntimeHooks();
-		}
-
-		private static void TrackGenerateAllRequest(PrefabThumbnailRequest request)
-		{
-			if (!GenerateAllPendingRequests.Add(request))
-				return;
-
-			GenerateAllTotalCount++;
-			RefreshVolatileStatsSnapshot();
-		}
-
-		private static bool CompleteGenerateAllRequest(PrefabThumbnailRequest request, bool success)
-		{
-			if (!GenerateAllPendingRequests.Remove(request))
-				return false;
-
-			GenerateAllCompletedCount++;
-			if (success)
-				GenerateAllSucceededCount++;
-			else
-				GenerateAllFailedCount++;
-
-			if (GenerateAllCompletedCount >= GenerateAllTotalCount)
-				GenerateAllCurrentAssetPath = string.Empty;
-
-			RequestLastSeenFrame.Remove(request);
-			RefreshVolatileStatsSnapshot();
-			return true;
-		}
-
-		private static void ResetGenerateAllProgress()
-		{
-			GenerateAllPendingRequests.Clear();
-			GenerateAllTotalCount = 0;
-			GenerateAllCompletedCount = 0;
-			GenerateAllSucceededCount = 0;
-			GenerateAllFailedCount = 0;
-			GenerateAllIsPreparing = false;
-			GenerateAllPreparingTotal = 0;
-			GenerateAllPreparingIndex = 0;
-			GenerateAllCurrentAssetPath = string.Empty;
-			GenerateAllProgressWindowDismissedByUser = false;
-			GenerateAllScanGuids = Array.Empty<string>();
-			GenerateAllScanIndex = 0;
-			GenerateAllScanInProgress = false;
-			GenerateAllUseUnthrottledProcessing = false;
-			GenerateAllRunActive = false;
-			GenerateAllStartTime = 0.0;
-			GenerateAllWarmupFramePending = false;
-			RefreshVolatileStatsSnapshot();
 		}
 
 		private static void MarkRequestSeen(PrefabThumbnailRequest request)
@@ -1262,14 +1276,41 @@ namespace NoodleHammer.PreviewForge.Editor
 			Enqueue(request, prioritize);
 		}
 
-		internal static void TrackGenerateAllRequestForTests(PrefabThumbnailRequest request)
+		internal static PrefabThumbnailSurface[] GetEnabledGenerationSurfacesForTests(bool drawInProjectGrid, bool drawInProjectList)
 		{
-			TrackGenerateAllRequest(request);
+			return GetEnabledGenerationSurfaces(drawInProjectGrid, drawInProjectList).ToArray();
 		}
 
-		internal static void CompleteGenerateAllRequestForTests(PrefabThumbnailRequest request, bool success)
+		internal static float GetGenerateAllProgressForTests(int completedCount, int totalCount)
 		{
-			CompleteGenerateAllRequest(request, success);
+			return GetGenerateAllProgress01(completedCount, totalCount);
+		}
+
+		internal static string BuildGenerateAllProgressDetailForTests(
+			int completedCount,
+			int totalCount,
+			int renderedCount,
+			int cacheHitCount,
+			int failedCount,
+			string assetPath)
+		{
+			return BuildGenerateAllProgressDetail(
+				completedCount,
+				totalCount,
+				renderedCount,
+				cacheHitCount,
+				failedCount,
+				assetPath);
+		}
+
+		internal static ModalGenerateRequestResult ResolveModalGenerateRequestForTests(PrefabThumbnailRequest request)
+		{
+			return ResolveModalGenerateRequest(request);
+		}
+
+		internal static int GetPendingPersistentLoadCountForTests()
+		{
+			return PendingPersistentLoadQueue.Count;
 		}
 
 		internal static void MarkFailedRequestForTests(PrefabThumbnailRequest request, string dependencyToken)
@@ -1289,7 +1330,7 @@ namespace NoodleHammer.PreviewForge.Editor
 			{
 				TotalEntries = Cache.Count,
 				PersistentEntryCount = persistentCount,
-				GeneratingCount = GenerateAllPendingRequests.Count,
+				GeneratingCount = Queued.Count + PendingPersistentLoadQueue.Count,
 				FailedCount = FailedDependencyByRequest.Count,
 				QueueDepth = PriorityRenderQueue.Count + RenderQueue.Count,
 				DiskCacheBytes = diskBytes,
@@ -1308,7 +1349,7 @@ namespace NoodleHammer.PreviewForge.Editor
 		{
 			EnsureCacheStatsInitialized();
 			CachedStats.TotalEntries = Cache.Count;
-			CachedStats.GeneratingCount = GenerateAllPendingRequests.Count;
+			CachedStats.GeneratingCount = Queued.Count + PendingPersistentLoadQueue.Count;
 			CachedStats.FailedCount = FailedDependencyByRequest.Count;
 			CachedStats.QueueDepth = PriorityRenderQueue.Count + RenderQueue.Count;
 		}
@@ -1331,14 +1372,11 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		private static long GetTextureFootprintBytes(Texture2D texture)
 		{
-			return texture == null ? 0L : (long) texture.width * texture.height * 4L;
+			return texture == null ? 0L : (long)texture.width * texture.height * 4L;
 		}
 
 		private static bool ShouldDropStaleRequest(PrefabThumbnailRequest request)
 		{
-			if (GenerateAllPendingRequests.Contains(request))
-				return false;
-
 			if (!RequestLastSeenFrame.TryGetValue(request, out int lastSeenFrame))
 				return false;
 
@@ -1373,140 +1411,6 @@ namespace NoodleHammer.PreviewForge.Editor
 				KnownPersistentCacheMisses.Remove(removeKeys[i]);
 		}
 
-		private static void UpdateGenerateAllProgressWindow()
-		{
-			if (TryGetGenerateAllProgressWindowState(out _, out _, out _))
-			{
-				if (GenerateAllProgressWindowDismissedByUser)
-					return;
-
-				PrefabThumbnailGenerateProgressWindow.ShowOrRefresh();
-				return;
-			}
-
-			GenerateAllProgressWindowDismissedByUser = false;
-			SafeClearProgressWindow();
-		}
-
-		private static void ShowImmediatePreparingPopup()
-		{
-			GenerateAllProgressWindowDismissedByUser = false;
-			GenerateAllIsPreparing = true;
-			GenerateAllPreparingTotal = 0;
-			GenerateAllPreparingIndex = 0;
-			GenerateAllCurrentAssetPath = string.Empty;
-			UpdateGenerateAllProgressWindow();
-		}
-
-		internal static void NotifyProgressWindowClosedByUser()
-		{
-			if (TryGetGenerateAllProgressWindowState(out _, out _, out _))
-				CancelGenerateAllThumbnails();
-		}
-
-		internal static void CancelGenerateAllThumbnails()
-		{
-			if (!IsGenerateAllInProgress)
-				return;
-
-			RemoveGenerateAllRequestsFromQueue(PriorityRenderQueue);
-			RemoveGenerateAllRequestsFromQueue(RenderQueue);
-			GenerateAllPendingRequests.Clear();
-			GenerateAllScanGuids = Array.Empty<string>();
-			GenerateAllScanIndex = 0;
-			GenerateAllScanInProgress = false;
-			GenerateAllIsPreparing = false;
-			GenerateAllPreparingTotal = 0;
-			GenerateAllPreparingIndex = 0;
-			GenerateAllCurrentAssetPath = string.Empty;
-			GenerateAllProgressWindowDismissedByUser = false;
-			GenerateAllUseUnthrottledProcessing = false;
-			GenerateAllRunActive = false;
-			GenerateAllWarmupFramePending = false;
-			RefreshVolatileStatsSnapshot();
-			SafeClearProgressWindow();
-			RefreshRuntimeHooks();
-			RepaintAllRelevantWindows();
-		}
-
-		private static void RemoveGenerateAllRequestsFromQueue(Queue<PrefabThumbnailRequest> queue)
-		{
-			if (queue == null || queue.Count == 0 || GenerateAllPendingRequests.Count == 0)
-				return;
-
-			int count = queue.Count;
-			for (int i = 0; i < count; i++)
-			{
-				PrefabThumbnailRequest request = queue.Dequeue();
-				if (GenerateAllPendingRequests.Contains(request))
-				{
-					Queued.Remove(request);
-					PriorityQueued.Remove(request);
-					RequestLastSeenFrame.Remove(request);
-					continue;
-				}
-
-				queue.Enqueue(request);
-			}
-		}
-
-		private static string GetProgressAssetLabel(string assetPath)
-		{
-			if (string.IsNullOrEmpty(assetPath))
-				return "Current: (starting)";
-
-			return $"Current: {assetPath}";
-		}
-
-		internal static bool TryGetGenerateAllProgressWindowState(out string headline, out string detail, out float progress01)
-		{
-			if (GenerateAllIsPreparing)
-			{
-				progress01 = GenerateAllPreparingTotal > 0
-					? Mathf.Clamp01((float) GenerateAllPreparingIndex / GenerateAllPreparingTotal)
-					: 0f;
-				headline = GenerateAllPreparingTotal > 0
-					? $"Preparing queue... {GenerateAllPreparingIndex}/{GenerateAllPreparingTotal}"
-					: "Preparing queue...";
-				detail = GetProgressAssetLabel(GenerateAllCurrentAssetPath);
-				return true;
-			}
-
-			if (!TryGetGenerateAllProgress(
-				    out progress01,
-				    out int completed,
-				    out int total,
-				    out int succeeded,
-				    out int failed))
-			{
-				headline = string.Empty;
-				detail = string.Empty;
-				return false;
-			}
-
-			if (!IsGenerateAllInProgress)
-			{
-				headline = string.Empty;
-				detail = string.Empty;
-				return false;
-			}
-
-			headline = $"Generated {completed}/{total} (Succeeded: {succeeded}, Failed: {failed})";
-			detail = GetProgressAssetLabel(GenerateAllCurrentAssetPath);
-			return true;
-		}
-
-		private static void SafeClearProgressWindow()
-		{
-			PrefabThumbnailGenerateProgressWindow.CloseIfOpen();
-		}
-
-		private static void RepaintAllRelevantWindows()
-		{
-			EditorApplication.RepaintProjectWindow();
-			UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
-		}
-
 		private static bool ShouldProjectWindowHookBeActive()
 		{
 			return PrefabThumbnailSettings.Enabled
@@ -1515,12 +1419,6 @@ namespace NoodleHammer.PreviewForge.Editor
 
 		private static bool HasPendingEditorWork()
 		{
-			if (GenerateAllWarmupFramePending || GenerateAllIsPreparing || GenerateAllScanInProgress)
-				return true;
-
-			if (GenerateAllPendingRequests.Count > 0)
-				return true;
-
 			if (PendingSupportLookupQueue.Count > 0)
 				return true;
 

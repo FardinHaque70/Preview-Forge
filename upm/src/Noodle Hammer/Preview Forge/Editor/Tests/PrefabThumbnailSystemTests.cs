@@ -272,6 +272,106 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
         }
 
         [Test]
+        public void BulkGenerationSurfaceSelection_UsesOnlyEnabledSurfaces()
+        {
+            Assert.That(
+                PrefabThumbnailService.GetEnabledGenerationSurfacesForTests(drawInProjectGrid: true, drawInProjectList: true),
+                Is.EqualTo(new[]
+                {
+                    PrefabThumbnailSurface.ProjectWindowGrid,
+                    PrefabThumbnailSurface.ProjectWindowList,
+                }));
+
+            Assert.That(
+                PrefabThumbnailService.GetEnabledGenerationSurfacesForTests(drawInProjectGrid: true, drawInProjectList: false),
+                Is.EqualTo(new[]
+                {
+                    PrefabThumbnailSurface.ProjectWindowGrid,
+                }));
+
+            Assert.That(
+                PrefabThumbnailService.GetEnabledGenerationSurfacesForTests(drawInProjectGrid: false, drawInProjectList: true),
+                Is.EqualTo(new[]
+                {
+                    PrefabThumbnailSurface.ProjectWindowList,
+                }));
+
+            Assert.That(
+                PrefabThumbnailService.GetEnabledGenerationSurfacesForTests(drawInProjectGrid: false, drawInProjectList: false),
+                Is.Empty);
+        }
+
+        [Test]
+        public void BulkGenerationProgress_UsesExactCompletedRequestFraction()
+        {
+            Assert.That(PrefabThumbnailService.GetGenerateAllProgressForTests(0, 0), Is.EqualTo(0f));
+            Assert.That(PrefabThumbnailService.GetGenerateAllProgressForTests(1, 4), Is.EqualTo(0.25f).Within(0.0001f));
+            Assert.That(PrefabThumbnailService.GetGenerateAllProgressForTests(4, 4), Is.EqualTo(1f).Within(0.0001f));
+        }
+
+        [Test]
+        public void BulkGenerationProgressDetail_ReportsExactCounters()
+        {
+            string detail = PrefabThumbnailService.BuildGenerateAllProgressDetailForTests(
+                completedCount: 3,
+                totalCount: 10,
+                renderedCount: 1,
+                cacheHitCount: 2,
+                failedCount: 0,
+                assetPath: "Assets/Test.prefab");
+
+            Assert.That(detail, Does.Contain("Completed 3/10"));
+            Assert.That(detail, Does.Contain("Rendered 1"));
+            Assert.That(detail, Does.Contain("Cache hits 2"));
+            Assert.That(detail, Does.Contain("Failed 0"));
+            Assert.That(detail, Does.Contain("Assets/Test.prefab"));
+        }
+
+        [Test]
+        public void BulkGeneration_PersistentCacheHit_LoadsSynchronouslyWithoutDeferredQueue()
+        {
+            string tempDirectory = Path.Combine(Path.GetTempPath(), "PreviewForgeTests", System.Guid.NewGuid().ToString("N"));
+            const string dependencyToken = "0";
+            PrefabThumbnailRequest request = new PrefabThumbnailRequest(
+                "cache-hit-guid",
+                "Assets/CacheHit.prefab",
+                PrefabThumbnailAssetKind.ParticlePrefab,
+                PrefabThumbnailSurface.ProjectWindowGrid);
+            Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                PrefabThumbnailPersistentCache.SetCacheDirectoryOverrideForTests(tempDirectory);
+                PrefabThumbnailPersistentCache.ResetCachedDiskStatsForTests();
+                PrefabThumbnailService.ClearMemoryCache();
+
+                texture.SetPixels(new[]
+                {
+                    Color.white,
+                    Color.white,
+                    Color.white,
+                    Color.white,
+                });
+                texture.Apply();
+                PrefabThumbnailPersistentCache.SaveTexture(request, dependencyToken, texture);
+
+                PrefabThumbnailService.ModalGenerateRequestResult result =
+                    PrefabThumbnailService.ResolveModalGenerateRequestForTests(request);
+
+                Assert.That(result, Is.EqualTo(PrefabThumbnailService.ModalGenerateRequestResult.CacheHit));
+                Assert.That(PrefabThumbnailService.GetPendingPersistentLoadCountForTests(), Is.EqualTo(0));
+            }
+            finally
+            {
+                PrefabThumbnailService.ClearMemoryCache();
+                PrefabThumbnailPersistentCache.SetCacheDirectoryOverrideForTests(null);
+                if (Directory.Exists(tempDirectory))
+                    Directory.Delete(tempDirectory, true);
+
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        [Test]
         public void BadgeResolver_ParticlePrefab_ResolvesParticleBadge()
         {
             Assert.That(
@@ -517,6 +617,7 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
                 cameraYaw: 35f,
                 cameraPitch: 25f,
                 scanMaxSeconds: 3f,
+                particleRenderTimeoutSeconds: 3f,
                 motionPadding: 0.2f,
                 motionRadius: 3f,
                 motionSpeed: 60f,
@@ -540,6 +641,7 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
                 cameraYaw: 35f,
                 cameraPitch: 25f,
                 scanMaxSeconds: 3f,
+                particleRenderTimeoutSeconds: 3f,
                 motionPadding: 0.2f,
                 motionRadius: 3f,
                 motionSpeed: 60f,
@@ -569,6 +671,7 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
                 cameraYaw: 35f,
                 cameraPitch: 25f,
                 scanMaxSeconds: 3f,
+                particleRenderTimeoutSeconds: 3f,
                 motionPadding: 0.2f,
                 motionRadius: 3f,
                 motionSpeed: 60f,
@@ -592,11 +695,66 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
                 cameraYaw: 35f,
                 cameraPitch: 25f,
                 scanMaxSeconds: 3f,
+                particleRenderTimeoutSeconds: 3f,
                 motionPadding: 0.2f,
                 motionRadius: 3f,
                 motionSpeed: 60f,
                 enableTightFraming: true,
                 particleFramingPercentile: 0.97f,
+                thumbnailFillTarget: 1f,
+                maxRendersPerUpdate: 1,
+                renderBudgetMs: 12f,
+                memoryCacheMaxEntries: 200,
+                enablePersistentCache: true);
+
+            Assert.That(changed, Is.Not.EqualTo(baseline));
+        }
+
+        [Test]
+        public void SharedSettingsToken_ChangesWhenParticleRenderTimeoutChanges()
+        {
+            string baseline = PrefabThumbnailSettings.BuildPersistentSettingsToken(
+                enabled: true,
+                drawInProjectGrid: true,
+                drawInProjectList: true,
+                gridRenderSize: 128,
+                listRenderSize: 32,
+                backgroundColor: new Color(0.15f, 0.15f, 0.15f, 1f),
+                boundsPadding: 0.15f,
+                cameraFov: 30f,
+                cameraYaw: 35f,
+                cameraPitch: 25f,
+                scanMaxSeconds: 3f,
+                particleRenderTimeoutSeconds: 2f,
+                motionPadding: 0.2f,
+                motionRadius: 3f,
+                motionSpeed: 60f,
+                enableTightFraming: true,
+                particleFramingPercentile: 0.92f,
+                thumbnailFillTarget: 1f,
+                maxRendersPerUpdate: 1,
+                renderBudgetMs: 12f,
+                memoryCacheMaxEntries: 200,
+                enablePersistentCache: true);
+
+            string changed = PrefabThumbnailSettings.BuildPersistentSettingsToken(
+                enabled: true,
+                drawInProjectGrid: true,
+                drawInProjectList: true,
+                gridRenderSize: 128,
+                listRenderSize: 32,
+                backgroundColor: new Color(0.15f, 0.15f, 0.15f, 1f),
+                boundsPadding: 0.15f,
+                cameraFov: 30f,
+                cameraYaw: 35f,
+                cameraPitch: 25f,
+                scanMaxSeconds: 3f,
+                particleRenderTimeoutSeconds: 3f,
+                motionPadding: 0.2f,
+                motionRadius: 3f,
+                motionSpeed: 60f,
+                enableTightFraming: true,
+                particleFramingPercentile: 0.92f,
                 thumbnailFillTarget: 1f,
                 maxRendersPerUpdate: 1,
                 renderBudgetMs: 12f,

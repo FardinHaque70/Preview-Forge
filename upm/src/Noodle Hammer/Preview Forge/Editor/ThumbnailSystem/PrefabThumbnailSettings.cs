@@ -18,6 +18,7 @@ namespace NoodleHammer.PreviewForge.Editor
         public const float D_BoundsPadding = 0.15f;
 
         public const float D_ScanMaxSeconds = 3f;
+        public const float D_ParticleRenderTimeoutSeconds = 3f;
         public const float D_MotionPadding = 0.2f;
         public const float D_MotionRadius = 3f;
         public const float D_MotionSpeed = 60f;
@@ -47,6 +48,7 @@ namespace NoodleHammer.PreviewForge.Editor
         public static float CameraYaw => Mathf.Clamp(Storage.cameraYaw, -180f, 180f);
         public static float CameraPitch => Mathf.Clamp(Storage.cameraPitch, -89f, 89f);
         public static float ScanMaxSeconds => Mathf.Clamp(Storage.scanMaxSeconds, 0.5f, 10f);
+        public static float ParticleRenderTimeoutSeconds => Mathf.Clamp(Storage.particleRenderTimeoutSeconds, 0.5f, 10f);
         public static float MotionPadding => Mathf.Clamp(Storage.motionPadding, 0f, 3f);
         public static float MotionRadius => Mathf.Clamp(Storage.motionRadius, 0.1f, 50f);
         public static float MotionSpeed => Mathf.Clamp(Storage.motionSpeed, 0.1f, 200f);
@@ -84,6 +86,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     cameraYaw: D_CameraYaw,
                     cameraPitch: D_CameraPitch,
                     scanMaxSeconds: D_ScanMaxSeconds,
+                    particleRenderTimeoutSeconds: D_ParticleRenderTimeoutSeconds,
                     motionPadding: D_MotionPadding,
                     motionRadius: D_MotionRadius,
                     motionSpeed: D_MotionSpeed,
@@ -108,6 +111,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 storage.cameraYaw,
                 storage.cameraPitch,
                 storage.scanMaxSeconds,
+                storage.particleRenderTimeoutSeconds,
                 storage.motionPadding,
                 storage.motionRadius,
                 storage.motionSpeed,
@@ -139,6 +143,7 @@ namespace NoodleHammer.PreviewForge.Editor
             float cameraYaw,
             float cameraPitch,
             float scanMaxSeconds,
+            float particleRenderTimeoutSeconds,
             float motionPadding,
             float motionRadius,
             float motionSpeed,
@@ -154,7 +159,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 $"{enabled}|{drawInProjectGrid}|{drawInProjectList}|{Mathf.Clamp(gridRenderSize, 32, 128)}|{Mathf.Clamp(listRenderSize, 16, 64)}|" +
                 $"{backgroundColor.r:F4},{backgroundColor.g:F4},{backgroundColor.b:F4},{backgroundColor.a:F4}|" +
                 $"{Mathf.Clamp(boundsPadding, 0f, 1f):F4}|{Mathf.Clamp(cameraFov, 10f, 90f):F4}|{Mathf.Clamp(cameraYaw, -180f, 180f):F4}|{Mathf.Clamp(cameraPitch, -89f, 89f):F4}|" +
-                $"{Mathf.Clamp(scanMaxSeconds, 0.5f, 10f):F4}|{Mathf.Clamp(motionPadding, 0f, 3f):F4}|{Mathf.Clamp(motionRadius, 0.1f, 50f):F4}|{Mathf.Clamp(motionSpeed, 0.1f, 200f):F4}|" +
+                $"{Mathf.Clamp(scanMaxSeconds, 0.5f, 10f):F4}|{Mathf.Clamp(particleRenderTimeoutSeconds, 0.5f, 10f):F4}|{Mathf.Clamp(motionPadding, 0f, 3f):F4}|{Mathf.Clamp(motionRadius, 0.1f, 50f):F4}|{Mathf.Clamp(motionSpeed, 0.1f, 200f):F4}|" +
                 $"{BuildParticleFramingSettingsFragment(enableTightFraming, particleFramingPercentile, thumbnailFillTarget)}|" +
                 $"{Mathf.Max(1, maxRendersPerUpdate)}|{Mathf.Clamp(renderBudgetMs, 1f, 100f):F4}|{Mathf.Max(10, memoryCacheMaxEntries)}|{enablePersistentCache}|{SettingsTokenVersion}";
             return Hash128.Compute(payload).ToString();
@@ -305,6 +310,7 @@ namespace NoodleHammer.PreviewForge.Editor
             DrawSectionCard("Particle Scan Window", () =>
             {
                 DrawFloatSlider(serializedObject.FindProperty(nameof(PrefabThumbnailSettingsStorage.scanMaxSeconds)), "Scan Max Seconds", 0.5f, 10f);
+                DrawFloatSlider(serializedObject.FindProperty(nameof(PrefabThumbnailSettingsStorage.particleRenderTimeoutSeconds)), "Render Timeout (s)", 0.5f, 10f);
                 DrawFloatSlider(serializedObject.FindProperty(nameof(PrefabThumbnailSettingsStorage.motionPadding)), "Motion Padding", 0f, 3f);
                 DrawFloatSlider(serializedObject.FindProperty(nameof(PrefabThumbnailSettingsStorage.motionRadius)), "Motion Radius", 0.1f, 50f);
                 DrawFloatSlider(serializedObject.FindProperty(nameof(PrefabThumbnailSettingsStorage.motionSpeed)), "Motion Speed", 0.1f, 200f);

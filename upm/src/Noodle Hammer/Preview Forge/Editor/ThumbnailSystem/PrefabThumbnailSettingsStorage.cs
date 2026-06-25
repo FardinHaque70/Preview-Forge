@@ -36,6 +36,7 @@ namespace NoodleHammer.PreviewForge.Editor
         [SerializeField] internal float cameraYaw = PrefabThumbnailSettings.D_CameraYaw;
         [SerializeField] internal float cameraPitch = PrefabThumbnailSettings.D_CameraPitch;
         [SerializeField] internal float scanMaxSeconds = PrefabThumbnailSettings.D_ScanMaxSeconds;
+        [SerializeField] internal float particleRenderTimeoutSeconds = PrefabThumbnailSettings.D_ParticleRenderTimeoutSeconds;
         [SerializeField] internal float motionPadding = PrefabThumbnailSettings.D_MotionPadding;
         [SerializeField] internal float motionRadius = PrefabThumbnailSettings.D_MotionRadius;
         [SerializeField] internal float motionSpeed = PrefabThumbnailSettings.D_MotionSpeed;
@@ -66,6 +67,7 @@ namespace NoodleHammer.PreviewForge.Editor
             cameraYaw = PrefabThumbnailSettings.D_CameraYaw;
             cameraPitch = PrefabThumbnailSettings.D_CameraPitch;
             scanMaxSeconds = PrefabThumbnailSettings.D_ScanMaxSeconds;
+            particleRenderTimeoutSeconds = PrefabThumbnailSettings.D_ParticleRenderTimeoutSeconds;
             motionPadding = PrefabThumbnailSettings.D_MotionPadding;
             motionRadius = PrefabThumbnailSettings.D_MotionRadius;
             motionSpeed = PrefabThumbnailSettings.D_MotionSpeed;
@@ -104,6 +106,8 @@ namespace NoodleHammer.PreviewForge.Editor
                 cameraPitch = floatValue;
             if (ProjectSettingsAssetUtility.TryReadFloat(settingsPath, nameof(scanMaxSeconds), out floatValue))
                 scanMaxSeconds = floatValue;
+            if (ProjectSettingsAssetUtility.TryReadFloat(settingsPath, nameof(particleRenderTimeoutSeconds), out floatValue))
+                particleRenderTimeoutSeconds = floatValue;
             if (ProjectSettingsAssetUtility.TryReadFloat(settingsPath, nameof(motionPadding), out floatValue))
                 motionPadding = floatValue;
             if (ProjectSettingsAssetUtility.TryReadFloat(settingsPath, nameof(motionRadius), out floatValue))

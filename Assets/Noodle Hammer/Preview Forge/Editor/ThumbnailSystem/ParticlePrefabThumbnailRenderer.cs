@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
@@ -33,6 +34,10 @@ namespace NoodleHammer.PreviewForge.Editor
 
         private static readonly ParticleSystem.Particle[] ParticleBuffer = new ParticleSystem.Particle[MaxParticleBuffer];
 
+        private sealed class ParticleThumbnailRenderTimeoutException : Exception
+        {
+        }
+
         public PrefabThumbnailAssetKind Kind => PrefabThumbnailAssetKind.ParticlePrefab;
         public int Priority => 100;
 
@@ -60,10 +65,12 @@ namespace NoodleHammer.PreviewForge.Editor
             try
             {
                 int thumbnailSize = PrefabThumbnailSettings.GetRenderSize(surface);
+                double timeoutDeadline = GetRenderTimeoutDeadline();
 
                 instance = Object.Instantiate(prefab);
                 instance.hideFlags = HideFlags.HideAndDontSave;
                 ForceActivateHierarchy(instance);
+                ThrowIfRenderTimedOut(timeoutDeadline);
                 Vector3 authoredRootPosition = instance.transform.position;
                 Quaternion authoredRootRotation = instance.transform.rotation;
 
@@ -97,6 +104,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     coarseScanMax,
                     authoredRootPosition,
                     authoredRootRotation,
+                    timeoutDeadline,
                     out ParticleFrameCandidate bestCandidate);
 
                 float targetTime = foundBest ? bestCandidate.Time : CoarseSampleStep;
@@ -112,6 +120,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     targetTime,
                     authoredRootPosition,
                     authoredRootRotation,
+                    timeoutDeadline,
                     ref elapsed,
                     ref firstStep);
 
@@ -126,6 +135,7 @@ namespace NoodleHammer.PreviewForge.Editor
                         fallbackScanMax,
                         authoredRootPosition,
                         authoredRootRotation,
+                        timeoutDeadline,
                         out Bounds fallbackBounds);
                     if (fallbackTime >= 0f)
                     {
@@ -141,17 +151,25 @@ namespace NoodleHammer.PreviewForge.Editor
                             targetTime,
                             authoredRootPosition,
                             authoredRootRotation,
+                            timeoutDeadline,
                             ref elapsed,
                             ref firstStep);
                     }
                 }
 
                 if (targetBounds.size.sqrMagnitude <= 0.0001f)
-                    targetBounds = ComputeVisualBounds(systems);
+                    targetBounds = ComputeVisualBounds(systems, timeoutDeadline);
 
                 FrameCamera(preview.camera, preview.lights[0], targetBounds, needsMotion, applyTargetFill: true);
 
-                return RenderCurrentFrame(preview, renderers, rendererInitialStates, thumbnailSize, targetTime);
+                return RenderCurrentFrame(preview, renderers, rendererInitialStates, thumbnailSize, targetTime, timeoutDeadline);
+            }
+            catch (ParticleThumbnailRenderTimeoutException)
+            {
+                Debug.LogWarning(
+                    $"[Preview Forge] Skipped particle thumbnail for '{assetPath}' after {PrefabThumbnailSettings.ParticleRenderTimeoutSeconds:F1}s. " +
+                    "Increase Particle > Render Timeout if you want to allow heavier VFX previews.");
+                return null;
             }
             finally
             {
@@ -171,6 +189,7 @@ namespace NoodleHammer.PreviewForge.Editor
             float scanMax,
             Vector3 authoredRootPosition,
             Quaternion authoredRootRotation,
+            double timeoutDeadline,
             out ParticleFrameCandidate bestCandidate)
         {
             bestCandidate = default;
@@ -193,6 +212,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 coarseCandidates,
                 authoredRootPosition,
                 authoredRootRotation,
+                timeoutDeadline,
                 ref peakLiveCount,
                 ref hasCoverageFallback,
                 ref coverageFallback);
@@ -225,6 +245,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     allCandidates,
                     authoredRootPosition,
                     authoredRootRotation,
+                    timeoutDeadline,
                     ref peakLiveCount,
                     ref hasCoverageFallback,
                     ref coverageFallback);
@@ -246,6 +267,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     allCandidates,
                     authoredRootPosition,
                     authoredRootRotation,
+                    timeoutDeadline,
                     ref peakLiveCount,
                     ref hasCoverageFallback,
                     ref coverageFallback);
@@ -260,6 +282,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     peakLiveCount,
                     authoredRootPosition,
                     authoredRootRotation,
+                    timeoutDeadline,
                     out ParticleFrameCandidate intensityWindowCandidate))
             {
                 bestCandidate = intensityWindowCandidate;
@@ -290,6 +313,7 @@ namespace NoodleHammer.PreviewForge.Editor
             int peakLiveCount,
             Vector3 authoredRootPosition,
             Quaternion authoredRootRotation,
+            double timeoutDeadline,
             out ParticleFrameCandidate candidate)
         {
             candidate = default;
@@ -320,6 +344,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             while (elapsed < scanMax - 0.0001f)
             {
+                ThrowIfRenderTimedOut(timeoutDeadline);
                 float targetTime = Mathf.Min(scanMax, elapsed + sampleStep);
                 AdvanceSimulationTo(
                     systems,
@@ -328,6 +353,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     targetTime,
                     authoredRootPosition,
                     authoredRootRotation,
+                    timeoutDeadline,
                     ref elapsed,
                     ref firstStep);
 
@@ -406,6 +432,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     midpointTime,
                     authoredRootPosition,
                     authoredRootRotation,
+                    timeoutDeadline,
                     out candidate))
             {
                 return true;
@@ -419,6 +446,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 bestWindowPeakTime,
                 authoredRootPosition,
                 authoredRootRotation,
+                timeoutDeadline,
                 out candidate);
         }
 
@@ -474,6 +502,7 @@ namespace NoodleHammer.PreviewForge.Editor
             List<ParticleFrameCandidate> output,
             Vector3 authoredRootPosition,
             Quaternion authoredRootRotation,
+            double timeoutDeadline,
             ref int peakLiveCount,
             ref bool hasCoverageFallback,
             ref ParticleFrameCandidate coverageFallback)
@@ -501,12 +530,14 @@ namespace NoodleHammer.PreviewForge.Editor
                     clampedStart,
                     authoredRootPosition,
                     authoredRootRotation,
+                    timeoutDeadline,
                     ref elapsed,
                     ref firstStep);
             }
 
             while (elapsed < clampedEnd - 0.0001f)
             {
+                ThrowIfRenderTimedOut(timeoutDeadline);
                 float targetTime = Mathf.Min(clampedEnd, elapsed + step);
                 AdvanceSimulationTo(
                     systems,
@@ -515,6 +546,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     targetTime,
                     authoredRootPosition,
                     authoredRootRotation,
+                    timeoutDeadline,
                     ref elapsed,
                     ref firstStep);
 
@@ -525,7 +557,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 if (liveCount > peakLiveCount)
                     peakLiveCount = liveCount;
 
-                Bounds bounds = ComputeVisualBounds(systems);
+                Bounds bounds = ComputeVisualBounds(systems, timeoutDeadline);
                 FrameCamera(camera, null, bounds, needsMotion, applyTargetFill: false);
                 EstimateVisibilityMetrics(camera, bounds, out float coverage, out float inViewRatio, out float centerBias);
 
@@ -585,6 +617,7 @@ namespace NoodleHammer.PreviewForge.Editor
             float sampleTime,
             Vector3 authoredRootPosition,
             Quaternion authoredRootRotation,
+            double timeoutDeadline,
             out ParticleFrameCandidate candidate)
         {
             candidate = default;
@@ -600,6 +633,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 clampedTime,
                 authoredRootPosition,
                 authoredRootRotation,
+                timeoutDeadline,
                 ref elapsed,
                 ref firstStep);
 
@@ -607,7 +641,7 @@ namespace NoodleHammer.PreviewForge.Editor
             if (liveCount <= 0)
                 return false;
 
-            Bounds bounds = ComputeVisualBounds(systems);
+            Bounds bounds = ComputeVisualBounds(systems, timeoutDeadline);
             FrameCamera(camera, null, bounds, needsMotion, applyTargetFill: false);
             EstimateVisibilityMetrics(camera, bounds, out float coverage, out float inViewRatio, out float centerBias);
             candidate = new ParticleFrameCandidate(
@@ -738,6 +772,7 @@ namespace NoodleHammer.PreviewForge.Editor
             float scanMax,
             Vector3 authoredRootPosition,
             Quaternion authoredRootRotation,
+            double timeoutDeadline,
             out Bounds visibleBounds)
         {
             visibleBounds = default;
@@ -747,6 +782,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             while (elapsed < scanMax - 0.0001f)
             {
+                ThrowIfRenderTimedOut(timeoutDeadline);
                 float targetTime = Mathf.Min(scanMax, elapsed + FallbackStep);
                 AdvanceSimulationTo(
                     systems,
@@ -755,6 +791,7 @@ namespace NoodleHammer.PreviewForge.Editor
                     targetTime,
                     authoredRootPosition,
                     authoredRootRotation,
+                    timeoutDeadline,
                     ref elapsed,
                     ref firstStep);
 
@@ -762,7 +799,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 if (liveCount <= 0)
                     continue;
 
-                Bounds bounds = ComputeVisualBounds(systems);
+                Bounds bounds = ComputeVisualBounds(systems, timeoutDeadline);
                 FrameCamera(camera, null, bounds, needsMotion, applyTargetFill: false);
                 EstimateVisibilityMetrics(camera, bounds, out float coverage, out _, out _);
                 if (coverage > 0.0001f)
@@ -780,10 +817,12 @@ namespace NoodleHammer.PreviewForge.Editor
             Renderer[] renderers,
             IReadOnlyList<bool> rendererEnabledStates,
             int thumbnailSize,
-            float frameTime)
+            float frameTime,
+            double timeoutDeadline)
         {
             using (PreviewRenderCompatibilityUtility.PushShaderTime(frameTime))
             {
+                ThrowIfRenderTimedOut(timeoutDeadline);
                 SyncWorldPositionShaderOffsets(renderers);
                 preview.camera.backgroundColor = PrefabThumbnailSettings.BackgroundColor;
                 preview.BeginPreview(new Rect(0f, 0f, thumbnailSize, thumbnailSize), GUIStyle.none);
@@ -802,6 +841,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 RenderTexture previousActive = RenderTexture.active;
                 try
                 {
+                    ThrowIfRenderTimedOut(timeoutDeadline);
                     Graphics.Blit(result, captureRt);
                     RenderTexture.active = captureRt;
 
@@ -948,11 +988,13 @@ namespace NoodleHammer.PreviewForge.Editor
             float targetTime,
             Vector3 authoredRootPosition,
             Quaternion authoredRootRotation,
+            double timeoutDeadline,
             ref float elapsed,
             ref bool firstStep)
         {
             while (elapsed < targetTime - 0.0001f)
             {
+                ThrowIfRenderTimedOut(timeoutDeadline);
                 float dt = Mathf.Min(SimulationStep, targetTime - elapsed);
                 float nextElapsed = elapsed + dt;
 
@@ -1063,7 +1105,7 @@ namespace NoodleHammer.PreviewForge.Editor
             return builder.ToString();
         }
 
-        private static Bounds ComputeVisualBounds(ParticleSystem[] systems)
+        private static Bounds ComputeVisualBounds(ParticleSystem[] systems, double timeoutDeadline)
         {
             bool hasParticles = false;
             Bounds fullBounds = new Bounds(Vector3.zero, Vector3.zero);
@@ -1076,6 +1118,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             for (int i = 0; i < systems.Length; i++)
             {
+                ThrowIfRenderTimedOut(timeoutDeadline);
                 ParticleSystem ps = systems[i];
                 if (ps == null)
                     continue;
@@ -1083,6 +1126,9 @@ namespace NoodleHammer.PreviewForge.Editor
                 int count = ps.GetParticles(ParticleBuffer);
                 for (int j = 0; j < count; j++)
                 {
+                    if ((j & 63) == 0)
+                        ThrowIfRenderTimedOut(timeoutDeadline);
+
                     Vector3 position = ps.main.simulationSpace == ParticleSystemSimulationSpace.World
                         ? ParticleBuffer[j].position
                         : ps.transform.TransformPoint(ParticleBuffer[j].position);
@@ -1457,6 +1503,17 @@ namespace NoodleHammer.PreviewForge.Editor
                 t.gameObject.SetActive(true);
                 t.gameObject.layer = 0;
             }
+        }
+
+        private static double GetRenderTimeoutDeadline()
+        {
+            return EditorApplication.timeSinceStartup + PrefabThumbnailSettings.ParticleRenderTimeoutSeconds;
+        }
+
+        private static void ThrowIfRenderTimedOut(double timeoutDeadline)
+        {
+            if (EditorApplication.timeSinceStartup >= timeoutDeadline)
+                throw new ParticleThumbnailRenderTimeoutException();
         }
 
     }
