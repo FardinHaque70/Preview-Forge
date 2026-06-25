@@ -869,6 +869,19 @@ namespace NoodleHammer.PreviewForge.Editor
 				return false;
 			}
 
+			if (PrefabThumbnailPrefabHealthProbe.HasMissingScriptsAtPath(assetPath))
+			{
+				entry = new SupportCacheEntry
+				{
+					AssetPath = assetPath,
+					DependencyToken = string.Empty,
+					SupportInfo = PrefabThumbnailSupportInfo.Unsupported,
+					Renderer = null,
+				};
+				SupportCache[guid] = entry;
+				return true;
+			}
+
 			GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
 			IPrefabThumbnailRenderer renderer = PrefabThumbnailRendererRegistry.FindBestRenderer(prefab, guid, assetPath, out PrefabThumbnailSupportInfo supportInfo);
 			string dependencyToken = supportInfo.Supported ? GetDependencyToken(assetPath) : string.Empty;

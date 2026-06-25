@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 // Provides shared detection, renderer resolution, and Project-window UI helpers for prefab thumbnails.
@@ -10,6 +12,138 @@ namespace NoodleHammer.PreviewForge.Editor
         public static bool IsParticlePrefab(GameObject root)
         {
             return root != null && root.GetComponent<ParticleSystem>() != null;
+        }
+    }
+
+    internal static class PrefabThumbnailPrefabHealthProbe
+    {
+        private const string ObjectHeaderPrefix = "--- !u!";
+        private const string MonoBehaviourHeaderPrefix = "--- !u!114";
+        private const string ScriptFieldMarker = "m_Script:";
+        private const string GuidMarker = "guid:";
+
+        public static bool HasMissingScriptsAtPath(string assetPath)
+        {
+            if (string.IsNullOrEmpty(assetPath) || !assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            try
+            {
+                string absolutePath = GetAbsoluteAssetPath(assetPath);
+                if (string.IsNullOrEmpty(absolutePath) || !File.Exists(absolutePath))
+                    return false;
+
+                string prefabText = File.ReadAllText(absolutePath);
+                return HasMissingScriptsInPrefabText(prefabText, ResolveGuidToAssetPath);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        internal static bool HasMissingScriptsAtPathForTests(string assetPath)
+        {
+            return HasMissingScriptsAtPath(assetPath);
+        }
+
+        internal static bool HasMissingScriptsInPrefabTextForTests(string prefabText, Func<string, string> guidResolver)
+        {
+            return HasMissingScriptsInPrefabText(prefabText, guidResolver);
+        }
+
+        private static bool HasMissingScriptsInPrefabText(string prefabText, Func<string, string> guidResolver)
+        {
+            if (string.IsNullOrEmpty(prefabText) || guidResolver == null)
+                return false;
+
+            Dictionary<string, bool> guidExistsByValue = new(StringComparer.OrdinalIgnoreCase);
+            using StringReader reader = new StringReader(prefabText);
+            bool inMonoBehaviourSection = false;
+
+            while (reader.ReadLine() is { } line)
+            {
+                if (line.StartsWith(ObjectHeaderPrefix, StringComparison.Ordinal))
+                {
+                    inMonoBehaviourSection = line.StartsWith(MonoBehaviourHeaderPrefix, StringComparison.Ordinal);
+                    continue;
+                }
+
+                if (!inMonoBehaviourSection || !TryExtractScriptGuid(line, out string scriptGuid) || IsUnsetGuid(scriptGuid))
+                    continue;
+
+                if (!guidExistsByValue.TryGetValue(scriptGuid, out bool exists))
+                {
+                    exists = !string.IsNullOrEmpty(guidResolver(scriptGuid));
+                    guidExistsByValue[scriptGuid] = exists;
+                }
+
+                if (!exists)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static string GetAbsoluteAssetPath(string assetPath)
+        {
+            string assetsDirectory = Application.dataPath;
+            string projectDirectory = Directory.GetParent(assetsDirectory)?.FullName;
+            if (string.IsNullOrEmpty(projectDirectory))
+                return null;
+
+            return Path.GetFullPath(Path.Combine(projectDirectory, assetPath));
+        }
+
+        private static string ResolveGuidToAssetPath(string guid)
+        {
+            return string.IsNullOrEmpty(guid) ? string.Empty : AssetDatabase.GUIDToAssetPath(guid);
+        }
+
+        private static bool TryExtractScriptGuid(string line, out string scriptGuid)
+        {
+            scriptGuid = string.Empty;
+            if (string.IsNullOrEmpty(line))
+                return false;
+
+            int scriptFieldIndex = line.IndexOf(ScriptFieldMarker, StringComparison.Ordinal);
+            if (scriptFieldIndex < 0)
+                return false;
+
+            int guidIndex = line.IndexOf(GuidMarker, scriptFieldIndex, StringComparison.Ordinal);
+            if (guidIndex < 0)
+                return false;
+
+            guidIndex += GuidMarker.Length;
+            while (guidIndex < line.Length && char.IsWhiteSpace(line[guidIndex]))
+                guidIndex++;
+
+            if (guidIndex + 32 > line.Length)
+                return false;
+
+            ReadOnlySpan<char> guidSpan = line.AsSpan(guidIndex, 32);
+            for (int i = 0; i < guidSpan.Length; i++)
+            {
+                if (!Uri.IsHexDigit(guidSpan[i]))
+                    return false;
+            }
+
+            scriptGuid = guidSpan.ToString();
+            return true;
+        }
+
+        private static bool IsUnsetGuid(string scriptGuid)
+        {
+            if (string.IsNullOrEmpty(scriptGuid))
+                return true;
+
+            for (int i = 0; i < scriptGuid.Length; i++)
+            {
+                if (scriptGuid[i] != '0')
+                    return false;
+            }
+
+            return true;
         }
     }
 

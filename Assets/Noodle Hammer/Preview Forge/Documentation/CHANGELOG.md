@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented in this file.
 
+## [1.1.49] - 2026-06-25
+
+- Harden prefab thumbnail support checks by skipping prefabs with unresolved script references before renderer selection, so broken assets do not enter the thumbnail pipeline.
+- Tighten UI prefab thumbnail eligibility and framing so inactive or disabled graphics no longer get force-activated or included in preview bounds.
+- Add mirrored EditMode coverage for missing-script prefab probing and inactive-graphic UI prefab rejection/framing behavior.
+
 ## [1.1.48] - 2026-06-25
 
 - Add an explicit `UnityEngine.Object` alias in the mirrored particle thumbnail renderer so the particle thumbnail path keeps a stable object-reference target when editor namespaces introduce `Object` ambiguity.

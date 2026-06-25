@@ -47,7 +47,6 @@ namespace NoodleHammer.PreviewForge.Editor
         private static readonly Type GraphicType = Type.GetType("UnityEngine.UI.Graphic, UnityEngine.UI");
         private static readonly Type CanvasScalerType = Type.GetType("UnityEngine.UI.CanvasScaler, UnityEngine.UI");
         private static readonly Type LayoutRebuilderType = Type.GetType("UnityEngine.UI.LayoutRebuilder, UnityEngine.UI");
-        private static readonly Type TmpUiType = Type.GetType("TMPro.TextMeshProUGUI, Unity.TextMeshPro");
         private static readonly MethodInfo SetAllDirtyMethod = GraphicType?.GetMethod("SetAllDirty", BindingFlags.Public | BindingFlags.Instance);
         private static readonly MethodInfo MarkLayoutForRebuildMethod = LayoutRebuilderType?.GetMethod(
             "MarkLayoutForRebuild",
@@ -74,13 +73,15 @@ namespace NoodleHammer.PreviewForge.Editor
                 return PrefabThumbnailSupportInfo.Unsupported;
 
             bool hasRectTransform = prefab.GetComponentInChildren<RectTransform>(true) != null;
-            bool hasGraphic = GraphicType != null && prefab.GetComponentInChildren(GraphicType, true) != null;
-            bool hasTmpUi = TmpUiType != null && prefab.GetComponentInChildren(TmpUiType, true) != null;
             bool hasSprite = prefab.GetComponentInChildren<SpriteRenderer>(true) != null;
             bool hasMesh = prefab.GetComponentInChildren<MeshRenderer>(true) != null
                 || prefab.GetComponentInChildren<SkinnedMeshRenderer>(true) != null;
 
-            if (!hasRectTransform || (!hasGraphic && !hasTmpUi) || hasSprite || hasMesh)
+            if (!hasRectTransform || hasSprite || hasMesh)
+                return PrefabThumbnailSupportInfo.Unsupported;
+
+            Component[] graphics = GetGraphics(prefab);
+            if (!HasDrawableGraphics(graphics, prefab.transform))
                 return PrefabThumbnailSupportInfo.Unsupported;
 
             return new PrefabThumbnailSupportInfo(true, PrefabThumbnailAssetKind.UiPrefab, Priority);
@@ -108,12 +109,11 @@ namespace NoodleHammer.PreviewForge.Editor
                 instance.hideFlags = HideFlags.HideAndDontSave;
                 instance.transform.SetParent(wrapper.transform, false);
 
-                ForceActivateHierarchy(wrapper);
                 AssignLayerRecursively(wrapper, UiPreviewLayer);
 
                 RectTransform wrapperRect = wrapper.GetComponent<RectTransform>();
                 Component[] graphics = GetGraphics(wrapper);
-                if (!HasDrawableGraphics(graphics))
+                if (!HasDrawableGraphics(graphics, wrapper.transform))
                     return null;
 
                 cameraObject = new GameObject("UiThumbnailCamera")
@@ -131,7 +131,7 @@ namespace NoodleHammer.PreviewForge.Editor
                 camera.farClipPlane = 100f;
 
                 NormalizeCanvasesForPreview(wrapper, camera);
-                ForceUiRefresh(wrapperRect, graphics);
+                ForceUiRefresh(wrapperRect, graphics, wrapper.transform);
 
                 if (!TryComputeFrameData(graphics, wrapper.transform, out UiGraphicFrameData frameData))
                     return null;
@@ -224,11 +224,11 @@ namespace NoodleHammer.PreviewForge.Editor
                 : root.GetComponentsInChildren(GraphicType, true);
         }
 
-        private static bool HasDrawableGraphics(Component[] graphics)
+        private static bool HasDrawableGraphics(Component[] graphics, Transform previewRoot)
         {
             for (int i = 0; i < graphics.Length; i++)
             {
-                if (graphics[i] is Behaviour behaviour && behaviour.enabled)
+                if (graphics[i] is Behaviour behaviour && IsDrawableGraphicForPreview(behaviour, previewRoot))
                     return true;
             }
 
@@ -255,19 +255,18 @@ namespace NoodleHammer.PreviewForge.Editor
             }
         }
 
-        private static void ForceUiRefresh(RectTransform root, Component[] graphics)
+        private static void ForceUiRefresh(RectTransform root, Component[] graphics, Transform previewRoot)
         {
             if (root == null)
                 return;
 
             for (int i = 0; i < graphics.Length; i++)
             {
-                Component graphic = graphics[i];
-                if (graphic == null)
+                if (graphics[i] is not Behaviour behaviour || !IsDrawableGraphicForPreview(behaviour, previewRoot))
                     continue;
 
-                SetAllDirtyMethod?.Invoke(graphic, null);
-                RectTransform graphicRectTransform = graphic.GetComponent<RectTransform>();
+                SetAllDirtyMethod?.Invoke(behaviour, null);
+                RectTransform graphicRectTransform = behaviour.GetComponent<RectTransform>();
                 if (graphicRectTransform != null)
                     MarkLayoutForRebuildMethod?.Invoke(null, new object[] { graphicRectTransform });
             }
@@ -293,7 +292,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             for (int i = 0; i < graphics.Length; i++)
             {
-                if (graphics[i] is not Behaviour behaviour || !behaviour.enabled)
+                if (graphics[i] is not Behaviour behaviour || !IsDrawableGraphicForPreview(behaviour, fallbackTransform))
                     continue;
 
                 RectTransform rectTransform = behaviour.GetComponent<RectTransform>();
@@ -377,7 +376,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             for (int i = 0; i < graphics.Length; i++)
             {
-                if (graphics[i] is not Behaviour behaviour || !behaviour.enabled)
+                if (graphics[i] is not Behaviour behaviour || !IsDrawableGraphicForPreview(behaviour, fallbackTransform))
                     continue;
 
                 RectTransform rectTransform = behaviour.GetComponent<RectTransform>();
@@ -414,7 +413,7 @@ namespace NoodleHammer.PreviewForge.Editor
 
             for (int i = 0; i < graphics.Length; i++)
             {
-                if (graphics[i] is not Behaviour behaviour || !behaviour.enabled)
+                if (graphics[i] is not Behaviour behaviour || !IsDrawableGraphicForPreview(behaviour, fallbackTransform))
                     continue;
 
                 RectTransform rectTransform = behaviour.GetComponent<RectTransform>();
@@ -639,14 +638,24 @@ namespace NoodleHammer.PreviewForge.Editor
             return defaultAxis;
         }
 
-        private static void ForceActivateHierarchy(GameObject root)
+        private static bool IsDrawableGraphicForPreview(Behaviour behaviour, Transform previewRoot)
         {
-            if (root == null)
-                return;
+            if (behaviour == null || !behaviour.enabled)
+                return false;
 
-            Transform[] transforms = root.GetComponentsInChildren<Transform>(true);
-            for (int i = 0; i < transforms.Length; i++)
-                transforms[i].gameObject.SetActive(true);
+            Transform current = behaviour.transform;
+            while (current != null)
+            {
+                if (!current.gameObject.activeSelf)
+                    return false;
+
+                if (current == previewRoot)
+                    return true;
+
+                current = current.parent;
+            }
+
+            return previewRoot == null;
         }
 
         private static void AssignLayerRecursively(GameObject root, int layer)

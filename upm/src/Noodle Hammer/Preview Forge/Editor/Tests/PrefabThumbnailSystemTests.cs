@@ -136,6 +136,56 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
         }
 
         [Test]
+        public void RendererRegistry_InactiveUiGraphicOnly_IsUnsupported()
+        {
+            GameObject root = new GameObject("InactiveUiRoot", typeof(RectTransform));
+            try
+            {
+                GameObject child = CreateImageChild(root.transform, "InactiveImage", new Vector2(120f, 60f), Vector2.zero);
+                child.SetActive(false);
+
+                IPrefabThumbnailRenderer renderer = PrefabThumbnailRendererRegistry.FindBestRenderer(
+                    root,
+                    guid: "inactive-ui-guid",
+                    assetPath: "Assets/InactiveUi.prefab",
+                    out PrefabThumbnailSupportInfo supportInfo);
+
+                Assert.That(renderer, Is.Null);
+                Assert.That(supportInfo.Supported, Is.False);
+                Assert.That(supportInfo.AssetKind, Is.EqualTo(PrefabThumbnailAssetKind.Unsupported));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void RendererRegistry_DisabledUiGraphicOnly_IsUnsupported()
+        {
+            GameObject root = new GameObject("DisabledUiRoot", typeof(RectTransform));
+            try
+            {
+                Image image = root.AddComponent<Image>();
+                image.enabled = false;
+
+                IPrefabThumbnailRenderer renderer = PrefabThumbnailRendererRegistry.FindBestRenderer(
+                    root,
+                    guid: "disabled-ui-guid",
+                    assetPath: "Assets/DisabledUi.prefab",
+                    out PrefabThumbnailSupportInfo supportInfo);
+
+                Assert.That(renderer, Is.Null);
+                Assert.That(supportInfo.Supported, Is.False);
+                Assert.That(supportInfo.AssetKind, Is.EqualTo(PrefabThumbnailAssetKind.Unsupported));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void RendererRegistry_MixedMeshAndUiPrefab_IsUnsupported()
         {
             GameObject root = new GameObject("MixedUiMesh", typeof(RectTransform));
@@ -182,6 +232,60 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
             {
                 Object.DestroyImmediate(root);
             }
+        }
+
+        [Test]
+        public void MissingScriptProbe_UnresolvedScriptGuid_IsDetected()
+        {
+            const string prefabText =
+                "--- !u!114 &1\n" +
+                "MonoBehaviour:\n" +
+                "  m_Script: {fileID: 11500000, guid: 0123456789abcdef0123456789abcdef, type: 3}\n";
+
+            bool hasMissingScripts = PrefabThumbnailPrefabHealthProbe.HasMissingScriptsInPrefabTextForTests(
+                prefabText,
+                guid => guid == "0123456789abcdef0123456789abcdef" ? string.Empty : "Assets/Resolved.cs");
+
+            Assert.That(hasMissingScripts, Is.True);
+        }
+
+        [Test]
+        public void MissingScriptProbe_ResolvedScriptGuid_IsAccepted()
+        {
+            const string prefabText =
+                "--- !u!114 &1\n" +
+                "MonoBehaviour:\n" +
+                "  m_Script: {fileID: 11500000, guid: fedcba9876543210fedcba9876543210, type: 3}\n";
+
+            bool hasMissingScripts = PrefabThumbnailPrefabHealthProbe.HasMissingScriptsInPrefabTextForTests(
+                prefabText,
+                guid => guid == "fedcba9876543210fedcba9876543210" ? "Assets/Resolved.cs" : string.Empty);
+
+            Assert.That(hasMissingScripts, Is.False);
+        }
+
+        [Test]
+        public void MissingScriptProbe_UnsetScriptGuid_IsIgnored()
+        {
+            const string prefabText =
+                "--- !u!114 &1\n" +
+                "MonoBehaviour:\n" +
+                "  m_Script: {fileID: 0, guid: 00000000000000000000000000000000, type: 0}\n";
+
+            bool hasMissingScripts = PrefabThumbnailPrefabHealthProbe.HasMissingScriptsInPrefabTextForTests(
+                prefabText,
+                _ => string.Empty);
+
+            Assert.That(hasMissingScripts, Is.False);
+        }
+
+        [Test]
+        public void MissingScriptProbe_UnreadablePrefabPath_FailsOpen()
+        {
+            bool hasMissingScripts = PrefabThumbnailPrefabHealthProbe.HasMissingScriptsAtPathForTests(
+                "Assets/Definitely/Not/A/Real/Prefab.prefab");
+
+            Assert.That(hasMissingScripts, Is.False);
         }
 
         [Test]
@@ -468,6 +572,30 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
         }
 
         [Test]
+        public void UiFraming_InactiveChildGraphic_IsExcludedFromBoundsUnion()
+        {
+            GameObject root = new GameObject("BoundsRoot", typeof(RectTransform));
+            try
+            {
+                CreateImageChild(root.transform, "Active", new Vector2(100f, 50f), new Vector2(-40f, 0f));
+                GameObject inactive = CreateImageChild(root.transform, "Inactive", new Vector2(80f, 120f), new Vector2(200f, 30f));
+                inactive.SetActive(false);
+                Component[] graphics = root.GetComponentsInChildren<Graphic>(true);
+
+                Bounds bounds = UiPrefabThumbnailRenderer.ComputeGraphicBoundsForTests(graphics, root.transform);
+
+                Assert.That(bounds.min.x, Is.EqualTo(-90f).Within(0.01f));
+                Assert.That(bounds.max.x, Is.EqualTo(10f).Within(0.01f));
+                Assert.That(bounds.min.y, Is.EqualTo(-25f).Within(0.01f));
+                Assert.That(bounds.max.y, Is.EqualTo(25f).Within(0.01f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void UiFraming_CenteredLooseElement_ComputesExpectedCenterAndSize()
         {
             GameObject root = new GameObject("CenteredRoot", typeof(RectTransform));
@@ -485,6 +613,29 @@ namespace NoodleHammer.PreviewForge.Editor.Tests
                 Assert.That(bounds.center.x, Is.EqualTo(30f).Within(0.01f));
                 Assert.That(bounds.center.y, Is.EqualTo(-20f).Within(0.01f));
                 Assert.That(orthographicSize, Is.GreaterThan(0f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void UiFraming_InactiveChildGraphic_IsExcludedFromFrameData()
+        {
+            GameObject root = new GameObject("RotatedCanvas", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                CreateImageChild(root.transform, "Active", new Vector2(200f, 80f), Vector2.zero);
+                GameObject inactive = CreateImageChild(root.transform, "Inactive", new Vector2(80f, 80f), new Vector2(220f, 0f));
+                inactive.SetActive(false);
+                Component[] graphics = root.GetComponentsInChildren<Graphic>(true);
+
+                bool success = UiPrefabThumbnailRenderer.TryComputeFrameDataForTests(graphics, root.transform, out UiGraphicFrameData frameData);
+
+                Assert.That(success, Is.True);
+                Assert.That(frameData.PlaneExtents.x, Is.EqualTo(100f).Within(0.01f));
+                Assert.That(frameData.PlaneExtents.y, Is.EqualTo(40f).Within(0.01f));
             }
             finally
             {
